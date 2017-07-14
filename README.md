@@ -2,7 +2,7 @@
 
 ## List of configurations
 
-* Atom
-* Emacs
-* Fish
-* Homebrew
+* [Atom](atom/)
+* [Emacs](emacs/)
+* [Fish](fish/)
+* [Homebrew](homebrew/)
