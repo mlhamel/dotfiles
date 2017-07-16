@@ -1,5 +1,10 @@
-task default: %w[homebrew]
+task default: %w[homebrew:install]
 
-task :homebrew do
-  system('bundle install && cd homebrew && brew bundle')
+namespace :homebrew do
+  task :install do
+    system 'bundle install && brew bundle --file=homebrew/Brewfile'
+  end
+  task :update do
+    system 'brew bundle dump --file=homebrew/Brewfile --force'
+  end
 end
