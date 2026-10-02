@@ -6,7 +6,7 @@ use today's date and the hash of the change once committed.
 
 ## 2026-10-01
 
-- `(this)` — Add `setup.sh` unified bootstrap (opencode binary → config symlink → Director → apt packages, per-step SKIP\_\* overrides); complete full-history secrets audit (clean); check off both P1 TODOs
+- `4bff9a7` — Add `setup.sh` unified bootstrap (opencode binary → config symlink → Director → apt packages, per-step SKIP\_\* overrides); complete full-history secrets audit (clean); check off both P1 TODOs
 - `f889e09` — Add `CHANGELOG.md`: dated log of notable changes, backfilled from git history
 - `f8fe827` — Add `TODOs.md`: deferred setup, apt, toolkit, and housekeeping work
 - `3021d36` — Add `apt/` section: Aptfile (242 pkgs) + `generate.sh`/`install.sh` for Debian/Ubuntu
