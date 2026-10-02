@@ -46,6 +46,7 @@ ln -s ~/dotfiles/opencode ~/.config/opencode
 | `skills/` | Deep docs loaded on demand (`workflow`, `scaffolding`) |
 | `plugin/` | JS plugins (director state, Obsidian session logger) |
 | `install.sh` | One-command deploy via symlink |
+| `setup-director.sh` | Optional: install Director binary + wire opencode |
 
 See [opencode/README.md](opencode/README.md) for the full architecture,
 custom agents, and prerequisites.

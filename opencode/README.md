@@ -24,7 +24,8 @@ opencode/
 ├── plugin/                    # JS plugins (director state, Obsidian session logger)
 │   ├── director.js
 │   └── session-logger.js
-└── install.sh                 # Deploy: symlink into ~/.config/opencode
+├── install.sh                 # Deploy: symlink into ~/.config/opencode
+└── setup-director.sh          # Optional: install Director binary + wire opencode
 ```
 
 ## The layering principle
@@ -62,8 +63,19 @@ dependencies are machine-local:
 | Piece | Needs | Without it |
 |---|---|---|
 | `/bless`, `/new`, `@ask`, `@review` | nothing extra | fully portable |
-| `/director-adopt`, `/director-complete`, `/director-handoff` | the [`director`](https://github.com/mlhamel/director) binary (`director install --opencode`); `plugin/director.js` is its managed shim | commands fail; plugin no-ops harmlessly |
+| `/director-adopt`, `/director-complete`, `/director-handoff` | the [`director`](https://github.com/mlhamel/director) binary (`plugin/director.js` is its managed shim) | commands fail; plugin no-ops harmlessly |
 | `/session-handoff` + `plugin/session-logger.js` | an Obsidian vault with `log_session.py` under `.opencode/skills/decision-log/`; the command hardcodes the vault path on this machine | command fails; plugin silently no-ops outside the vault |
+
+### Director setup
+
+`setup-director.sh` installs the Director binary from
+[mlhamel/director](https://github.com/mlhamel/director) and wires it
+into opencode (`director install --opencode`). Idempotent — an existing
+healthy install is detected and skipped. Set `SKIP_DIRECTOR=1` to skip.
+
+```bash
+./setup-director.sh
+```
 
 The plugins follow a cardinal rule — a broken hook must never break a
 session — so a fresh machine degrades gracefully: Director state and
