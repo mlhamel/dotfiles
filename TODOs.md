@@ -48,12 +48,14 @@ Priorities: **P1** do soon · **P2** do eventually · **P3** nice to have.
 - [x] **P2 · Skill for dotfiles itself** — `skills/dotfiles/SKILL.md`:
       repo map, change flow (prek → commit → changelog → TODO checkoff),
       Aptfile/Brewfile regeneration, hook-rev bumps, CI notes, conventions.
+- [x] **P3 · Reviewer verdict enforcement** — `plugin/review-enforcer.js`:
+      tracks sessions with substantive edits, nudges on the next user
+      message, and injects a review-gate prompt at end of turn (verdict or
+      explicit waiver required before claiming done). Injection, not
+      blocking — degrades to a reminder; REVIEW_ENFORCER=0 opt-out.
 - [ ] **P3 · More cross-model agents** — the `review` pattern (different model
       family for independent opinion) could extend to a `security` auditor
       agent or an `architecture` second-opinion agent.
-- [ ] **P3 · Reviewer verdict enforcement** — have the build agent automatically
-      run `@review` after substantive changes, or surface the verdict in
-      the commit flow, instead of relying on remembering to ask.
 
 ## Housekeeping
 

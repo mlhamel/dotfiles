@@ -9,6 +9,9 @@ These rules apply to every session, on every project. Keep this file lean.
 - Always run the project's tests and linter after changes. Never claim done without verifying.
 - Prefer the ecosystem's official tooling over hand-rolled equivalents.
 - No comments in code unless I ask.
+- After substantive edits, run `@review` on the changes and report its
+  verdict (APPROVE / REQUEST CHANGES) — or say why review is waived. The
+  review-enforcer plugin will remind you; don't make it.
 
 ## Context
 

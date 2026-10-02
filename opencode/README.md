@@ -22,9 +22,10 @@ opencode/
 │   ├── workflow/SKILL.md      #   bless/new playbooks, per-project config template
 │   ├── scaffolding/SKILL.md   #   per-language scaffolder reference
 │   └── dotfiles/SKILL.md      #   maintenance playbook for this repo itself
-├── plugin/                    # JS plugins (director state, Obsidian session logger)
-│   ├── director.js
-│   └── session-logger.js
+├── plugin/                    # JS plugins (director state, Obsidian session logger,
+│   ├── director.js             #   review enforcement — see "Review enforcement")
+│   ├── session-logger.js
+│   └── review-enforcer.js
 ├── install.sh                 # Deploy: symlink into ~/.config/opencode
 └── setup-director.sh          # Optional: install Director binary + wire opencode
 ```
@@ -109,6 +110,23 @@ Usage — after the build agent writes code:
 ```
 
 The model can also invoke it automatically based on its description.
+
+### Review enforcement (`plugin/review-enforcer.js`)
+
+Remembering to ask for review is the weak link; this plugin closes it:
+
+- Sessions that make substantive edits (`edit`/`write`/`apply_patch`) are
+  tracked as "dirty"
+- A **user message** while dirty injects a nudge: run `@review` on the
+  outstanding changes first
+- **End of turn** while dirty injects a review gate: report the reviewer's
+  verdict (APPROVE / REQUEST CHANGES) or explicitly state why review is
+  waived, before claiming the work done
+- Subagent sessions are never gated; the gate fires once per dirty stretch
+  (new edits reopen it)
+
+It's enforcement by injection, not blocking — a misfire costs a paragraph
+of context instead of wedging a session. Opt out with `REVIEW_ENFORCER=0`.
 
 **To change the reviewer model:** edit the `model:` line in the
 frontmatter. The ollama models listed in `opencode.json`'s
