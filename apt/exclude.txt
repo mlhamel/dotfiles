@@ -1,5 +1,44 @@
 # Packages explicitly excluded from the Aptfile (one per line).
-# Debian base/system packages are filtered automatically by generate.sh;
-# list things here that you want installed on this machine but NOT
-# managed in the Aptfile (e.g. experimental, machine-specific, or
-# about-to-be-removed packages).
+# generate.sh already filters Debian base/essential packages and runtime
+# lib* dependencies automatically; list things here that are installed on
+# this machine but should NOT be managed (machine-specific, hardware, or
+# installer artifacts that a fresh machine shouldn't blindly take).
+
+# --- hardware / firmware (machine-specific) ---
+firmware-amd-graphics
+firmware-linux-nonfree
+firmware-mediatek
+firmware-misc-nonfree
+amd64-microcode
+mesa-vulkan-drivers:i386
+libgl1-mesa-dri:i386
+libglx-mesa0:i386
+
+# --- bootloader / kernel (installer owns these) ---
+grub-common
+grub-efi-amd64
+linux-image-amd64
+shim-signed
+initramfs-tools
+memtest86+
+
+# --- Debian installer / tasksel artifacts ---
+task-desktop
+task-english
+task-gnome-desktop
+task-laptop
+tasksel
+console-setup
+keyboard-configuration
+installation-report
+laptop-detect
+popularity-contest
+
+# --- GPU compute toolchain (heavy, only needed for ROCm dev) ---
+amdgpu-install
+clinfo
+mesa-opencl-icd
+ocl-icd-opencl-dev
+opencl-headers
+radeontop
+sqv

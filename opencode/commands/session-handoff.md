@@ -1,14 +1,16 @@
 ---
-description: Checkpoint the current agent conversation into an Obsidian session note — flush any un-recorded decisions and open-items, then write a handoff with concrete next steps. Use when PAUSING a session you will resume, or when wrapping up a conversation. If no session was started, this will create one first.
+description: Checkpoint the current agent conversation into an Obsidian session note — flush any un-recorded decisions and open-items, then write a handoff with concrete next steps. Use when PAUSING a session you will resume, or when wrapping up a conversation. If no session was started, this will create one first. Requires OBSIDIAN_VAULT (defaults to ~/Dropbox/obsidian/general) with log_session.py under .opencode/skills/decision-log/.
 ---
 
 You are checkpointing THIS conversation into a durable Obsidian session note so that a future session — you after a context reset, or another agent — can pick up exactly where you left off. Everything not in the session note is lost.
 
+**First, resolve the vault.** The vault root is `${OBSIDIAN_VAULT:-$HOME/Dropbox/obsidian/general}` and the logging script is `${VAULT}/.opencode/skills/decision-log/log_session.py`. If the script does not exist, stop and tell the user the vault is not configured (set OBSIDIAN_VAULT to the vault containing log_session.py).
+
 **If no session has been started yet** (no session_id was returned by an earlier `init` call), start one now:
 
 ```bash
-python3 "/home/mlhamel/Dropbox/obsidian/general/.opencode/skills/decision-log/log_session.py" init \
-  --vault "/home/mlhamel/Dropbox/obsidian/general" \
+python3 "${VAULT}/.opencode/skills/decision-log/log_session.py" init \
+  --vault "${VAULT}" \
   --project "<infer a short project name from the conversation>" \
   --topic "<infer a short topic from the conversation>" \
   --links "<comma-separated vault note titles this session relates to, if any>"
@@ -23,8 +25,8 @@ Parse the `RESULT:` line for the `session_id`.
 3. Every important observation or context note → `--type note`
 
 ```bash
-python3 "/home/mlhamel/Dropbox/obsidian/general/.opencode/skills/decision-log/log_session.py" emit \
-  --vault "/home/mlhamel/Dropbox/obsidian/general" \
+python3 "${VAULT}/.opencode/skills/decision-log/log_session.py" emit \
+  --vault "${VAULT}" \
   --session-id "<session_id>" \
   --type <decision|open-item|note> \
   --area "<short area tag, e.g. architecture, benchmarking>" \
@@ -38,8 +40,8 @@ Do this for every item. Be thorough — a decision not logged is a decision a fu
 **Finally, write the handoff:**
 
 ```bash
-python3 "/home/mlhamel/Dropbox/obsidian/general/.opencode/skills/decision-log/log_session.py" handoff \
-  --vault "/home/mlhamel/Dropbox/obsidian/general" \
+python3 "${VAULT}/.opencode/skills/decision-log/log_session.py" handoff \
+  --vault "${VAULT}" \
   --session-id "<session_id>" \
   --status <paused|complete> \
   --next-steps "<the 3-5 concrete next steps, in order, that a fresh session should take — include any gotchas, dead ends (tried X, failed because Y), and in-flight state>"

@@ -20,7 +20,8 @@ opencode/
 │   └── session-handoff.md     #   /session-handoff → Obsidian checkpoint
 ├── skills/                    # Deep docs, loaded ON DEMAND via the skill tool
 │   ├── workflow/SKILL.md      #   bless/new playbooks, per-project config template
-│   └── scaffolding/SKILL.md   #   per-language scaffolder reference
+│   ├── scaffolding/SKILL.md   #   per-language scaffolder reference
+│   └── dotfiles/SKILL.md      #   maintenance playbook for this repo itself
 ├── plugin/                    # JS plugins (director state, Obsidian session logger)
 │   ├── director.js
 │   └── session-logger.js
@@ -60,11 +61,11 @@ ln -s ~/dotfiles/opencode ~/.config/opencode
 Not everything in this toolkit is self-contained. Two external
 dependencies are machine-local:
 
-| Piece                                                        | Needs                                                                                                                                | Without it                                              |
-| ------------------------------------------------------------ | ------------------------------------------------------------------------------------------------------------------------------------ | ------------------------------------------------------- |
-| `/bless`, `/new`, `@ask`, `@review`                          | nothing extra                                                                                                                        | fully portable                                          |
-| `/director-adopt`, `/director-complete`, `/director-handoff` | the [`director`](https://github.com/mlhamel/director) binary (`plugin/director.js` is its managed shim)                              | commands fail; plugin no-ops harmlessly                 |
-| `/session-handoff` + `plugin/session-logger.js`              | an Obsidian vault with `log_session.py` under `.opencode/skills/decision-log/`; the command hardcodes the vault path on this machine | command fails; plugin silently no-ops outside the vault |
+| Piece                                                        | Needs                                                                                                                                                   | Without it                                              |
+| ------------------------------------------------------------ | ------------------------------------------------------------------------------------------------------------------------------------------------------- | ------------------------------------------------------- |
+| `/bless`, `/new`, `@ask`, `@review`                          | nothing extra                                                                                                                                           | fully portable                                          |
+| `/director-adopt`, `/director-complete`, `/director-handoff` | the [`director`](https://github.com/mlhamel/director) binary (`plugin/director.js` is its managed shim)                                                 | commands fail; plugin no-ops harmlessly                 |
+| `/session-handoff` + `plugin/session-logger.js`              | an Obsidian vault with `log_session.py` under `.opencode/skills/decision-log/`; set `OBSIDIAN_VAULT` if the vault isn't at `~/Dropbox/obsidian/general` | command fails; plugin silently no-ops outside the vault |
 
 ### Director setup
 

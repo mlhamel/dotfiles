@@ -80,16 +80,17 @@ rake homebrew:update  # = brew bundle dump --force
 ### apt (Debian/Ubuntu)
 
 ```bash
-~/dotfiles/apt/install.sh    # install everything in the Aptfile
-~/dotfiles/apt/generate.sh   # refresh the Aptfile from this machine
+sudo ~/dotfiles/apt/sources.sh   # third-party vendor repos (idempotent)
+~/dotfiles/apt/install.sh         # install everything in the Aptfile
+~/dotfiles/apt/generate.sh       # refresh the Aptfile from this machine
 ```
 
-See [apt/README.md](apt/README.md) for the base-package filter and caveats.
+See [apt/README.md](apt/README.md) for the filters, sources.sh, and caveats.
 
 ## Development
 
-Linting runs via [prek](https://github.com/j178/prek) (Rust reimplementation
-of pre-commit; the config also works with `pre-commit`):
+Linting runs locally via [prek](https://github.com/j178/prek) and in CI on
+every push/PR (`.github/workflows/lint.yml`):
 
 ```bash
 prek install          # wire git hooks (once per clone)

@@ -32,7 +32,8 @@ function vaultRoot(directory) {
 // RESULT: JSON, or null on any failure.
 function runScript(args) {
   return new Promise((resolve) => {
-    const scriptPath = "/home/mlhamel/Dropbox/obsidian/general/.opencode/skills/decision-log/log_session.py"
+    const vault = process.env.OBSIDIAN_VAULT || `${process.env.HOME}/Dropbox/obsidian/general`
+    const scriptPath = `${vault}/.opencode/skills/decision-log/log_session.py`
     let child
     try {
       child = spawn("python3", [scriptPath, ...args], { stdio: ["pipe", "pipe", "ignore"] })
@@ -94,8 +95,8 @@ function injectionText(obsidianSessionId, project) {
     ``,
     `- When a **decision** is made (you and the user agree on something), log it immediately:`,
     `  \`\`\`bash`,
-    `  python3 "/home/mlhamel/Dropbox/obsidian/general/.opencode/skills/decision-log/log_session.py" emit \\`,
-    `    --vault "/home/mlhamel/Dropbox/obsidian/general" \\`,
+    `  python3 "$OBSIDIAN_VAULT/.opencode/skills/decision-log/log_session.py" emit \\`,
+    `    --vault "$OBSIDIAN_VAULT" \\`,
     `    --session-id "${obsidianSessionId}" \\`,
     `    --type decision --area "<short-area>" --body "<what was decided + WHY>"`,
     `  \`\`\``,

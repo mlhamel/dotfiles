@@ -21,6 +21,7 @@ Global commands available anywhere:
 - `/bless` — bootstrap the current repo for agent-driven work (analyze, generate AGENTS.md + opencode.json); uses the `workflow` skill
 - `/new <language> <name>` — scaffold a new project from scratch with official tooling; uses the `workflow` and `scaffolding` skills
 - `/director-adopt`, `/director-complete`, `/director-handoff` — Director state workflow (needs the `director` binary)
-- `/session-handoff` — checkpoint the conversation into an Obsidian session note (needs the vault's `log_session.py`)
+- `/session-handoff` — checkpoint the conversation into an Obsidian session note (needs the vault's `log_session.py`; set `OBSIDIAN_VAULT` if the vault isn't at `~/Dropbox/obsidian/general`)
 
-Load skills via the skill tool when the commands are invoked.
+Skills: `workflow`, `scaffolding`, `dotfiles` (maintenance playbook for the
+dotfiles repo itself). Load via the skill tool when relevant.

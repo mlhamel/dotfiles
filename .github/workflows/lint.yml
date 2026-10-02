@@ -1,0 +1,19 @@
+name: lint
+
+on:
+  push:
+    branches: [master]
+  pull_request:
+
+jobs:
+  prek:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@08c6903cd8c129f5314297ea00d21637aba76b52 # v5
+      - uses: j178/prek-action@4e14d07f9231acabce116ccfca13b13dd9755ece # v3.0.0
+
+
+  # Note: apt/generate.sh --check is intentionally NOT run in CI — it
+  # compares against the machine's installed package set, which on a
+  # GitHub runner would always differ. Run it locally after apt changes:
+  #   ~/dotfiles/apt/generate.sh --check

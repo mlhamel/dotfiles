@@ -6,6 +6,8 @@ use today's date and the hash of the change once committed.
 
 ## 2026-10-02
 
+- `(this)` — Complete all six P2 TODOs: CI lint workflow (j178/prek-action); apt/sources.sh vendor repo bootstrap (7 repos, deb822, idempotent, --dry-run); Aptfile curation 242→114 (dpkg-essential + runtime-lib\* filters, curated exclude.txt); OBSIDIAN_VAULT parameterization for /session-handoff + session-logger plugin; skills/dotfiles maintenance playbook; "install opencode" verified covered by setup.sh
+- `e0329a7` — Pin changelog hash for ollama provider entry
 - `59949b5` — Define the ollama provider in global opencode.json (baseURL + curated cloud models); plain `opencode` now starts on glm-5.3:cloud without `ollama launch`
 
 ## 2026-10-01
