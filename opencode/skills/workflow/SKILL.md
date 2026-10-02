@@ -29,20 +29,24 @@ Adapt to what was detected; drop sections that don't apply:
 One-paragraph description of what this project does.
 
 ## Commands
+
 - build: <command>
 - test: <command> (single test: <command>)
 - lint: <command>
 - format: <command>
 
 ## Structure
+
 - brief map of the important directories
 
 ## Conventions
+
 - language/framework-specific patterns actually observed in this codebase
 - gotchas an agent would miss from filenames alone
 ```
 
 Rules for the template:
+
 - Only document commands you have verified run.
 - Conventions must be observed in the actual code, not generic best practices.
 - Keep it under ~60 lines; reference other docs instead of duplicating.

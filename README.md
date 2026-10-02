@@ -4,8 +4,8 @@ Configuration files of Mathieu Leduc-Hamel.
 
 ## List of configurations
 
-* [opencode](opencode/) — AI agent toolkit: rules, commands, skills, plugins
-* [homebrew](homebrew/) — Brewfile + lockfile (macOS-only; see [homebrew/README.md](homebrew/README.md))
+- [opencode](opencode/) — AI agent toolkit: rules, commands, skills, plugins
+- [homebrew](homebrew/) — Brewfile + lockfile (macOS-only; see [homebrew/README.md](homebrew/README.md))
 
 ## Quick start
 
@@ -32,21 +32,21 @@ running `ln -s` into an existing real directory nests the link inside it):
 ln -s ~/dotfiles/opencode ~/.config/opencode
 ```
 
-`install.sh` backs up an existing `~/.config/opencode` *directory*
+`install.sh` backs up an existing `~/.config/opencode` _directory_
 (pre-existing symlinks are simply removed).
 
 #### What's inside
 
-| Path | Purpose |
-|---|---|
-| `AGENTS.md` | Agent rules, loaded in every session (kept lean) |
-| `opencode.json` | Global permissions (relaxed posture) |
-| `agents/` | Custom agents: `ask.md` (read-only Q&A), `review.md` (cross-model code review via `@review`) |
-| `commands/` | TUI commands (`/bless`, `/new`, director/session workflow) |
-| `skills/` | Deep docs loaded on demand (`workflow`, `scaffolding`) |
-| `plugin/` | JS plugins (director state, Obsidian session logger) |
-| `install.sh` | One-command deploy via symlink |
-| `setup-director.sh` | Optional: install Director binary + wire opencode |
+| Path                | Purpose                                                                                      |
+| ------------------- | -------------------------------------------------------------------------------------------- |
+| `AGENTS.md`         | Agent rules, loaded in every session (kept lean)                                             |
+| `opencode.json`     | Global permissions (relaxed posture)                                                         |
+| `agents/`           | Custom agents: `ask.md` (read-only Q&A), `review.md` (cross-model code review via `@review`) |
+| `commands/`         | TUI commands (`/bless`, `/new`, director/session workflow)                                   |
+| `skills/`           | Deep docs loaded on demand (`workflow`, `scaffolding`)                                       |
+| `plugin/`           | JS plugins (director state, Obsidian session logger)                                         |
+| `install.sh`        | One-command deploy via symlink                                                               |
+| `setup-director.sh` | Optional: install Director binary + wire opencode                                            |
 
 See [opencode/README.md](opencode/README.md) for the full architecture,
 custom agents, and prerequisites.
@@ -68,6 +68,21 @@ Refresh the Brewfile after installing/removing packages:
 ```bash
 rake homebrew:update  # = brew bundle dump --force
 ```
+
+## Development
+
+Linting runs via [prek](https://github.com/j178/prek) (Rust reimplementation
+of pre-commit; the config also works with `pre-commit`):
+
+```bash
+prek install          # wire git hooks (once per clone)
+prek run --all-files  # run everything now
+```
+
+Hooks: whitespace/EOF/merge-conflict hygiene, JSON validation, markdownlint,
+shellcheck on the setup scripts, prettier on markdown/JSON. Lockfiles
+(`package-lock.json`, `Brewfile.lock.json`), `node_modules/`, and the
+Director-managed `opencode/plugin/` are excluded.
 
 ## History note
 

@@ -48,6 +48,7 @@ python3 "/home/mlhamel/Dropbox/obsidian/general/.opencode/skills/decision-log/lo
 Use `--status paused` if the work is incomplete and you will resume. Use `--status complete` if the task is finished.
 
 **After running, confirm to the user:**
+
 1. The session ID and note path
 2. Which decisions, open-items, and notes were logged (list the entry IDs)
 3. The handoff status and next steps

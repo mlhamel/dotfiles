@@ -5,6 +5,7 @@ description: Checkpoint this session into Director — flush pending decisions/o
 You are checkpointing THIS session into Director (the coordination LOG) so a fresh session — you after a compaction, or a peer — can pick up exactly where you left off. The next session rehydrates from Director's injected Ground Truth (CHARTER + open-items + this workstream's resume point(s) + a decision index); anything not in the LOG is lost. If this workstream is actually FINISHED and merged, stop and run `/director-complete` instead — a done workstream needs a close-out, not a resume point. This checkpoint is also the right move when THIS session has degraded (the human is repeating a correction, or the context has visibly rotted): hand off first, then let the human `/clear` — a fresh session resuming from distilled state beats pushing a rotten context forward. Regenerate, don't recover. Otherwise do this now, in order:
 
 1. **Flush this session's durable items** — emit each as its own event, capturing everything not already in the LOG (do not assume earlier turns emitted them):
+
    - every decision made → `director emit --type decision --area <area> "<what + the why>"`
    - every open loop / deferred follow-up → `director emit --type open-item --area <area> --risk <low|escalate> "<the loop>"` (use `escalate` ONLY when it needs the human)
 

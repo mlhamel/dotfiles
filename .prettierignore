@@ -1,0 +1,5 @@
+opencode/node_modules/
+opencode/package-lock.json
+opencode/package.json
+homebrew/Brewfile.lock.json
+opencode/plugin/

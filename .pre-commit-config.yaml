@@ -1,0 +1,41 @@
+repos:
+  - repo: https://github.com/pre-commit/pre-commit-hooks
+    rev: v6.0.0
+    hooks:
+      - id: trailing-whitespace
+        exclude: ^opencode/node_modules/
+      - id: end-of-file-fixer
+        exclude: ^opencode/node_modules/
+      - id: check-merge-conflict
+      - id: mixed-line-ending
+      - id: check-added-large-files
+      - id: check-json
+        exclude: |
+          (?x)(
+            ^opencode/node_modules/|
+            (package-lock|Brewfile\.lock)\.json$
+          )
+      - id: check-executables-have-shebangs
+        exclude: ^opencode/node_modules/
+
+  - repo: https://github.com/DavidAnson/markdownlint-cli2
+    rev: v0.23.3
+    hooks:
+      - id: markdownlint-cli2
+
+  - repo: https://github.com/shellcheck-py/shellcheck-py
+    rev: v0.11.0.1
+    hooks:
+      - id: shellcheck
+        files: \.sh$
+
+  - repo: https://github.com/pre-commit/mirrors-prettier
+    rev: v3.1.0
+    hooks:
+      - id: prettier
+        exclude: |
+          (?x)(
+            ^opencode/node_modules/|
+            (package-lock|Brewfile\.lock)\.json$|
+            ^opencode/plugin/
+          )

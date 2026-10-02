@@ -5,7 +5,7 @@ work the way I want — rules, commands, skills — versioned in one repo.
 
 ## Architecture
 
-```
+```text
 opencode/
 ├── README.md                  # You are here. Human-facing docs.
 ├── AGENTS.md                  # Agent rules. Loaded in EVERY session. Keep lean.
@@ -30,11 +30,11 @@ opencode/
 
 ## The layering principle
 
-| Layer      | Loaded         | Purpose                                          |
-|------------|----------------|--------------------------------------------------|
-| `AGENTS.md`| every session  | lean rules + one-line index of commands/skills   |
-| `skills/`  | on demand      | the deep knowledge; agent reads it when relevant  |
-| `commands/`| when typed     | thin triggers: "load skill X, then do Y"          |
+| Layer       | Loaded        | Purpose                                          |
+| ----------- | ------------- | ------------------------------------------------ |
+| `AGENTS.md` | every session | lean rules + one-line index of commands/skills   |
+| `skills/`   | on demand     | the deep knowledge; agent reads it when relevant |
+| `commands/` | when typed    | thin triggers: "load skill X, then do Y"         |
 
 Why: always-loaded files burn context in every session. Skills act as a
 table of contents that is free until needed. Commands stay 5 lines; all
@@ -60,11 +60,11 @@ ln -s ~/dotfiles/opencode ~/.config/opencode
 Not everything in this toolkit is self-contained. Two external
 dependencies are machine-local:
 
-| Piece | Needs | Without it |
-|---|---|---|
-| `/bless`, `/new`, `@ask`, `@review` | nothing extra | fully portable |
-| `/director-adopt`, `/director-complete`, `/director-handoff` | the [`director`](https://github.com/mlhamel/director) binary (`plugin/director.js` is its managed shim) | commands fail; plugin no-ops harmlessly |
-| `/session-handoff` + `plugin/session-logger.js` | an Obsidian vault with `log_session.py` under `.opencode/skills/decision-log/`; the command hardcodes the vault path on this machine | command fails; plugin silently no-ops outside the vault |
+| Piece                                                        | Needs                                                                                                                                | Without it                                              |
+| ------------------------------------------------------------ | ------------------------------------------------------------------------------------------------------------------------------------ | ------------------------------------------------------- |
+| `/bless`, `/new`, `@ask`, `@review`                          | nothing extra                                                                                                                        | fully portable                                          |
+| `/director-adopt`, `/director-complete`, `/director-handoff` | the [`director`](https://github.com/mlhamel/director) binary (`plugin/director.js` is its managed shim)                              | commands fail; plugin no-ops harmlessly                 |
+| `/session-handoff` + `plugin/session-logger.js`              | an Obsidian vault with `log_session.py` under `.opencode/skills/decision-log/`; the command hardcodes the vault path on this machine | command fails; plugin silently no-ops outside the vault |
 
 ### Director setup
 
@@ -103,7 +103,7 @@ independent perspective catches blind spots the author model shares.
 
 Usage — after the build agent writes code:
 
-```
+```text
 @review check the changes
 ```
 
@@ -112,7 +112,7 @@ The model can also invoke it automatically based on its description.
 **To change the reviewer model:** edit the `model:` line in the
 frontmatter. Run `opencode models` for cloud/Zen models or `ollama list`
 for local ollama models (the opencode listing may not include everything
-ollama has pulled). Any provider works. For a *local* model instead of a
+ollama has pulled). Any provider works. For a _local_ model instead of a
 cloud one, `ollama/gemma4:26b` fits 30GB RAM but is slow on CPU — only
 worth it for offline use.
 
@@ -144,8 +144,8 @@ worth it for offline use.
 ## Design decisions
 
 - **Split docs:** README = maintenance/rationale for me; AGENTS.md + skills =
-   behavior for the agent. One doc for both audiences bloats agent context.
+  behavior for the agent. One doc for both audiences bloats agent context.
 - **Relaxed global, strict per-project:** my own repos stay friction-free;
-   unfamiliar/interview repos get blessed with `edit: ask`.
+  unfamiliar/interview repos get blessed with `edit: ask`.
 - **Official scaffolders only:** never hand-roll what `uv init`, `cargo new`,
-   `npm create`, `go mod init` already provide.
+  `npm create`, `go mod init` already provide.
