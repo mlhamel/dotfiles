@@ -10,8 +10,12 @@ Configuration files of Mathieu Leduc-Hamel.
 ## Quick start
 
 ```bash
-git clone https://github.com/mlhamel/dotfiles.git
+git clone https://github.com/mlhamel/dotfiles.git ~/dotfiles
+cd ~/dotfiles
 ```
+
+All paths below assume the clone lives at `~/dotfiles`; substitute your
+actual clone path if different.
 
 ### opencode
 
@@ -21,13 +25,15 @@ Deploy the opencode config (symlinks it into place):
 ~/dotfiles/opencode/install.sh
 ```
 
-Manual equivalent:
+Manual equivalent (only if `~/.config/opencode` does not already exist —
+running `ln -s` into an existing real directory nests the link inside it):
 
 ```bash
 ln -s ~/dotfiles/opencode ~/.config/opencode
 ```
 
-The install script backs up any existing `~/.config/opencode` before symlinking.
+`install.sh` backs up an existing `~/.config/opencode` *directory*
+(pre-existing symlinks are simply removed).
 
 #### What's inside
 
@@ -41,21 +47,25 @@ The install script backs up any existing `~/.config/opencode` before symlinking.
 | `plugin/` | JS plugins (director state, Obsidian session logger) |
 | `install.sh` | One-command deploy via symlink |
 
-See [opencode/README.md](opencode/README.md) for the full architecture
-(layering principle, design decisions, how to extend).
+See [opencode/README.md](opencode/README.md) for the full architecture,
+custom agents, and prerequisites.
 
 ### Homebrew
 
-Restore installed packages:
+Prerequisite: Ruby with Bundler (run `bundle --version` to check).
+
+Install the packages listed in the Brewfile:
 
 ```bash
-brew bundle --file=~/dotfiles/homebrew/Brewfile
+cd ~/dotfiles
+bundle install        # rake, pinned in Gemfile
+rake                  # = rake homebrew:install → brew bundle install
 ```
 
-Update dependencies:
+Refresh the Brewfile after installing/removing packages:
 
 ```bash
-rake    # uses the Rakefile + Gemfile at the repo root
+rake homebrew:update  # = brew bundle dump --force
 ```
 
 ## History note

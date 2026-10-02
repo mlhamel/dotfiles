@@ -16,8 +16,8 @@ opencode/
 ├── commands/                  # Thin triggers, typed in the TUI
 │   ├── bless.md               #   /bless  → bootstrap any cloned repo
 │   ├── new.md                 #   /new    → scaffold a fresh project
-│   ├── director-*.md          #   session/handoff workflow commands
-│   └── session-handoff.md
+│   ├── director-*.md          #   /director-* → Director state workflow
+│   └── session-handoff.md     #   /session-handoff → Obsidian checkpoint
 ├── skills/                    # Deep docs, loaded ON DEMAND via the skill tool
 │   ├── workflow/SKILL.md      #   bless/new playbooks, per-project config template
 │   └── scaffolding/SKILL.md   #   per-language scaffolder reference
@@ -44,14 +44,30 @@ Pattern: **commands trigger, skills document.**
 ## Deploy
 
 ```bash
-./install.sh          # backs up ~/.config/opencode if present, then symlinks
+./install.sh          # from this directory; backs up an existing real
+                      # ~/.config/opencode directory (symlinks are removed)
 ```
 
-Manual equivalent:
+Manual equivalent (only if `~/.config/opencode` does not already exist):
 
 ```bash
-ln -s ~/src/github.com/mlhamel/dotfiles/opencode ~/.config/opencode
+ln -s ~/dotfiles/opencode ~/.config/opencode
 ```
+
+## Prerequisites: what works on a fresh machine
+
+Not everything in this toolkit is self-contained. Two external
+dependencies are machine-local:
+
+| Piece | Needs | Without it |
+|---|---|---|
+| `/bless`, `/new`, `@ask`, `@review` | nothing extra | fully portable |
+| `/director-adopt`, `/director-complete`, `/director-handoff` | the [`director`](https://github.com/mlhamel/director) binary (`director install --opencode`); `plugin/director.js` is its managed shim | commands fail; plugin no-ops harmlessly |
+| `/session-handoff` + `plugin/session-logger.js` | an Obsidian vault with `log_session.py` under `.opencode/skills/decision-log/`; the command hardcodes the vault path on this machine | command fails; plugin silently no-ops outside the vault |
+
+The plugins follow a cardinal rule — a broken hook must never break a
+session — so a fresh machine degrades gracefully: Director state and
+Obsidian logging are simply absent until the prerequisites are installed.
 
 ## Custom agents
 
@@ -82,10 +98,11 @@ Usage — after the build agent writes code:
 The model can also invoke it automatically based on its description.
 
 **To change the reviewer model:** edit the `model:` line in the
-frontmatter. Run `opencode models` to list what's available. Any
-provider works (`ollama/*`, `opencode/*` Zen models, etc.). For a
-*local* model instead of a cloud one, `ollama/gemma4:26b` fits 30GB RAM
-but is slow on CPU — only worth it for offline use.
+frontmatter. Run `opencode models` for cloud/Zen models or `ollama list`
+for local ollama models (the opencode listing may not include everything
+ollama has pulled). Any provider works. For a *local* model instead of a
+cloud one, `ollama/gemma4:26b` fits 30GB RAM but is slow on CPU — only
+worth it for offline use.
 
 ## How to extend
 
@@ -100,7 +117,8 @@ but is slow on CPU — only worth it for offline use.
 
 ## Interview demo script
 
-1. `git clone <this-repo> && cd opencode && ./install.sh` — 10-second deploy
+1. `git clone <this-repo> ~/dotfiles && ~/dotfiles/opencode/install.sh` —
+   10-second deploy
 2. `cd /tmp && git clone <some-repo> && opencode` → `/bless` — agent analyzes
    an unknown codebase, codifies its conventions in AGENTS.md, adds safe
    per-project permissions
@@ -108,6 +126,8 @@ but is slow on CPU — only worth it for offline use.
    tests, then blessed
 4. Talking point: "Everything I need to work with AI agents lives in one
    versioned repo — rules, commands, skills. Portable in ten seconds."
+   (Demo sticks to `/bless`, `/new`, `@review` — the self-contained parts;
+   director/Obsidian features need this machine's prerequisites, see above.)
 
 ## Design decisions
 

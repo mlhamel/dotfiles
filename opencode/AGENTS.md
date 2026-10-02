@@ -18,7 +18,9 @@ These rules apply to every session, on every project. Keep this file lean.
 
 Global commands available anywhere:
 
-- `/bless` — bootstrap the current repo for agent-driven work (analyze, generate AGENTS.md + opencode.json)
-- `/new <language> <name>` — scaffold a new project from scratch with official tooling
+- `/bless` — bootstrap the current repo for agent-driven work (analyze, generate AGENTS.md + opencode.json); uses the `workflow` skill
+- `/new <language> <name>` — scaffold a new project from scratch with official tooling; uses the `workflow` and `scaffolding` skills
+- `/director-adopt`, `/director-complete`, `/director-handoff` — Director state workflow (needs the `director` binary)
+- `/session-handoff` — checkpoint the conversation into an Obsidian session note (needs the vault's `log_session.py`)
 
-Both commands rely on the `workflow` and `scaffolding` skills; load them via the skill tool when invoked.
+Load skills via the skill tool when the commands are invoked.
