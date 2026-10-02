@@ -10,13 +10,20 @@ Configuration files of Mathieu Leduc-Hamel.
 
 ## Quick start
 
+One command, fresh machine to working (installs opencode if missing,
+symlinks the config, wires Director, installs apt packages on
+Debian/Ubuntu; per-step SKIP\_\* env vars documented in the script):
+
 ```bash
 git clone https://github.com/mlhamel/dotfiles.git ~/dotfiles
-cd ~/dotfiles
+~/dotfiles/setup.sh
 ```
 
-All paths below assume the clone lives at `~/dotfiles`; substitute your
-actual clone path if different.
+Or step by step:
+
+```bash
+cd ~/dotfiles   # all paths below assume the clone lives here
+```
 
 ### opencode
 
