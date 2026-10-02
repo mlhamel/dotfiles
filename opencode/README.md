@@ -110,11 +110,13 @@ Usage — after the build agent writes code:
 The model can also invoke it automatically based on its description.
 
 **To change the reviewer model:** edit the `model:` line in the
-frontmatter. Run `opencode models` for cloud/Zen models or `ollama list`
-for local ollama models (the opencode listing may not include everything
-ollama has pulled). Any provider works. For a _local_ model instead of a
-cloud one, `ollama/gemma4:26b` fits 30GB RAM but is slow on CPU — only
-worth it for offline use.
+frontmatter. The ollama models listed in `opencode.json`'s
+`provider.ollama.models` appear in `opencode models` and the `/models`
+picker; add an entry there (ID must match `ollama list`) to expose more.
+`ollama list` shows everything ollama has pulled, including models not
+configured in opencode. For a _local_ model instead of a cloud one,
+`ollama/gemma4:26b` fits 30GB RAM but is slow on CPU — only worth it
+for offline use.
 
 ## How to extend
 
