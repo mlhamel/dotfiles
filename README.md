@@ -6,6 +6,7 @@ Configuration files of Mathieu Leduc-Hamel.
 
 - [opencode](opencode/) — AI agent toolkit: rules, commands, skills, plugins
 - [homebrew](homebrew/) — Brewfile + lockfile (macOS-only; see [homebrew/README.md](homebrew/README.md))
+- [apt](apt/) — Aptfile + generate/install scripts (Debian/Ubuntu; see [apt/README.md](apt/README.md))
 
 ## Quick start
 
@@ -68,6 +69,15 @@ Refresh the Brewfile after installing/removing packages:
 ```bash
 rake homebrew:update  # = brew bundle dump --force
 ```
+
+### apt (Debian/Ubuntu)
+
+```bash
+~/dotfiles/apt/install.sh    # install everything in the Aptfile
+~/dotfiles/apt/generate.sh   # refresh the Aptfile from this machine
+```
+
+See [apt/README.md](apt/README.md) for the base-package filter and caveats.
 
 ## Development
 

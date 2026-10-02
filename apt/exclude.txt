@@ -1,0 +1,5 @@
+# Packages explicitly excluded from the Aptfile (one per line).
+# Debian base/system packages are filtered automatically by generate.sh;
+# list things here that you want installed on this machine but NOT
+# managed in the Aptfile (e.g. experimental, machine-specific, or
+# about-to-be-removed packages).
