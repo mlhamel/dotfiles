@@ -10,6 +10,9 @@ opencode/
 ├── README.md                  # You are here. Human-facing docs.
 ├── AGENTS.md                  # Agent rules. Loaded in EVERY session. Keep lean.
 ├── opencode.json              # Global permissions (relaxed posture)
+├── agents/                    # Custom agents
+│   ├── ask.md                 #   read-only Q&A primary agent
+│   └── review.md              #   cross-model code reviewer (see below)
 ├── commands/                  # Thin triggers, typed in the TUI
 │   ├── bless.md               #   /bless  → bootstrap any cloned repo
 │   ├── new.md                 #   /new    → scaffold a fresh project
@@ -49,6 +52,40 @@ Manual equivalent:
 ```bash
 ln -s ~/src/github.com/mlhamel/dotfiles/opencode ~/.config/opencode
 ```
+
+## Custom agents
+
+### `ask` — read-only Q&A (`agents/ask.md`)
+
+Primary agent that answers questions about the codebase without ever
+touching it (`edit: deny`, `bash: deny`). Switch to it with **Tab**, or
+use it whenever you want explanations instead of changes.
+
+### `review` — cross-model code review (`agents/review.md`)
+
+Subagent that reviews code using a **different model family** than the
+one that wrote it. This is the whole point: a reviewer with an
+independent perspective catches blind spots the author model shares.
+
+- Pinned to `ollama/gemma4:cloud` (build agent runs `glm-5.3:cloud` —
+  different family, so different biases)
+- Read-only: `edit` denied; bash limited to `git diff`, `git log`, `git show`
+- Severity-tagged findings (`[critical] [major] [minor] [nit]`) with a
+  final verdict: APPROVE / REQUEST CHANGES / COMMENT
+
+Usage — after the build agent writes code:
+
+```
+@review check the changes
+```
+
+The model can also invoke it automatically based on its description.
+
+**To change the reviewer model:** edit the `model:` line in the
+frontmatter. Run `opencode models` to list what's available. Any
+provider works (`ollama/*`, `opencode/*` Zen models, etc.). For a
+*local* model instead of a cloud one, `ollama/gemma4:26b` fits 30GB RAM
+but is slow on CPU — only worth it for offline use.
 
 ## How to extend
 

@@ -35,7 +35,7 @@ The install script backs up any existing `~/.config/opencode` before symlinking.
 |---|---|
 | `AGENTS.md` | Agent rules, loaded in every session (kept lean) |
 | `opencode.json` | Global permissions (relaxed posture) |
-| `agent/` | Custom agents (e.g. `ask.md` — read-only Q&A) |
+| `agents/` | Custom agents: `ask.md` (read-only Q&A), `review.md` (cross-model code review via `@review`) |
 | `commands/` | TUI commands (`/bless`, `/new`, director/session workflow) |
 | `skills/` | Deep docs loaded on demand (`workflow`, `scaffolding`) |
 | `plugin/` | JS plugins (director state, Obsidian session logger) |
