@@ -83,6 +83,15 @@ The plugins follow a cardinal rule — a broken hook must never break a
 session — so a fresh machine degrades gracefully: Director state and
 Obsidian logging are simply absent until the prerequisites are installed.
 
+### Warp notifications (npm plugin)
+
+`opencode.json` loads `@warp-dot-dev/opencode-warp` from npm — native Warp
+terminal notifications (task complete with prompt/response summary,
+permission requests, tool status) via OSC 777 escape sequences. Works out
+of the box inside Warp; other terminals ignore the sequences, so it's
+harmless as a global default. Installed automatically by opencode at
+startup via bun. Remove by deleting the `plugin` array entry.
+
 ## Custom agents
 
 ### `ask` — read-only Q&A (`agents/ask.md`)

@@ -6,6 +6,7 @@ use today's date and the hash of the change once committed.
 
 ## 2026-10-02
 
+- `(this)` — Add @warp-dot-dev/opencode-warp npm plugin to global opencode.json: native Warp notifications (task complete, permission requests, tool status) via OSC 777; no-op outside Warp
 - `d79a54a` — Add review enforcement (P3): plugin/review-enforcer.js tracks sessions with substantive edits, nudges on the next user message, and gates end-of-turn on a @review verdict or explicit waiver; injection-based, REVIEW_ENFORCER=0 opt-out; AGENTS.md working-style rule added
 - `d2e3114` — Fix CI: pin actions/checkout to real v7.0.1 commit SHA
 - `1b07651` — Complete all six P2 TODOs: CI lint workflow (j178/prek-action); apt/sources.sh vendor repo bootstrap (7 repos, deb822, idempotent, --dry-run); Aptfile curation 242→114 (dpkg-essential + runtime-lib\* filters, curated exclude.txt); OBSIDIAN_VAULT parameterization for /session-handoff + session-logger plugin; skills/dotfiles maintenance playbook; "install opencode" verified covered by setup.sh
