@@ -6,7 +6,7 @@ use today's date and the hash of the change once committed.
 
 ## 2026-10-02
 
-- `(this)` — Define the ollama provider in global opencode.json (baseURL + curated cloud models); plain `opencode` now starts on glm-5.3:cloud without `ollama launch`
+- `59949b5` — Define the ollama provider in global opencode.json (baseURL + curated cloud models); plain `opencode` now starts on glm-5.3:cloud without `ollama launch`
 
 ## 2026-10-01
 
