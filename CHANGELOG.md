@@ -7,6 +7,7 @@ use today's date and the hash of the change once committed.
 ## 2026-10-04
 
 - `d1640e5` — Switch review agent to Kimi (`ollama/kimi-k2.7-code:cloud`, registered in opencode.json) and add tool-call budget: single `git diff` up front, max 5 tool calls, `steps: 10` backstop; README updated
+- (pending) — Add `opencode/bin/oc-tokens`: token-efficiency report from the opencode SQLite DB — top sessions by input tokens, spiral detection (message-count threshold), per-agent/model efficiency, health baselines; read-only, `--days`/`--spiral`/`--db` flags; born from the gemma4 review-loop investigation (877/839-msg spirals vs ~8 healthy)
 
 ## 2026-10-02
 

@@ -1,0 +1,181 @@
+#!/usr/bin/env bash
+set -euo pipefail
+
+# oc-tokens — token-efficiency report from the opencode SQLite DB.
+#
+# Answers: where are we burning tokens, and which sessions are spiraling?
+# Read-only: opens opencode.db in immutable mode, safe to run any time.
+#
+# Usage:
+#   oc-tokens                 # full report (all sessions)
+#   oc-tokens --days 7        # restrict to sessions started in the last 7 days
+#   oc-tokens --spiral 50     # spiral threshold: sessions with >= N messages
+#                             # (default 50)
+#   oc-tokens --db PATH       # explicit DB path
+#
+# A missing DB is not an error (fresh machine): prints a note, exits 0.
+# A malformed DB or unreadable file exits 1.
+
+DAYS=""
+SPIRAL_THRESHOLD=50
+DB="${OPENCODE_DB:-$HOME/.local/share/opencode/opencode.db}"
+
+while [ $# -gt 0 ]; do
+  case "$1" in
+    --days)
+      [ $# -ge 2 ] || { echo "oc-tokens: $1 needs a value" >&2; exit 1; }
+      DAYS="$2"; shift 2 ;;
+    --spiral)
+      [ $# -ge 2 ] || { echo "oc-tokens: $1 needs a value" >&2; exit 1; }
+      SPIRAL_THRESHOLD="$2"; shift 2 ;;
+    --db)
+      [ $# -ge 2 ] || { echo "oc-tokens: $1 needs a value" >&2; exit 1; }
+      DB="$2"; shift 2 ;;
+    *) echo "oc-tokens: unknown flag: $1" >&2; exit 1 ;;
+  esac
+done
+
+for v in "${DAYS:-}" "${SPIRAL_THRESHOLD}"; do
+  [ -z "$v" ] || [[ "$v" =~ ^[0-9]+$ ]] || {
+    echo "oc-tokens: --days and --spiral take positive integers" >&2
+    exit 1
+  }
+done
+
+if [ ! -f "$DB" ]; then
+  echo "oc-tokens: no opencode DB at $DB (run opencode first)" >&2
+  exit 0
+fi
+
+python3 - "$DB" "$DAYS" "$SPIRAL_THRESHOLD" <<'PYEOF'
+import json
+import sqlite3
+import sys
+import time
+
+db, days, spiral_threshold = sys.argv[1], sys.argv[2], int(sys.argv[3])
+
+age_sql = ""
+age_params = ()
+if days:
+    cutoff_ms = (int(time.time()) - int(days) * 86400) * 1000
+    age_sql = "WHERE s.time_created >= ?"
+    age_params = (cutoff_ms,)
+
+try:
+    con = sqlite3.connect(f"file:{db}?mode=ro&immutable=1", uri=True)
+except sqlite3.Error as e:
+    print(f"oc-tokens: cannot open DB: {e}", file=sys.stderr)
+    sys.exit(1)
+
+cur = con.cursor()
+
+
+def fmt(n):
+    return f"{n:,}" if n else "0"
+
+
+def model_id(m):
+    if not m:
+        return "-"
+    try:
+        return json.loads(m).get("id", "-")
+    except Exception:
+        return "-"
+
+
+def dur(ms):
+    if not ms:
+        return "-"
+    h = ms / 3_600_000
+    if h >= 1:
+        return f"{h:.0f}h"
+    return f"{ms / 60_000:.0f}m"
+
+
+print("=" * 100)
+print("OC-TOKENS — opencode session efficiency report")
+print("=" * 100)
+
+row = cur.execute(
+    f"""SELECT COUNT(*), COALESCE(SUM(s.tokens_input),0), COALESCE(SUM(s.tokens_output),0),
+       COALESCE(SUM(s.tokens_cache_read),0)
+    FROM session s {age_sql}""",
+    age_params,
+).fetchone()
+n, ti, to, cr = row
+print(f"\nTotal: {n} sessions | input {fmt(ti)} | output {fmt(to)} | cache-read {fmt(cr)}")
+
+print("\n--- Top sessions by input tokens (context-growth suspects) ---")
+rows = cur.execute(
+    f"""SELECT s.title, s.agent, s.model, s.tokens_input, s.tokens_output,
+           s.tokens_cache_read, COUNT(m.id),
+           s.time_created, s.time_updated - s.time_created
+        FROM session s LEFT JOIN message m ON m.session_id = s.id
+        {age_sql}
+        GROUP BY s.id ORDER BY s.tokens_input DESC LIMIT 10""",
+    age_params,
+).fetchall()
+print(f"{'input':>12} {'cache-read':>13} {'msgs':>5} {'life':>5} {'agent':8} {'model':22} title")
+for title, agent, model, tin, tout, crd, msgs, tc, lifespan in rows:
+    print(
+        f"{fmt(tin):>12} {fmt(crd):>13} {msgs:>5} {dur(lifespan):>5} "
+        f"{(agent or '-'):8} {model_id(model):22} {str(title)[:38]}"
+    )
+
+print(f"\n--- Spirals: sessions with >= {spiral_threshold} messages (loop suspects) ---")
+rows = cur.execute(
+    f"""SELECT s.title, s.agent, s.model, s.tokens_input, COUNT(m.id),
+           s.time_updated - s.time_created
+        FROM session s JOIN message m ON m.session_id = s.id
+        {age_sql}
+        GROUP BY s.id HAVING COUNT(m.id) >= ?
+        ORDER BY COUNT(m.id) DESC LIMIT 15""",
+    age_params + (spiral_threshold,),
+).fetchall()
+if not rows:
+    print("none — no session crossed the message threshold")
+for title, agent, model, tin, msgs, lifespan in rows:
+    print(
+        f"{msgs:>5} msgs {fmt(tin):>12} in {dur(lifespan):>5} "
+        f"{(agent or '-'):8} {model_id(model):22} {str(title)[:38]}"
+    )
+
+print("\n--- Per agent/model efficiency ---")
+rows = cur.execute(
+    f"""SELECT s.agent, s.model, COUNT(*), COALESCE(AVG(s.tokens_input),0),
+           COALESCE(AVG(s.tokens_output),0), COALESCE(AVG(s.tokens_cache_read),0),
+           COALESCE(SUM(s.tokens_input),0)
+        FROM session s {age_sql}
+        GROUP BY s.agent, s.model ORDER BY SUM(s.tokens_input) DESC""",
+    age_params,
+).fetchall()
+print(f"{'agent':8} {'model':24} {'n':>3} {'avg in':>10} {'avg out':>9} {'avg cache':>12} {'total in':>13}")
+for agent, model, n, ai, ao, ac, tsum in rows:
+    print(
+        f"{(agent or '(null)'):8} {model_id(model):24} {n:>3} {fmt(int(ai)):>10} "
+        f"{fmt(int(ao)):>9} {fmt(int(ac)):>12} {fmt(tsum):>13}"
+    )
+
+print("\n--- Health baselines (median of non-spiral sessions) ---")
+rows = cur.execute(
+    f"""SELECT s.agent, COUNT(m.id), s.tokens_input, s.tokens_output
+        FROM session s JOIN message m ON m.session_id = s.id
+        {age_sql}
+        GROUP BY s.id HAVING COUNT(m.id) < ?""",
+    age_params + (spiral_threshold,),
+).fetchall()
+by_agent = {}
+for agent, msgs, tin, tout in rows:
+    if agent:
+        by_agent.setdefault(agent, []).append((tin or 0, tout or 0))
+for agent, vals in sorted(by_agent.items()):
+    vals.sort(key=lambda v: v[0])
+    n = len(vals)
+    med_in = vals[n // 2][0]
+    med_out = sorted(v[1] for v in vals)[n // 2]
+    print(f"  {agent:10} n={n:<3} median input {fmt(med_in)} | median output {fmt(med_out)}")
+
+print("\nLevers: steps caps on looping agents, tighter tool budgets in prompts,")
+print("split long sessions (fork per task), swap models with poor in/msg ratios.")
+PYEOF

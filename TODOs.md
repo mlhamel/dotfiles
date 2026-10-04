@@ -56,6 +56,11 @@ Priorities: **P1** do soon · **P2** do eventually · **P3** nice to have.
 - [ ] **P3 · More cross-model agents** — the `review` pattern (different model
       family for independent opinion) could extend to a `security` auditor
       agent or an `architecture` second-opinion agent.
+- [ ] **P2 · Token-efficiency cadence** — run `opencode/bin/oc-tokens` weekly
+      and after any agent/model change; findings feed back as steps caps,
+      prompt budgets, or model swaps. First report: two gemma4 review spirals
+      (877/839 msgs, 145M cache-read combined) already fixed via steps cap +
+      Kimi swap; next suspect is long-lived build sessions (400+ msgs).
 
 ## Housekeeping
 

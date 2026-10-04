@@ -18,6 +18,8 @@ opencode/
 │   ├── new.md                 #   /new    → scaffold a fresh project
 │   ├── director-*.md          #   /director-* → Director state workflow
 │   └── session-handoff.md     #   /session-handoff → Obsidian checkpoint
+├── bin/                       # CLI utilities (on-demand, not in every session)
+│   └── oc-tokens              #   token-efficiency report from opencode.db
 ├── skills/                    # Deep docs, loaded ON DEMAND via the skill tool
 │   ├── workflow/SKILL.md      #   bless/new playbooks, per-project config template
 │   ├── scaffolding/SKILL.md   #   per-language scaffolder reference
@@ -158,6 +160,27 @@ for offline use.
   session's context? If no, put it in a skill.
 - Per-project strictness comes from `/bless`, which generates a project-level
   `opencode.json` with `edit: ask` — the global config stays relaxed.
+
+## Token-efficiency auditing (`bin/oc-tokens`)
+
+opencode records per-session token accounting in a SQLite DB
+(`~/.local/share/opencode/opencode.db`). `oc-tokens` turns it into a
+report for the continuous-improvement loop: **measure → find the outlier
+→ fix (steps cap / tighter prompt / model swap / session split) → re-measure.**
+
+```bash
+~/.config/opencode/bin/oc-tokens              # full report
+~/.config/opencode/bin/oc-tokens --days 7     # last week only
+~/.config/opencode/bin/oc-tokens --spiral 30  # lower loop-detection bar
+```
+
+Sections: top sessions by input tokens (context-growth suspects), spirals
+(sessions above a message threshold — this is what caught the gemma4 review
+loops: 877 and 839 messages vs a healthy median of ~8), per-agent/model
+efficiency, and health baselines (median tokens of non-spiral sessions).
+
+Read-only (`immutable=1`), safe to run while opencode is live. Needs
+`python3` (stdlib only). Run it weekly or after model/agent changes.
 
 ## Interview demo script
 
