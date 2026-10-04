@@ -106,8 +106,10 @@ Subagent that reviews code using a **different model family** than the
 one that wrote it. This is the whole point: a reviewer with an
 independent perspective catches blind spots the author model shares.
 
-- Pinned to `ollama/gemma4:cloud` (build agent runs `glm-5.3:cloud` —
+- Pinned to `ollama/kimi-k2.7-code:cloud` (build agent runs `glm-5.3:cloud` —
   different family, so different biases)
+- Budget-constrained: single `git diff` up front, max 5 tool calls, then write
+  the review; `steps: 10` caps the overall turn count as a backstop
 - Read-only: `edit` denied; bash limited to `git diff`, `git log`, `git show`
 - Severity-tagged findings (`[critical] [major] [minor] [nit]`) with a
   final verdict: APPROVE / REQUEST CHANGES / COMMENT

@@ -18,6 +18,9 @@
         },
         "gemma4:cloud": {
           "name": "gemma4:cloud"
+        },
+        "kimi-k2.7-code:cloud": {
+          "name": "kimi-k2.7-code:cloud"
         }
       }
     }
