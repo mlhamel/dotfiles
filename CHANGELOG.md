@@ -4,6 +4,10 @@ All notable changes to this repo. Dates are YYYY-MM-DD (local commit date);
 entries reference the committing hash. Newest first. When adding an entry,
 use today's date and the hash of the change once committed.
 
+## 2026-10-04
+
+- `d1640e5` — Switch review agent to Kimi (`ollama/kimi-k2.7-code:cloud`, registered in opencode.json) and add tool-call budget: single `git diff` up front, max 5 tool calls, `steps: 10` backstop; README updated
+
 ## 2026-10-02
 
 - `35e73e3` — Add @warp-dot-dev/opencode-warp npm plugin to global opencode.json: native Warp notifications (task complete, permission requests, tool status) via OSC 777; no-op outside Warp
