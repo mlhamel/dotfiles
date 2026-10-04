@@ -139,8 +139,9 @@ codebase). A maintainer, not an artist:
 - Node IDs stay canonical (real module/class/function names) so drift is
   grep-able; display labels may be human-readable
 - Writes only under `docs/diagrams/**`; bash limited to read-only git + `mmdc`
-- Mandatory render check (`mmdc -i <file> -o /tmp/opencode/diagrams/<name>.svg`)
-  with max 2 retries; failing files revert to the last renderable state
+- Render check (`mmdc -i <file> -o /tmp/opencode/<name>.svg`) with max 2
+  retries; failing files revert to the last renderable state; skipped with a
+  note if `mmdc` is unavailable
 - Pinned to `ollama/kimi-k2.7-code:cloud`, `steps: 15` as a spiral backstop
 - No-ops on purely internal changes (no structural effect → no edit)
 

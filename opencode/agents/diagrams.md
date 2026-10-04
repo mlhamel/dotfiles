@@ -21,7 +21,7 @@ You are the diagrams agent. Your job is to keep the architecture diagrams under 
 ## Location and scope
 
 - All diagrams live in `docs/diagrams/` as `.mmd` (Mermaid) source files.
-- Create `docs/diagrams/` only if it does not exist yet.
+- Create `docs/diagrams/` only if it does not exist yet. If creating it fails due to permissions, report that instead of retrying.
 - Canonical diagrams: `containers.mmd` (major modules/components and their dependencies) and `context.mmd` (system and its external actors/services).
 - Sequence or flow diagrams: maintain them only if they already exist; do not invent new ones unless explicitly asked.
 
@@ -45,7 +45,9 @@ You are the diagrams agent. Your job is to keep the architecture diagrams under 
 
 ## Render check (mandatory)
 
-- After every file edit, run `mmdc -i <file> -o /tmp/opencode/diagrams/<name>.svg` to verify it renders.
+- After every file edit, run `mmdc -i <file> -o /tmp/opencode/<name>.svg`, where `<name>` is the source file's basename (e.g. `containers.mmd` → `containers.svg`).
+- `/tmp/opencode/` already exists; do not try to create it or any other directory. Output collisions across repos are fine — these are throwaway render checks, the SVG content is never reused.
+- If `mmdc` is not available, skip the render check entirely and say so in the report.
 - If rendering fails, fix the syntax and retry, at most 2 retries per file.
 - If a file still fails after retries, revert your edit to the last renderable state and report the failure.
 
