@@ -12,10 +12,12 @@ opencode/
 ├── opencode.json              # Global permissions (relaxed posture)
 ├── agents/                    # Custom agents
 │   ├── ask.md                 #   read-only Q&A primary agent
+│   ├── diagrams.md            #   Mermaid diagram maintainer (see below)
 │   └── review.md              #   cross-model code reviewer (see below)
 ├── commands/                  # Thin triggers, typed in the TUI
 │   ├── bless.md               #   /bless  → bootstrap any cloned repo
 │   ├── new.md                 #   /new    → scaffold a fresh project
+│   ├── diagrams.md            #   /diagrams → update/audit architecture diagrams
 │   ├── director-*.md          #   /director-* → Director state workflow
 │   └── session-handoff.md     #   /session-handoff → Obsidian checkpoint
 ├── bin/                       # CLI utilities (on-demand, not in every session)
@@ -67,6 +69,7 @@ dependencies are machine-local:
 | Piece                                                        | Needs                                                                                                                                                   | Without it                                              |
 | ------------------------------------------------------------ | ------------------------------------------------------------------------------------------------------------------------------------------------------- | ------------------------------------------------------- |
 | `/bless`, `/new`, `@ask`, `@review`                          | nothing extra                                                                                                                                           | fully portable                                          |
+| `/diagrams` + `@diagrams`                                    | `mmdc` (mermaid-cli) for the render check; diagrams degrade to syntax-unchecked edits without it                                                        | edits still apply; render verification skipped          |
 | `/director-adopt`, `/director-complete`, `/director-handoff` | the [`director`](https://github.com/mlhamel/director) binary (`plugin/director.js` is its managed shim)                                                 | commands fail; plugin no-ops harmlessly                 |
 | `/session-handoff` + `plugin/session-logger.js`              | an Obsidian vault with `log_session.py` under `.opencode/skills/decision-log/`; set `OBSIDIAN_VAULT` if the vault isn't at `~/Dropbox/obsidian/general` | command fails; plugin silently no-ops outside the vault |
 
@@ -123,6 +126,30 @@ Usage — after the build agent writes code:
 ```
 
 The model can also invoke it automatically based on its description.
+
+### `diagrams` — Mermaid diagram maintainer (`agents/diagrams.md`)
+
+Subagent that keeps architecture diagrams under a project's `docs/diagrams/`
+in sync with the code, invoked via `/diagrams` (incremental update for the
+current diff) or `/diagrams audit` (full consistency check against the
+codebase). A maintainer, not an artist:
+
+- Minimal-diff updates to `.mmd` sources (`containers.mmd`, `context.mmd`;
+  sequence diagrams only if they already exist) — never regenerates whole files
+- Node IDs stay canonical (real module/class/function names) so drift is
+  grep-able; display labels may be human-readable
+- Writes only under `docs/diagrams/**`; bash limited to read-only git + `mmdc`
+- Mandatory render check (`mmdc -i <file> -o /tmp/opencode/diagrams/<name>.svg`)
+  with max 2 retries; failing files revert to the last renderable state
+- Pinned to `ollama/kimi-k2.7-code:cloud`, `steps: 15` as a spiral backstop
+- No-ops on purely internal changes (no structural effect → no edit)
+
+Usage — after structural changes:
+
+```text
+/diagrams
+/diagrams audit
+```
 
 ### Review enforcement (`plugin/review-enforcer.js`)
 
