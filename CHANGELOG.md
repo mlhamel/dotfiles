@@ -6,7 +6,7 @@ use today's date and the hash of the change once committed.
 
 ## 2026-10-19
 
-- — Integrate `token-optimization` skill from the Rust game-engine session findings: renamed + frontmatter so the loader surfaces it, corrected ingestion to ripgrep `.gitignore`/`.ignore` semantics (opencode has no `.opencodeignore`), generalized game-specific data paths, tied to the oc-tokens loop; apply routing via `small_model: glm-5.2:cloud` + `tool_output` caps (400 lines / 20480 bytes) in opencode.json; wired into AGENTS.md/README/TODOs
+- `cde66b6` — Integrate `token-optimization` skill from the Rust game-engine session findings: renamed + frontmatter so the loader surfaces it, corrected ingestion to ripgrep `.gitignore`/`.ignore` semantics (opencode has no `.opencodeignore`), generalized game-specific data paths, tied to the oc-tokens loop; apply routing via `small_model: glm-5.2:cloud` + `tool_output` caps (400 lines / 20480 bytes) in opencode.json; wired into AGENTS.md/README/TODOs
 
 ## 2026-10-04
 
