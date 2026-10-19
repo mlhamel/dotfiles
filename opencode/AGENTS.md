@@ -27,5 +27,6 @@ Global commands available anywhere:
 - `/diagrams` — update architecture diagrams in `docs/diagrams/` after structural code changes; `/diagrams audit` for a full consistency check
 - `/session-handoff` — checkpoint the conversation into an Obsidian session note (needs the vault's `log_session.py`; set `OBSIDIAN_VAULT` if the vault isn't at `~/Dropbox/obsidian/general`)
 
-Skills: `workflow`, `scaffolding`, `dotfiles` (maintenance playbook for the
-dotfiles repo itself). Load via the skill tool when relevant.
+Skills: `workflow`, `scaffolding`, `token-optimization` (token-efficiency
+playbook), `dotfiles` (maintenance playbook for the dotfiles repo itself).
+Load via the skill tool when relevant.

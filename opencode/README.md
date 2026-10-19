@@ -25,6 +25,7 @@ opencode/
 ├── skills/                    # Deep docs, loaded ON DEMAND via the skill tool
 │   ├── workflow/SKILL.md      #   bless/new playbooks, per-project config template
 │   ├── scaffolding/SKILL.md   #   per-language scaffolder reference
+│   ├── token-optimization/SKILL.md  #   token-efficiency: ingestion, routing, oc-tokens loop
 │   └── dotfiles/SKILL.md      #   maintenance playbook for this repo itself
 ├── plugin/                    # JS plugins (director state, Obsidian session logger,
 │   ├── director.js             #   review enforcement — see "Review enforcement")
@@ -209,6 +210,11 @@ efficiency, and health baselines (median tokens of non-spiral sessions).
 
 Read-only (`immutable=1`), safe to run while opencode is live. Needs
 `python3` (stdlib only). Run it weekly or after model/agent changes.
+
+The `token-optimization` skill holds the playbook this report feeds:
+ingestion boundaries (ripgrep `.gitignore`/`.ignore` semantics, no
+`.opencodeignore`), schema-not-dataset payloads, session discipline, and
+model routing (`small_model`, per-agent `model:` pinning).
 
 ## Interview demo script
 

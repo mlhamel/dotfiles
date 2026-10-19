@@ -53,6 +53,12 @@ Priorities: **P1** do soon · **P2** do eventually · **P3** nice to have.
       message, and injects a review-gate prompt at end of turn (verdict or
       explicit waiver required before claiming done). Injection, not
       blocking — degrades to a reminder; REVIEW_ENFORCER=0 opt-out.
+- [x] **P2 · Token-optimization skill** — `skills/token-optimization/SKILL.md`:
+      generalized from the Rust game-engine session findings; corrected the
+      ingestion mechanism (ripgrep `.gitignore`/`.ignore` — opencode has no
+      `.opencodeignore`), schema-not-dataset payloads, session discipline,
+      model routing (`small_model: glm-5.2:cloud`, per-agent models),
+      `tool_output` caps (400 lines / 20 KB); oc-tokens stays the measure arm.
 - [ ] **P3 · More cross-model agents** — the `review` pattern (different model
       family for independent opinion) could extend to a `security` auditor
       agent or an `architecture` second-opinion agent.

@@ -4,6 +4,10 @@ All notable changes to this repo. Dates are YYYY-MM-DD (local commit date);
 entries reference the committing hash. Newest first. When adding an entry,
 use today's date and the hash of the change once committed.
 
+## 2026-10-19
+
+- — Integrate `token-optimization` skill from the Rust game-engine session findings: renamed + frontmatter so the loader surfaces it, corrected ingestion to ripgrep `.gitignore`/`.ignore` semantics (opencode has no `.opencodeignore`), generalized game-specific data paths, tied to the oc-tokens loop; apply routing via `small_model: glm-5.2:cloud` + `tool_output` caps (400 lines / 20480 bytes) in opencode.json; wired into AGENTS.md/README/TODOs
+
 ## 2026-10-04
 
 - `298771c` — Fix diagrams agent review findings: render output to pre-existing `/tmp/opencode/` (no mkdir), basename `<name>` mapping, skip render check when `mmdc` missing, `audit` as exact sole argument, report permission failure on `docs/diagrams/` creation
