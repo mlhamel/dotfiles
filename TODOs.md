@@ -67,6 +67,19 @@ Priorities: **P1** do soon · **P2** do eventually · **P3** nice to have.
       prompt budgets, or model swaps. First report: two gemma4 review spirals
       (877/839 msgs, 145M cache-read combined) already fixed via steps cap +
       Kimi swap; next suspect is long-lived build sessions (400+ msgs).
+- [x] **P2 · Session-length nudge plugin** — done: `plugin/session-nudger.js`
+      injects a one-shot `/session-handoff` + fresh-session nudge at end of
+      turn each time a session crosses a new multiple of the spiral bar
+      (50 msgs, `SESSION_NUDGER_THRESHOLD`; `SESSION_NUDGER=0` opt-out);
+      subagents excluded, band state in-memory, reply capped at two
+      sentences. Anchored in the report: top 4 sessions carried ~143M of
+      160M input (89%) at 507/1059/252/231 msgs vs the ~8 healthy target.
+- [ ] **P2 · oc-tokens cache-hit ratio** — add a cache-read/input ratio per
+      session and flag zero-cache outliers. Why: the top 3 burners
+      (73M/34M/19.7M input) show cache-read = 0 — full input cost every
+      turn, agent/model `-` — while healthy sessions run 5–6x cache-read;
+      identify what those were and surface future zero-cache burn
+      automatically instead of by eyeball.
 
 ## Housekeeping
 

@@ -56,6 +56,10 @@ pub struct SystemData {
 - **Commit-and-reset cycle**: define requirement → implement + tests →
   commit → fresh session for the next task.
 - Use `/session-handoff` to checkpoint a long thread before resetting it.
+- Enforcement: the `session-nudger` plugin injects a one-shot nudge
+  (recommend `/session-handoff`, fresh session) each time a session
+  crosses a new multiple of the 50-message spiral bar; tune with
+  `SESSION_NUDGER_THRESHOLD`, disable with `SESSION_NUDGER=0`.
 
 ## 4. Payload minimization
 

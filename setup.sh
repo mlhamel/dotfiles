@@ -9,6 +9,8 @@ set -euo pipefail
 #   3. Director + wiring       (opencode/setup-director.sh; SKIP_DIRECTOR=1)
 #   4. packages               (apt/ on Debian/Ubuntu, homebrew/ hint on macOS;
 #                              SKIP_PACKAGES=1)
+#   5. ollama gateway + models (opencode/setup-ollama.sh; needs the packages
+#                              step's python3; SKIP_OLLAMA=1)
 #
 # Idempotent: every step is safe to re-run.
 
@@ -39,7 +41,7 @@ echo "[director] installing Director + wiring opencode..."
 
 # 4. packages -------------------------------------------------------------
 OS="$(uname -s)"
-if [ "${SKIP_PACKAGES:-0}" = 1 ]; then
+if [ "${SKIP_PACKAGES:-0}" = "1" ]; then
   echo "[packages] SKIP_PACKAGES=1 — skipping package install"
 elif [ "${OS}" = "Linux" ] && command -v apt-get >/dev/null 2>&1; then
   echo "[packages] installing apt packages..."
@@ -51,5 +53,9 @@ elif [ "${OS}" = "Darwin" ]; then
 else
   echo "[packages] no supported package manager (apt/homebrew) — skipping"
 fi
+
+# 5. ollama gateway ---------------------------------------------------------
+echo "[ollama] installing gateway + pinned models..."
+"${DIR}/opencode/setup-ollama.sh"
 
 echo "=== bootstrap complete ==="

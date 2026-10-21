@@ -27,12 +27,14 @@ opencode/
 │   ├── scaffolding/SKILL.md   #   per-language scaffolder reference
 │   ├── token-optimization/SKILL.md  #   token-efficiency: ingestion, routing, oc-tokens loop
 │   └── dotfiles/SKILL.md      #   maintenance playbook for this repo itself
-├── plugin/                    # JS plugins (director state, Obsidian session logger,
-│   ├── director.js             #   review enforcement — see "Review enforcement")
+├── plugin/                    # JS plugins (director state, session logger, review
+│   ├── director.js             #   enforcement, session nudger — see the sections)
 │   ├── session-logger.js
-│   └── review-enforcer.js
+│   ├── review-enforcer.js
+│   └── session-nudger.js
 ├── install.sh                 # Deploy: symlink into ~/.config/opencode
-└── setup-director.sh          # Optional: install Director binary + wire opencode
+├── setup-director.sh          # Optional: install Director binary + wire opencode
+└── setup-ollama.sh            # Optional: install ollama gateway + pull pinned models
 ```
 
 ## The layering principle
@@ -73,6 +75,7 @@ dependencies are machine-local:
 | `/diagrams` + `@diagrams`                                    | `mmdc` (mermaid-cli) for the render check; diagrams degrade to syntax-unchecked edits without it                                                        | edits still apply; render verification skipped          |
 | `/director-adopt`, `/director-complete`, `/director-handoff` | the [`director`](https://github.com/mlhamel/director) binary (`plugin/director.js` is its managed shim)                                                 | commands fail; plugin no-ops harmlessly                 |
 | `/session-handoff` + `plugin/session-logger.js`              | an Obsidian vault with `log_session.py` under `.opencode/skills/decision-log/`; set `OBSIDIAN_VAULT` if the vault isn't at `~/Dropbox/obsidian/general` | command fails; plugin silently no-ops outside the vault |
+| every model call (default, `small_model`, agents)            | the ollama gateway at `localhost:11434` with the models pinned in `opencode.json`                                                                       | requests fail — run `setup-ollama.sh`                   |
 
 ### Director setup
 
@@ -88,6 +91,25 @@ healthy install is detected and skipped. Set `SKIP_DIRECTOR=1` to skip.
 The plugins follow a cardinal rule — a broken hook must never break a
 session — so a fresh machine degrades gracefully: Director state and
 Obsidian logging are simply absent until the prerequisites are installed.
+
+### Ollama gateway setup
+
+`setup-ollama.sh` installs the ollama gateway via the official install
+script (if missing) and pulls every model listed under
+`provider.ollama.models` in `opencode.json` — the same list that drives
+model routing, so the routing table is the single source of truth and the
+pulled set cannot drift from it. This is what makes the token-optimization
+environment (gateway + routing + oc-tokens loop) reproducible on a fresh
+machine. Idempotent. Set `SKIP_OLLAMA=1` to skip.
+
+```bash
+./setup-ollama.sh
+```
+
+`setup.sh` chains it automatically (after the packages step — the model
+list is parsed with `python3`). On macOS, if `ollama` is missing, the
+script prints a `brew install ollama` hint and exits; a `brew "ollama"`
+entry should ride along on the next Brewfile refresh (P3 TODO).
 
 ### Warp notifications (npm plugin)
 
@@ -178,6 +200,29 @@ picker; add an entry there (ID must match `ollama list`) to expose more.
 configured in opencode. For a _local_ model instead of a cloud one,
 `ollama/gemma4:26b` fits 30GB RAM but is slow on CPU — only worth it
 for offline use.
+
+### Session-length nudger (`plugin/session-nudger.js`)
+
+The `oc-tokens` report's biggest finding was session sprawl: the top 4
+sessions carried ~89% of all input tokens at 200–1000+ messages, against
+a healthy average of ~8. This plugin turns the skill's §3 session
+discipline into an enforced rule instead of a habit:
+
+- At end of turn, a top-level session whose message count crossed a new
+  multiple of the spiral bar (50 messages) gets a one-shot injected nudge
+  via `client.session.prompt`: recommend `/session-handoff` to checkpoint
+  the thread, then start a fresh session; the reply is capped at two
+  sentences so the nudge turn only adds one short assistant reply on top
+  of the usual context re-send
+- Re-nudges at every band crossing (50, 100, 150, …); subagent sessions
+  are excluded; band state is in-memory — a restart costs at most one
+  re-nudge for an already-long session
+- Tune: `SESSION_NUDGER_THRESHOLD` (default 50, the `oc-tokens --spiral`
+  bar). Opt out: `SESSION_NUDGER=0`
+
+Each nudge is a full turn, so on very long sessions it re-sends the
+context once to warn about context re-sends — immediacy over economy,
+deliberately. Raise the threshold if the cadence ever feels too chatty.
 
 ## How to extend
 

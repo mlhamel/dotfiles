@@ -81,7 +81,7 @@ export const ReviewEnforcerPlugin = async ({ client }) => {
             dirty.delete(sid)
             reviewed.add(sid)
             try {
-              await client.prompt.add({
+              await client.session.prompt({
                 path: { id: sid },
                 body: {
                   parts: [
