@@ -17,6 +17,7 @@ opencode/
 ├── commands/                  # Thin triggers, typed in the TUI
 │   ├── bless.md               #   /bless  → bootstrap any cloned repo
 │   ├── new.md                 #   /new    → scaffold a fresh project
+│   ├── grill-me.md            #   /grill-me → stress-test an idea through an interview
 │   ├── diagrams.md            #   /diagrams → update/audit architecture diagrams
 │   ├── director-*.md          #   /director-* → Director state workflow
 │   └── session-handoff.md     #   /session-handoff → Obsidian checkpoint
@@ -25,6 +26,8 @@ opencode/
 ├── skills/                    # Deep docs, loaded ON DEMAND via the skill tool
 │   ├── workflow/SKILL.md      #   bless/new playbooks, per-project config template
 │   ├── scaffolding/SKILL.md   #   per-language scaffolder reference
+│   ├── grill-me/SKILL.md      #   opt-in, stateless interview entry point
+│   ├── grilling/SKILL.md      #   round-based interview workflow
 │   ├── token-optimization/SKILL.md  #   token-efficiency: ingestion, routing, oc-tokens loop
 │   └── dotfiles/SKILL.md      #   maintenance playbook for this repo itself
 ├── plugin/                    # JS plugins (director state, session logger, review
@@ -234,6 +237,23 @@ deliberately. Raise the threshold if the cadence ever feels too chatty.
   session's context? If no, put it in a skill.
 - Per-project strictness comes from `/bless`, which generates a project-level
   `opencode.json` with `edit: ask` — the global config stays relaxed.
+
+## Idea interviews (`/grill-me`)
+
+Run `/grill-me <idea>` to stress-test a feature, design, business decision,
+or writing idea before committing to it. With no argument, the agent asks
+what you want to explore. Prefer a fresh conversation with plan mode off.
+
+The command loads `grill-me`, which delegates to `grilling`: questions arrive
+in rounds, each with a recommendation, and later rounds build on your answers.
+Push back, narrow the scope, or say "I don't know" when evidence is missing.
+The interview writes no files and does not start implementation.
+
+Adapted for OpenCode from [Matt Pocock's skills](https://github.com/mattpocock/skills)
+([AI Hero guide](https://www.aihero.dev/skills-grill-me)), pinned to commit
+`5beb35b040e3de97e54fa9e386d7e42d15c295c2`. Both imported skill directories
+include the upstream MIT license. No extra dependency or model override is
+required; the existing config symlink deploys the command and skills.
 
 ## Token-efficiency auditing (`bin/oc-tokens`)
 

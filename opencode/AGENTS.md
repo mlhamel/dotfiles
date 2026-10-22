@@ -23,10 +23,12 @@ Global commands available anywhere:
 
 - `/bless` — bootstrap the current repo for agent-driven work (analyze, generate AGENTS.md + opencode.json); uses the `workflow` skill
 - `/new <language> <name>` — scaffold a new project from scratch with official tooling; uses the `workflow` and `scaffolding` skills
+- `/grill-me <idea>` — stress-test an idea through a stateless interview; uses `grill-me` and `grilling`, only when explicitly requested
 - `/director-adopt`, `/director-complete`, `/director-handoff` — Director state workflow (needs the `director` binary)
 - `/diagrams` — update architecture diagrams in `docs/diagrams/` after structural code changes; `/diagrams audit` for a full consistency check
 - `/session-handoff` — checkpoint the conversation into an Obsidian session note (needs the vault's `log_session.py`; set `OBSIDIAN_VAULT` if the vault isn't at `~/Dropbox/obsidian/general`)
 
 Skills: `workflow`, `scaffolding`, `token-optimization` (token-efficiency
 playbook), `dotfiles` (maintenance playbook for the dotfiles repo itself).
-Load via the skill tool when relevant.
+Load via the skill tool when relevant; `grill-me` and `grilling` are opt-in
+interview skills, not an automatic planning step.
