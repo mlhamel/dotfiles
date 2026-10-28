@@ -1,17 +1,20 @@
 {
   "$schema": "https://opencode.ai/config.json",
   "model": "ollama/glm-5.3:cloud",
-  "small_model": "ollama/glm-5.2:cloud",
+  "agents": {
+    "title": {
+      "model": "ollama/glm-5.2:cloud"
+    }
+  },
   "tool_output": {
     "max_lines": 400,
     "max_bytes": 20480
   },
-  "plugin": ["@warp-dot-dev/opencode-warp"],
-  "provider": {
+  "providers": {
     "ollama": {
-      "npm": "@ai-sdk/openai-compatible",
       "name": "Ollama",
-      "options": {
+      "package": "aisdk:@ai-sdk/openai-compatible",
+      "settings": {
         "baseURL": "http://localhost:11434/v1"
       },
       "models": {
@@ -33,14 +36,12 @@
       }
     }
   },
-  "permission": {
-    "bash": {
-      "*": "allow",
-      "rm *": "deny",
-      "sudo *": "deny",
-      "git push *": "deny",
-      "curl * | bash": "deny",
-      "wget * | bash": "deny"
-    }
-  }
+  "permissions": [
+    { "action": "shell", "resource": "*", "effect": "allow" },
+    { "action": "shell", "resource": "rm *", "effect": "deny" },
+    { "action": "shell", "resource": "sudo *", "effect": "deny" },
+    { "action": "shell", "resource": "git push *", "effect": "deny" },
+    { "action": "shell", "resource": "curl * | bash", "effect": "deny" },
+    { "action": "shell", "resource": "wget * | bash", "effect": "deny" }
+  ]
 }

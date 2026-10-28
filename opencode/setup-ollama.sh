@@ -2,7 +2,7 @@
 set -euo pipefail
 
 # setup-ollama.sh — install the ollama gateway and pull the models pinned in
-# opencode.json's provider.ollama.models: the routing table is the single
+# opencode.json's providers.ollama.models: the routing table is the single
 # source of truth for what gets pulled, so they cannot drift apart.
 # Idempotent: safe to re-run. Skip with: SKIP_OLLAMA=1.
 
@@ -54,7 +54,9 @@ MODELS="$(python3 -c '
 import json, sys
 try:
     with open(sys.argv[1]) as f:
-        models = json.load(f)["provider"]["ollama"]["models"]
+        cfg = json.load(f)
+    provider = cfg.get("providers") or cfg.get("provider")
+    models = provider["ollama"]["models"]
 except Exception:
     sys.exit(1)
 if isinstance(models, dict):
@@ -62,12 +64,12 @@ if isinstance(models, dict):
 for model in models:
     print(model)
 ' "${CONFIG}")" || {
-  echo "Error: cannot read provider.ollama.models from ${CONFIG}" >&2
+  echo "Error: cannot read providers.ollama.models from ${CONFIG}" >&2
   exit 1
 }
 
 if [ -z "${MODELS}" ]; then
-  echo "Error: no models under provider.ollama.models in ${CONFIG}" >&2
+  echo "Error: no models under providers.ollama.models in ${CONFIG}" >&2
   exit 1
 fi
 

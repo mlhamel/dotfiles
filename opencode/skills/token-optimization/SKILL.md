@@ -90,7 +90,7 @@ Divide labor by model strength; pin per agent via `model:` frontmatter.
 | ------------------------------------------- | ----------------------------- | ---------------------------------------- |
 | Heavy build work                            | `ollama/glm-5.3:cloud`        | global default                           |
 | Independent review, diagrams (cross-family) | `ollama/kimi-k2.7-code:cloud` | `agents/review.md`, `agents/diagrams.md` |
-| Routine internal tasks (titles, summaries)  | `ollama/glm-5.2:cloud`        | `"small_model"` in `opencode.json`       |
+| Routine internal tasks (titles, summaries)  | `ollama/glm-5.2:cloud`        | `agents.title.model` in `opencode.json`  |
 
 ## 6. Gateway
 
