@@ -37,5 +37,5 @@ repos:
           (?x)(
             ^opencode/node_modules/|
             (package-lock|Brewfile\.lock)\.json$|
-            ^opencode/plugin/
+            ^opencode/plugins/
           )

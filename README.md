@@ -52,7 +52,7 @@ ln -s ~/dotfiles/opencode ~/.config/opencode
 | `agents/`           | Custom agents: `ask.md` (read-only Q&A), `review.md` (cross-model code review via `@review`) |
 | `commands/`         | TUI commands (`/bless`, `/new`, director/session workflow)                                   |
 | `skills/`           | Deep docs loaded on demand (`workflow`, `scaffolding`)                                       |
-| `plugin/`           | JS plugins (director state, Obsidian session logger)                                         |
+| `plugins/`          | JS plugins (director state, Obsidian session logger)                                         |
 | `install.sh`        | One-command deploy via symlink                                                               |
 | `setup-director.sh` | Optional: install Director binary + wire opencode                                            |
 
@@ -100,7 +100,7 @@ prek run --all-files  # run everything now
 Hooks: whitespace/EOF/merge-conflict hygiene, JSON validation, markdownlint,
 shellcheck on the setup scripts, prettier on markdown/JSON. Lockfiles
 (`package-lock.json`, `Brewfile.lock.json`), `node_modules/`, and the
-Director-managed `opencode/plugin/` are excluded.
+Director-managed `opencode/plugins/` are excluded.
 
 ## History note
 

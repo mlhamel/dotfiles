@@ -48,7 +48,7 @@ Priorities: **P1** do soon · **P2** do eventually · **P3** nice to have.
 - [x] **P2 · Skill for dotfiles itself** — `skills/dotfiles/SKILL.md`:
       repo map, change flow (prek → commit → changelog → TODO checkoff),
       Aptfile/Brewfile regeneration, hook-rev bumps, CI notes, conventions.
-- [x] **P3 · Reviewer verdict enforcement** — `plugin/review-enforcer.js`:
+- [x] **P3 · Reviewer verdict enforcement** — `plugins/review-enforcer.js`:
       tracks sessions with substantive edits, nudges on the next user
       message, and injects a review-gate prompt at end of turn (verdict or
       explicit waiver required before claiming done). Injection, not
@@ -67,7 +67,7 @@ Priorities: **P1** do soon · **P2** do eventually · **P3** nice to have.
       prompt budgets, or model swaps. First report: two gemma4 review spirals
       (877/839 msgs, 145M cache-read combined) already fixed via steps cap +
       Kimi swap; next suspect is long-lived build sessions (400+ msgs).
-- [x] **P2 · Session-length nudge plugin** — done: `plugin/session-nudger.js`
+- [x] **P2 · Session-length nudge plugin** — done: `plugins/session-nudger.js`
       injects a one-shot `/session-handoff` + fresh-session nudge at end of
       turn each time a session crosses a new multiple of the spiral bar
       (50 msgs, `SESSION_NUDGER_THRESHOLD`; `SESSION_NUDGER=0` opt-out);
