@@ -4,6 +4,12 @@ All notable changes to this repo. Dates are YYYY-MM-DD (local commit date);
 entries reference the committing hash. Newest first. When adding an entry,
 use today's date and the hash of the change once committed.
 
+## 2026-10-28
+
+- `e7ace1f` — Rename `opencode/plugin/` → `opencode/plugins/` (the v2 plugin dir), pure rename; prek/prettier excludes and README/TODOs path references updated to match
+- `86bb8e7` — Migrate `opencode.json` to the v2 config schema: `small_model` → `agents.title.model`, `provider` → `providers` (`package`/`settings` instead of `npm`/`options`), `permission.bash` map → flat `permissions` array; drop `@warp-dot-dev/opencode-warp` (V1 plugin API only — v2 refuses to load it, every startup logged a warning); `setup-ollama.sh` reads `providers` (with `provider` fallback); gitignore machine-local v2 artifacts `cli.json`/`service.json` (the latter holds the opencode service password); token-optimization SKILL.md routing row updated
+- `e15bc33` — Port the four plugins to the opencode v2 plugin API: `ctx.event.subscribe` (server-wide stream — every per-location instance verifies the session's location to avoid double-firing), prompt-hook text prepends replace V1 `chat.message` part injection, `session.execution.*` events replace the removed `session.idle`; `session-nudger` counts turns in-memory (bar 25 turns ≈ the old 50-message spiral bar); `review-enforcer` exempts `~/.opencode/plan` writes and read-only agents, clears dirty on failed executions; `director.js` is a stopgap port (upstream ≤ v1.16.0 embeds the V1 API — the next `director install --opencode` overwrites it once upstream ships V2); README migrated to the v2 reality (Warp notifications → removal note, plugin sections document turn counting)
+
 ## 2026-10-19
 
 - `TBD` — Fix broken end-of-turn injections in `review-enforcer.js`: `client.prompt.add` no longer exists on the opencode SDK client (it is `session.prompt` now) — every verdict-gate call silently threw into the plugin's error swallow, so the @review gate had degraded to a silent no-op after some past opencode upgrade. Caught by the session-nudger smoke test (A/B against a live `opencode serve`: baseline showed no injection; after the call fix the gate path works)
