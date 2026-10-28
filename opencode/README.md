@@ -30,8 +30,8 @@ opencode/
 │   ├── grilling/SKILL.md      #   round-based interview workflow
 │   ├── token-optimization/SKILL.md  #   token-efficiency: ingestion, routing, oc-tokens loop
 │   └── dotfiles/SKILL.md      #   maintenance playbook for this repo itself
-├── plugin/                    # JS plugins (director state, session logger, review
-│   ├── director.js             #   enforcement, session nudger — see the sections)
+├── plugins/                   # JS plugins (director state, session logger, review
+│   ├── director.js            #   enforcement, session nudger — see the sections)
 │   ├── session-logger.js
 │   ├── review-enforcer.js
 │   └── session-nudger.js
@@ -76,9 +76,9 @@ dependencies are machine-local:
 | ------------------------------------------------------------ | ------------------------------------------------------------------------------------------------------------------------------------------------------- | ------------------------------------------------------- |
 | `/bless`, `/new`, `@ask`, `@review`                          | nothing extra                                                                                                                                           | fully portable                                          |
 | `/diagrams` + `@diagrams`                                    | `mmdc` (mermaid-cli) for the render check; diagrams degrade to syntax-unchecked edits without it                                                        | edits still apply; render verification skipped          |
-| `/director-adopt`, `/director-complete`, `/director-handoff` | the [`director`](https://github.com/mlhamel/director) binary (`plugin/director.js` is its managed shim)                                                 | commands fail; plugin no-ops harmlessly                 |
-| `/session-handoff` + `plugin/session-logger.js`              | an Obsidian vault with `log_session.py` under `.opencode/skills/decision-log/`; set `OBSIDIAN_VAULT` if the vault isn't at `~/Dropbox/obsidian/general` | command fails; plugin silently no-ops outside the vault |
-| every model call (default, `small_model`, agents)            | the ollama gateway at `localhost:11434` with the models pinned in `opencode.json`                                                                       | requests fail — run `setup-ollama.sh`                   |
+| `/director-adopt`, `/director-complete`, `/director-handoff` | the [`director`](https://github.com/mlhamel/director) binary (`plugins/director.js` is its managed shim)                                                | commands fail; plugin no-ops harmlessly                 |
+| `/session-handoff` + `plugins/session-logger.js`             | an Obsidian vault with `log_session.py` under `.opencode/skills/decision-log/`; set `OBSIDIAN_VAULT` if the vault isn't at `~/Dropbox/obsidian/general` | command fails; plugin silently no-ops outside the vault |
+| every model call (default, title agent, agents)              | the ollama gateway at `localhost:11434` with the models pinned in `opencode.json`                                                                       | requests fail — run `setup-ollama.sh`                   |
 
 ### Director setup
 
@@ -99,7 +99,7 @@ Obsidian logging are simply absent until the prerequisites are installed.
 
 `setup-ollama.sh` installs the ollama gateway via the official install
 script (if missing) and pulls every model listed under
-`provider.ollama.models` in `opencode.json` — the same list that drives
+`providers.ollama.models` in `opencode.json` — the same list that drives
 model routing, so the routing table is the single source of truth and the
 pulled set cannot drift from it. This is what makes the token-optimization
 environment (gateway + routing + oc-tokens loop) reproducible on a fresh
@@ -114,14 +114,14 @@ list is parsed with `python3`). On macOS, if `ollama` is missing, the
 script prints a `brew install ollama` hint and exits; a `brew "ollama"`
 entry should ride along on the next Brewfile refresh (P3 TODO).
 
-### Warp notifications (npm plugin)
+### Warp notifications (removed)
 
-`opencode.json` loads `@warp-dot-dev/opencode-warp` from npm — native Warp
-terminal notifications (task complete with prompt/response summary,
-permission requests, tool status) via OSC 777 escape sequences. Works out
-of the box inside Warp; other terminals ignore the sequences, so it's
-harmless as a global default. Installed automatically by opencode at
-startup via bun. Remove by deleting the `plugin` array entry.
+`@warp-dot-dev/opencode-warp` (native Warp terminal notifications via
+OSC 777 escape sequences) was removed from `opencode.json`: it only ships
+the OpenCode V1 plugin API, which opencode v2 refuses to load, so every
+startup logged a `failed to load plugin` warning. Re-add the `plugins`
+array entry once Warp publishes a V2-compatible version
+(0.1.7 as of Oct 2026).
 
 ## Custom agents
 
@@ -178,11 +178,11 @@ Usage — after structural changes:
 /diagrams audit
 ```
 
-### Review enforcement (`plugin/review-enforcer.js`)
+### Review enforcement (`plugins/review-enforcer.js`)
 
 Remembering to ask for review is the weak link; this plugin closes it:
 
-- Sessions that make substantive edits (`edit`/`write`/`apply_patch`) are
+- Sessions that make substantive edits (`edit`/`write`/`patch`) are
   tracked as "dirty"
 - A **user message** while dirty injects a nudge: run `@review` on the
   outstanding changes first
@@ -197,31 +197,32 @@ of context instead of wedging a session. Opt out with `REVIEW_ENFORCER=0`.
 
 **To change the reviewer model:** edit the `model:` line in the
 frontmatter. The ollama models listed in `opencode.json`'s
-`provider.ollama.models` appear in `opencode models` and the `/models`
+`providers.ollama.models` appear in `opencode models` and the `/models`
 picker; add an entry there (ID must match `ollama list`) to expose more.
 `ollama list` shows everything ollama has pulled, including models not
 configured in opencode. For a _local_ model instead of a cloud one,
 `ollama/gemma4:26b` fits 30GB RAM but is slow on CPU — only worth it
 for offline use.
 
-### Session-length nudger (`plugin/session-nudger.js`)
+### Session-length nudger (`plugins/session-nudger.js`)
 
 The `oc-tokens` report's biggest finding was session sprawl: the top 4
 sessions carried ~89% of all input tokens at 200–1000+ messages, against
 a healthy average of ~8. This plugin turns the skill's §3 session
 discipline into an enforced rule instead of a habit:
 
-- At end of turn, a top-level session whose message count crossed a new
-  multiple of the spiral bar (50 messages) gets a one-shot injected nudge
-  via `client.session.prompt`: recommend `/session-handoff` to checkpoint
+- At end of turn, a top-level session whose turn count crossed a new
+  multiple of the spiral bar (25 turns ≈ the 50-message `oc-tokens
+--spiral` bar; one turn ≈ two messages) gets a one-shot injected nudge
+  via `ctx.session.prompt`: recommend `/session-handoff` to checkpoint
   the thread, then start a fresh session; the reply is capped at two
   sentences so the nudge turn only adds one short assistant reply on top
   of the usual context re-send
-- Re-nudges at every band crossing (50, 100, 150, …); subagent sessions
+- Re-nudges at every band crossing (25, 50, 75, … turns); subagent sessions
   are excluded; band state is in-memory — a restart costs at most one
   re-nudge for an already-long session
-- Tune: `SESSION_NUDGER_THRESHOLD` (default 50, the `oc-tokens --spiral`
-  bar). Opt out: `SESSION_NUDGER=0`
+- Tune: `SESSION_NUDGER_THRESHOLD` (default 25 turns, ≈ the `oc-tokens
+--spiral` bar). Opt out: `SESSION_NUDGER=0`
 
 Each nudge is a full turn, so on very long sessions it re-sends the
 context once to warn about context re-sends — immediacy over economy,
@@ -279,7 +280,7 @@ Read-only (`immutable=1`), safe to run while opencode is live. Needs
 The `token-optimization` skill holds the playbook this report feeds:
 ingestion boundaries (ripgrep `.gitignore`/`.ignore` semantics, no
 `.opencodeignore`), schema-not-dataset payloads, session discipline, and
-model routing (`small_model`, per-agent `model:` pinning).
+model routing (`agents.title.model`, per-agent `model:` pinning).
 
 ## Interview demo script
 
