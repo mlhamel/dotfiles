@@ -274,8 +274,9 @@ Sections: top sessions by input tokens (context-growth suspects), spirals
 loops: 877 and 839 messages vs a healthy median of ~8), per-agent/model
 efficiency, and health baselines (median tokens of non-spiral sessions).
 
-Read-only (`immutable=1`), safe to run while opencode is live. Needs
-`python3` (stdlib only). Run it weekly or after model/agent changes.
+Read-only (WAL-aware `mode=ro`, pre-checkpoint fallback), safe to run while
+opencode is live. Needs `python3` (stdlib only). Run it weekly or after
+model/agent changes.
 
 The `token-optimization` skill holds the playbook this report feeds:
 ingestion boundaries (ripgrep `.gitignore`/`.ignore` semantics, no

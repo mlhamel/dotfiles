@@ -4,7 +4,15 @@ set -euo pipefail
 # oc-tokens — token-efficiency report from the opencode SQLite DB.
 #
 # Answers: where are we burning tokens, and which sessions are spiraling?
-# Read-only: opens opencode.db in immutable mode, safe to run any time.
+# Read-only, safe to run while opencode is live: mode=ro sees the WAL
+# (recent un-checkpointed sessions); falls back to the pre-checkpoint
+# immutable view only when the WAL cannot be read. Reads the v2 schema
+# (session_v2 / session_message) reconciled against the frozen v1 tables
+# (session / message): per session the fuller accounting wins (max), so a
+# stale v2 row from the 10-24 trial run cannot erase v1-era burn and
+# never-migrated v1-only sessions cannot vanish. Message counts are
+# user+assistant rows only — session_message also stores idle/synthetic/
+# system/compaction markers that are not conversation turns.
 #
 # Usage:
 #   oc-tokens                 # full report (all sessions)
@@ -55,20 +63,111 @@ import time
 
 db, days, spiral_threshold = sys.argv[1], sys.argv[2], int(sys.argv[3])
 
-age_sql = ""
+age_sql = "WHERE 1=1"
 age_params = ()
 if days:
     cutoff_ms = (int(time.time()) - int(days) * 86400) * 1000
-    age_sql = "WHERE s.time_created >= ?"
+    age_sql = "WHERE time_created >= ?"
     age_params = (cutoff_ms,)
 
 try:
-    con = sqlite3.connect(f"file:{db}?mode=ro&immutable=1", uri=True)
-except sqlite3.Error as e:
-    print(f"oc-tokens: cannot open DB: {e}", file=sys.stderr)
-    sys.exit(1)
+    con = sqlite3.connect(f"file:{db}?mode=ro", uri=True)
+    con.execute("SELECT 1 FROM sqlite_master LIMIT 1")
+except sqlite3.Error:
+    print(
+        "oc-tokens: DB not readable in WAL-aware read-only mode; falling"
+        " back to the pre-checkpoint view — recent sessions may be missing",
+        file=sys.stderr,
+    )
+    try:
+        con = sqlite3.connect(f"file:{db}?mode=ro&immutable=1", uri=True)
+    except sqlite3.Error as e:
+        print(f"oc-tokens: cannot open DB: {e}", file=sys.stderr)
+        sys.exit(1)
 
 cur = con.cursor()
+if cur.execute(
+    "SELECT COUNT(*) FROM sqlite_master WHERE type='table'"
+    " AND name IN ('session_v2', 'session_message')"
+).fetchone()[0] < 2:
+    print(
+        "oc-tokens: DB predates the v2 schema (no session_v2 table);"
+        " nothing to report",
+        file=sys.stderr,
+    )
+    sys.exit(1)
+
+v1_sessions = bool(
+    cur.execute(
+        "SELECT 1 FROM sqlite_master WHERE type='table' AND name='session'"
+    ).fetchone()
+)
+v1_messages = bool(
+    cur.execute(
+        "SELECT 1 FROM sqlite_master WHERE type='table' AND name='message'"
+    ).fetchone()
+)
+if v1_sessions != v1_messages:
+    print(
+        "oc-tokens: v1 tables incomplete; ignoring the v1 side",
+        file=sys.stderr,
+    )
+
+if v1_sessions and v1_messages:
+    cur.execute(
+        """
+        CREATE TEMP VIEW session_r AS
+        SELECT
+          v2.id,
+          COALESCE(v2.title, v1.title) AS title,
+          COALESCE(v2.agent, v1.agent) AS agent,
+          COALESCE(v2.model, v1.model) AS model,
+          MAX(COALESCE(v2.tokens_input, 0), COALESCE(v1.tokens_input, 0)) AS tokens_input,
+          MAX(COALESCE(v2.tokens_output, 0), COALESCE(v1.tokens_output, 0)) AS tokens_output,
+          MAX(COALESCE(v2.tokens_cache_read, 0), COALESCE(v1.tokens_cache_read, 0)) AS tokens_cache_read,
+          COALESCE(v2.time_created, v1.time_created) AS time_created,
+          MAX(COALESCE(v2.time_updated, 0), COALESCE(v1.time_updated, 0)) AS time_updated,
+          MAX(
+            (SELECT COUNT(*) FROM session_message m
+              WHERE m.session_id = v2.id AND m.type IN ('user', 'assistant')),
+            (SELECT COUNT(*) FROM message m WHERE m.session_id = v2.id)
+          ) AS msgs
+        FROM session_v2 v2 LEFT JOIN session v1 ON v1.id = v2.id
+        UNION ALL
+        SELECT
+          v1.id,
+          v1.title AS title,
+          v1.agent AS agent,
+          v1.model AS model,
+          v1.tokens_input AS tokens_input,
+          v1.tokens_output AS tokens_output,
+          v1.tokens_cache_read AS tokens_cache_read,
+          v1.time_created AS time_created,
+          v1.time_updated AS time_updated,
+          (SELECT COUNT(*) FROM message m WHERE m.session_id = v1.id) AS msgs
+        FROM session v1
+        WHERE NOT EXISTS (SELECT 1 FROM session_v2 v2 WHERE v2.id = v1.id)
+        """
+    )
+else:
+    cur.execute(
+        """
+        CREATE TEMP VIEW session_r AS
+        SELECT
+          v2.id,
+          v2.title,
+          v2.agent,
+          v2.model,
+          v2.tokens_input,
+          v2.tokens_output,
+          v2.tokens_cache_read,
+          v2.time_created,
+          v2.time_updated,
+          (SELECT COUNT(*) FROM session_message m
+            WHERE m.session_id = v2.id AND m.type IN ('user', 'assistant')) AS msgs
+        FROM session_v2 v2
+        """
+    )
 
 
 def fmt(n):
@@ -98,9 +197,9 @@ print("OC-TOKENS — opencode session efficiency report")
 print("=" * 100)
 
 row = cur.execute(
-    f"""SELECT COUNT(*), COALESCE(SUM(s.tokens_input),0), COALESCE(SUM(s.tokens_output),0),
-       COALESCE(SUM(s.tokens_cache_read),0)
-    FROM session s {age_sql}""",
+    f"""SELECT COUNT(*), COALESCE(SUM(tokens_input),0), COALESCE(SUM(tokens_output),0),
+       COALESCE(SUM(tokens_cache_read),0)
+    FROM session_r {age_sql}""",
     age_params,
 ).fetchone()
 n, ti, to, cr = row
@@ -108,12 +207,10 @@ print(f"\nTotal: {n} sessions | input {fmt(ti)} | output {fmt(to)} | cache-read 
 
 print("\n--- Top sessions by input tokens (context-growth suspects) ---")
 rows = cur.execute(
-    f"""SELECT s.title, s.agent, s.model, s.tokens_input, s.tokens_output,
-           s.tokens_cache_read, COUNT(m.id),
-           s.time_created, s.time_updated - s.time_created
-        FROM session s LEFT JOIN message m ON m.session_id = s.id
-        {age_sql}
-        GROUP BY s.id ORDER BY s.tokens_input DESC LIMIT 10""",
+    f"""SELECT title, agent, model, tokens_input, tokens_output,
+           tokens_cache_read, msgs, time_created, time_updated - time_created
+        FROM session_r {age_sql}
+        ORDER BY tokens_input DESC LIMIT 10""",
     age_params,
 ).fetchall()
 print(f"{'input':>12} {'cache-read':>13} {'msgs':>5} {'life':>5} {'agent':8} {'model':22} title")
@@ -125,12 +222,10 @@ for title, agent, model, tin, tout, crd, msgs, tc, lifespan in rows:
 
 print(f"\n--- Spirals: sessions with >= {spiral_threshold} messages (loop suspects) ---")
 rows = cur.execute(
-    f"""SELECT s.title, s.agent, s.model, s.tokens_input, COUNT(m.id),
-           s.time_updated - s.time_created
-        FROM session s JOIN message m ON m.session_id = s.id
-        {age_sql}
-        GROUP BY s.id HAVING COUNT(m.id) >= ?
-        ORDER BY COUNT(m.id) DESC LIMIT 15""",
+    f"""SELECT title, agent, model, tokens_input, msgs,
+           time_updated - time_created
+        FROM session_r {age_sql} AND msgs >= ?
+        ORDER BY msgs DESC LIMIT 15""",
     age_params + (spiral_threshold,),
 ).fetchall()
 if not rows:
@@ -143,11 +238,11 @@ for title, agent, model, tin, msgs, lifespan in rows:
 
 print("\n--- Per agent/model efficiency ---")
 rows = cur.execute(
-    f"""SELECT s.agent, s.model, COUNT(*), COALESCE(AVG(s.tokens_input),0),
-           COALESCE(AVG(s.tokens_output),0), COALESCE(AVG(s.tokens_cache_read),0),
-           COALESCE(SUM(s.tokens_input),0)
-        FROM session s {age_sql}
-        GROUP BY s.agent, s.model ORDER BY SUM(s.tokens_input) DESC""",
+    f"""SELECT agent, model, COUNT(*), COALESCE(AVG(tokens_input),0),
+           COALESCE(AVG(tokens_output),0), COALESCE(AVG(tokens_cache_read),0),
+           COALESCE(SUM(tokens_input),0)
+        FROM session_r {age_sql}
+        GROUP BY agent, model ORDER BY SUM(tokens_input) DESC""",
     age_params,
 ).fetchall()
 print(f"{'agent':8} {'model':24} {'n':>3} {'avg in':>10} {'avg out':>9} {'avg cache':>12} {'total in':>13}")
@@ -159,10 +254,8 @@ for agent, model, n, ai, ao, ac, tsum in rows:
 
 print("\n--- Health baselines (median of non-spiral sessions) ---")
 rows = cur.execute(
-    f"""SELECT s.agent, COUNT(m.id), s.tokens_input, s.tokens_output
-        FROM session s JOIN message m ON m.session_id = s.id
-        {age_sql}
-        GROUP BY s.id HAVING COUNT(m.id) < ?""",
+    f"""SELECT agent, msgs, tokens_input, tokens_output
+        FROM session_r {age_sql} AND msgs < ?""",
     age_params + (spiral_threshold,),
 ).fetchall()
 by_agent = {}
@@ -178,4 +271,6 @@ for agent, vals in sorted(by_agent.items()):
 
 print("\nLevers: steps caps on looping agents, tighter tool budgets in prompts,")
 print("split long sessions (fork per task), swap models with poor in/msg ratios.")
+print("Caveat: v2's openai-compatible provider path records cacheRead/cost as 0")
+print("even when prefix caching works — treat cache zeros as unknown, not no-cache.")
 PYEOF
