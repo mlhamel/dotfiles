@@ -4,6 +4,10 @@ All notable changes to this repo. Dates are YYYY-MM-DD (local commit date);
 entries reference the committing hash. Newest first. When adding an entry,
 use today's date and the hash of the change once committed.
 
+## 2026-11-02
+
+- `TBD` — Pin `compaction` block in `opencode.json` to upstream defaults (auto, `keep.tokens` 15000, `buffer` "15%"), measured before tuning per the token-optimization loop: model windows are 1M (glm-5.3/5.2) and 256k (kimi-k2.7-code/qwen3:4b) so the default 15% buffer triggers at ~890k/~218k, oc-tokens shows top sessions peak a few hundred k of live context, and the DB holds exactly one compaction part ever (manual, `auto:false`) — any buffer value is inert for this model set, so the block documents posture and buys immunity to upstream default drift (the 16k floor is drift-prone); declined `agents.compaction.model`→glm-5.2 (a compaction summary is session memory, load-bearing for Director sessions) and `experimental.background_compaction` (experimental, held summaries lost on restart)
+
 ## 2026-10-28
 
 - `e7ace1f` — Rename `opencode/plugin/` → `opencode/plugins/` (the v2 plugin dir), pure rename; prek/prettier excludes and README/TODOs path references updated to match

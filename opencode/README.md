@@ -301,6 +301,11 @@ model routing (`agents.title.model`, per-agent `model:` pinning).
 
 - **Split docs:** README = maintenance/rationale for me; AGENTS.md + skills =
   behavior for the agent. One doc for both audiences bloats agent context.
+- **Compaction pinned, not tuned:** `opencode.json` pins the `compaction`
+  defaults (auto, keep 15k, 15% buffer). Measured first: auto-compaction never
+  fires on this model set (1M-window default model triggers at ~890k; the
+  DB's single compaction event was manual) — the block documents posture and
+  guards against upstream default drift.
 - **Relaxed global, strict per-project:** my own repos stay friction-free;
   unfamiliar/interview repos get blessed with `edit: ask`.
 - **Official scaffolders only:** never hand-roll what `uv init`, `cargo new`,
