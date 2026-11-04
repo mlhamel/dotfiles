@@ -12,6 +12,8 @@ opencode/
 ├── opencode.json              # Global permissions (relaxed posture)
 ├── agents/                    # Custom agents
 │   ├── ask.md                 #   read-only Q&A primary agent
+│   ├── build-flash.md         #   fast-build primary agent (glm-5.3-flash:cloud)
+│   ├── build-local.md         #   local-build primary agent (qwen3:4b)
 │   ├── diagrams.md            #   Mermaid diagram maintainer (see below)
 │   └── review.md              #   cross-model code reviewer (see below)
 ├── commands/                  # Thin triggers, typed in the TUI
@@ -130,6 +132,18 @@ array entry once Warp publishes a V2-compatible version
 Primary agent that answers questions about the codebase without ever
 touching it (`edit: deny`, `bash: deny`). Switch to it with **Tab**, or
 use it whenever you want explanations instead of changes.
+
+### `build-flash` / `build-local` — budget build agents
+
+Primary build agents pinned below the heavy default model
+(`glm-5.3:cloud`), for work that does not need it:
+
+- **`build-flash`** (`agents/build-flash.md`) — `glm-5.3-flash:cloud`,
+  the fast cloud tier (~10× cheaper than the default, 1M context)
+- **`build-local`** (`agents/build-local.md`) — `qwen3:4b`, fully offline
+
+Same contract as the default Build agent: small, focused changes, tests and
+linter after edits. Switch with **Tab** when the task fits a cheaper tier.
 
 ### `review` — cross-model code review (`agents/review.md`)
 
