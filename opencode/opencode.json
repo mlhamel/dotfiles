@@ -1,12 +1,16 @@
 {
   "$schema": "https://opencode.ai/config.json",
   "model": "ollama/glm-5.3:cloud",
+  "instructions": ["~/.config/opencode/agent_sssm_instructions.md"],
   "experimental": {
     "todo": true
   },
   "agents": {
     "title": {
       "model": "ollama/glm-5.2:cloud"
+    },
+    "compaction": {
+      "system": "You are a state compressor (SSSM). Produce a brief oriented toward future actions. Include only: 1) The task's main objective and acceptance criteria, 2) The current state of the code and tests, 3) The relevant files and their paths, 4) The exact next action to execute. Strictly exclude verbose build/test logs, past explanations, and already-resolved failed attempts."
     }
   },
   "tool_output": {
@@ -15,8 +19,8 @@
   },
   "compaction": {
     "auto": true,
-    "keep": { "tokens": 15000 },
-    "buffer": "15%"
+    "keep": { "tokens": 4096 },
+    "buffer": "25%"
   },
   "providers": {
     "ollama": {
@@ -27,22 +31,28 @@
       },
       "models": {
         "qwen3:4b": {
-          "name": "Qwen3 4B (local)"
+          "name": "Qwen3 4B (local)",
+          "limit": { "context": 16384 }
         },
         "glm-5.3:cloud": {
-          "name": "glm-5.3:cloud"
+          "name": "glm-5.3:cloud",
+          "limit": { "context": 16384 }
         },
         "glm-5.3-flash:cloud": {
-          "name": "glm-5.3-flash:cloud"
+          "name": "glm-5.3-flash:cloud",
+          "limit": { "context": 16384 }
         },
         "glm-5.2:cloud": {
-          "name": "glm-5.2:cloud"
+          "name": "glm-5.2:cloud",
+          "limit": { "context": 16384 }
         },
         "gemma4:cloud": {
-          "name": "gemma4:cloud"
+          "name": "gemma4:cloud",
+          "limit": { "context": 16384 }
         },
         "kimi-k2.7-code:cloud": {
-          "name": "kimi-k2.7-code:cloud"
+          "name": "kimi-k2.7-code:cloud",
+          "limit": { "context": 16384 }
         }
       }
     }

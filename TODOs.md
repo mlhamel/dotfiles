@@ -80,6 +80,11 @@ Priorities: **P1** do soon · **P2** do eventually · **P3** nice to have.
       turn, agent/model `-` — while healthy sessions run 5–6x cache-read;
       identify what those were and surface future zero-cache burn
       automatically instead of by eyeball.
+- [ ] **P3 · SSSM compaction observation** — with the 16384 window cap and the
+      12288 trigger live, run `opencode/bin/oc-tokens` after a few days of
+      real use: confirm auto-compaction actually fires (~12k; none did under
+      the old posture) without thrashing on the tighter window, and feed the
+      numbers into the cadence loop above.
 
 ## Housekeeping
 
