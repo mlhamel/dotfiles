@@ -4,6 +4,10 @@ All notable changes to this repo. Dates are YYYY-MM-DD (local commit date);
 entries reference the committing hash. Newest first. When adding an entry,
 use today's date and the hash of the change once committed.
 
+## 2026-11-09
+
+- `TBD` — Restore the agent todo checklist after the V2 upgrade: `"experimental": { "todo": true }` in `opencode.json` re-adds the `todowrite` tool and renders task steps in the session, the active-todo pill, and the TUI right sidebar — default-on in V1 but experimental/opt-in in V2 (changelog v2.1.0, 2026-10-20), so the steps panel silently vanished on the v2.2.x upgrade; no permission rule needed (base policy allows all actions, shell deny list untouched); desktop Todo view is behind the same flag
+
 ## 2026-11-03
 
 - `1a5745c` — Add `build-flash` agent (`agents/build-flash.md`, primary, `ollama/glm-5.3-flash:cloud`): a fast/cheap build tier alongside the heavy default — glm-5.3-flash is Z.ai's 18B-active flash model (~10× cheaper than glm-5.3, 1M context, multimodal, only ships as `:cloud`); model registered under `providers.ollama.models` so `setup-ollama.sh` pulls it on fresh machines and the routing table stays the single source of truth, routing-table row added to token-optimization SKILL.md §5, README tree now lists the build agents (`build-local.md` was missing from it) plus a budget-build section; pulled on this machine already, end-to-end smoke test passed (`build-flash · glm-5.3-flash:cloud`)
