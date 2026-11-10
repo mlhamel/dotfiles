@@ -9,6 +9,7 @@ work the way I want — rules, commands, skills — versioned in one repo.
 opencode/
 ├── README.md                  # You are here. Human-facing docs.
 ├── AGENTS.md                  # Agent rules. Loaded in EVERY session. Keep lean.
+├── agent_sssm_instructions.md # SSSM discipline: STATE.md logbook, selective reads, atomic actions. Loaded in EVERY session.
 ├── opencode.json              # Global permissions (relaxed posture)
 ├── agents/                    # Custom agents
 │   ├── ask.md                 #   read-only Q&A primary agent
@@ -249,7 +250,9 @@ deliberately. Raise the threshold if the cadence ever feels too chatty.
 - New language support → edit `skills/scaffolding/SKILL.md`, add the
   official scaffolder + test + lint tooling to the reference table.
 - New personal rule → edit `AGENTS.md`. Ask: does this need to be in every
-  session's context? If no, put it in a skill.
+  session's context? If no, put it in a skill. Rules that must load every
+  session but would bloat `AGENTS.md` go in a dedicated file wired through
+  the top-level `instructions` array (see `agent_sssm_instructions.md`).
 - Per-project strictness comes from `/bless`, which generates a project-level
   `opencode.json` with `edit: ask` — the global config stays relaxed.
 
@@ -315,11 +318,19 @@ model routing (`agents.title.model`, per-agent `model:` pinning).
 
 - **Split docs:** README = maintenance/rationale for me; AGENTS.md + skills =
   behavior for the agent. One doc for both audiences bloats agent context.
-- **Compaction pinned, not tuned:** `opencode.json` pins the `compaction`
-  defaults (auto, keep 15k, 15% buffer). Measured first: auto-compaction never
-  fires on this model set (1M-window default model triggers at ~890k; the
-  DB's single compaction event was manual) — the block documents posture and
-  guards against upstream default drift.
+- **Short-context SSSM posture (2026-11-07):** the earlier "compaction
+  pinned, not tuned" stance is inverted on purpose. Every model under
+  `providers.ollama.models` is capped at `limit.context: 16384`, and
+  `compaction` fires at 12288 (buffer 25% of the capped window; recent tail
+  `keep.tokens: 4096`). Why: auto-compaction never fired on the 1M-window
+  default model, later tokens are the costlier ones to generate (up to 7× on
+  frontier open-weight models), and frequent compaction around a carried
+  forward-looking state brief holds accuracy on long-horizon work (NVIDIA,
+  "You don't need long context", arXiv:2611.05306). The hidden `compaction`
+  agent gets a custom system prompt requesting a forward-looking state brief
+  (the STATE.md logbook additionally tracks blockers), and execution rules
+  live in `agent_sssm_instructions.md`, loaded every session via the
+  top-level `instructions` array.
 - **Relaxed global, strict per-project:** my own repos stay friction-free;
   unfamiliar/interview repos get blessed with `edit: ask`.
 - **Official scaffolders only:** never hand-roll what `uv init`, `cargo new`,

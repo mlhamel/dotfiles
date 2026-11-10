@@ -56,6 +56,10 @@ pub struct SystemData {
 - **Commit-and-reset cycle**: define requirement → implement + tests →
   commit → fresh session for the next task.
 - Use `/session-handoff` to checkpoint a long thread before resetting it.
+- **State outlives the session**: the SSSM execution rules persist task state
+  in `.opencode/STATE.md` (goal, progress, artifacts, next action, blockers),
+  so the essentials survive compaction and thread resets instead of living
+  in the transcript.
 - Enforcement: the `session-nudger` plugin injects a one-shot nudge
   (recommend `/session-handoff`, fresh session) each time a session
   crosses a new multiple of the 50-message spiral bar; tune with
