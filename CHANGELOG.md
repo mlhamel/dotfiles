@@ -4,6 +4,10 @@ All notable changes to this repo. Dates are YYYY-MM-DD (local commit date);
 entries reference the committing hash. Newest first. When adding an entry,
 use today's date and the hash of the change once committed.
 
+## 2026-11-11
+
+- `6ab705a` — SSSM cap raised in two steps (2026-11-10: double to 32768, 2026-11-11: again to 65536): `limit.context: 65536` on every model under `providers.ollama.models` (uniform, incl. local `qwen3:4b` by owner call despite its ≈32k native window, since `ask-local` rarely runs), `compaction` fires at 49152 (buffer 25% of the capped window, recent tail `keep.tokens: 16384`); narrative numbers synced in `agent_sssm_instructions.md`, the README posture note, and TODOs P3
+
 ## 2026-11-10
 
 - `06139a0` — New `ask-local` agent: read-only Q&A run entirely on-box through `ollama/qwen3:4b`; `edit` and `bash` denied so it cannot modify anything, and change requests are redirected to the Build agent.
