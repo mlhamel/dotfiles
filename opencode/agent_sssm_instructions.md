@@ -38,3 +38,17 @@ never shows in `git status` and never enters a commit.
   logging state.
 - Write key decisions and outcomes to `STATE.md` as they happen: a fresh
   session must be able to resume from the file alone.
+
+## 4. Always-visible progress
+
+- Long commands — anything past ~1 minute (builds, full test suites) — launch
+  in the background (`background: true`) so live output stays watchable;
+  proceed on the completion notification.
+- Once it finishes, ingest only a tail/grep verdict line: what ran, counts
+  or key metric, exit code, wall time, e.g.
+  `pytest: 214 passed, 3 failed, exit 1, 96s (fails in /tmp/opencode/test.log)`.
+- If a long step must block the transcript, announce before launching: the
+  command, why it is slow, where output lands.
+- Long commands still redirect verbose output to `/tmp/opencode/` (section 2);
+  the final ingestion is only the verdict line above. Short commands stay
+  unchanged.

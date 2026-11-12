@@ -9,7 +9,7 @@ work the way I want — rules, commands, skills — versioned in one repo.
 opencode/
 ├── README.md                  # You are here. Human-facing docs.
 ├── AGENTS.md                  # Agent rules. Loaded in EVERY session. Keep lean.
-├── agent_sssm_instructions.md # SSSM discipline: STATE.md logbook, selective reads, atomic actions. Loaded in EVERY session.
+├── agent_sssm_instructions.md # SSSM discipline: STATE.md logbook, selective reads, atomic actions, visible progress. Loaded in EVERY session.
 ├── opencode.json              # Global permissions (relaxed posture)
 ├── agents/                    # Custom agents
 │   ├── ask.md                 #   read-only Q&A primary agent
