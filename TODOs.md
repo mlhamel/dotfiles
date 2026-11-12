@@ -22,8 +22,12 @@ Priorities: **P1** do soon · **P2** do eventually · **P3** nice to have.
       drift check is deliberately local-only (it diffs against the machine's
       package set — always-fail on a runner); documented in the workflow
       and apt/README.md.
-- [ ] **P3 · Test `install.sh` idempotency** — run the opencode deploy twice in a
-      row on a scratch HOME and confirm the symlink path is stable.
+- [x] **P3 · Test `install.sh` idempotency** — done 2026-11-10: 3 consecutive
+      runs on a scratch HOME all exit 0 with an identical `readlink` target
+      (repeat runs take the remove-symlink branch, no backup spam); backup
+      branch probed separately — an existing real dir is renamed to
+      `.config/opencode.backup.<timestamp>` with contents intact before
+      relinking.
 
 ## apt section
 
@@ -80,10 +84,10 @@ Priorities: **P1** do soon · **P2** do eventually · **P3** nice to have.
       turn, agent/model `-` — while healthy sessions run 5–6x cache-read;
       identify what those were and surface future zero-cache burn
       automatically instead of by eyeball.
-- [ ] **P3 · SSSM compaction observation** — with the 16384 window cap and the
-      12288 trigger live, run `opencode/bin/oc-tokens` after a few days of
-      real use: confirm auto-compaction actually fires (~12k; none did under
-      the old posture) without thrashing on the tighter window, and feed the
+- [ ] **P3 · SSSM compaction observation** — with the 65536 window cap and the
+      49152 trigger live, run `opencode/bin/oc-tokens` after a few days of
+      real use: confirm auto-compaction actually fires (~49k; none did under
+      the old posture) without thrashing on the wider window, and feed the
       numbers into the cadence loop above.
 
 ## Housekeeping
