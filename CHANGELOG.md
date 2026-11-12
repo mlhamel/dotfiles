@@ -4,6 +4,10 @@ All notable changes to this repo. Dates are YYYY-MM-DD (local commit date);
 entries reference the committing hash. Newest first. When adding an entry,
 use today's date and the hash of the change once committed.
 
+## 2026-11-10
+
+- `06139a0` — New `ask-local` agent: read-only Q&A run entirely on-box through `ollama/qwen3:4b`; `edit` and `bash` denied so it cannot modify anything, and change requests are redirected to the Build agent.
+
 ## 2026-11-09
 
 - `414ed82` — SSSM short-context posture: `limit.context: 16384` on every model under `providers.ollama.models`; `compaction` retuned to fire at 12288 (buffer 25% of the capped window, recent tail `keep.tokens: 4096` — the old keep-15k tail exceeded the entire new threshold); a forward-looking state-brief prompt pinned onto the hidden `compaction` agent; new `agent_sssm_instructions.md` (persistent `.opencode/STATE.md` logbook, single-file reads capped at 80 lines via ripgrep plus targeted slices, verbose terminal output to `/tmp/opencode/` inspected by `grep`/`head`/`tail`, action-observation-state loops) loaded every session via `instructions[]` — after NVIDIA's "You don't need long context" (arXiv:2611.05306: later tokens up to 7× costlier to generate, frequent compaction around a carried state holds accuracy), deliberately inverting the "pinned, not tuned" stance under which auto-compaction never fired on the 1M-window default models
