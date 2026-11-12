@@ -318,11 +318,12 @@ model routing (`agents.title.model`, per-agent `model:` pinning).
 
 - **Split docs:** README = maintenance/rationale for me; AGENTS.md + skills =
   behavior for the agent. One doc for both audiences bloats agent context.
-- **Short-context SSSM posture (2026-11-07):** the earlier "compaction
-  pinned, not tuned" stance is inverted on purpose. Every model under
-  `providers.ollama.models` is capped at `limit.context: 16384`, and
-  `compaction` fires at 12288 (buffer 25% of the capped window; recent tail
-  `keep.tokens: 4096`). Why: auto-compaction never fired on the 1M-window
+- **Short-context SSSM posture (2026-11-07, raised 2026-11-10 and
+  2026-11-11):** the earlier "compaction pinned, not tuned" stance is
+  inverted on purpose. Every model under `providers.ollama.models` is
+  capped at `limit.context: 65536`, and `compaction` fires at 49152
+  (buffer 25% of the capped window; recent tail `keep.tokens: 16384`).
+  Why: auto-compaction never fired on the 1M-window
   default model, later tokens are the costlier ones to generate (up to 7× on
   frontier open-weight models), and frequent compaction around a carried
   forward-looking state brief holds accuracy on long-horizon work (NVIDIA,

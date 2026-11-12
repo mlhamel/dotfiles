@@ -3,7 +3,7 @@
 Short-context discipline modeled on the Semantic State Space Model concept
 ("You don't need long context", NVIDIA, arXiv:2611.05306): keep the live
 window short and carry the state outside the transcript. The context window
-is capped at 16384 tokens and compaction fires around 12288, so context is a
+is capped at 65536 tokens and compaction fires around 49152, so context is a
 scarce, deliberately budgeted resource. These rules are always in effect.
 
 ## 1. Persistent logbook (`STATE.md`)

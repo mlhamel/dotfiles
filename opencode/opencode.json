@@ -19,7 +19,7 @@
   },
   "compaction": {
     "auto": true,
-    "keep": { "tokens": 4096 },
+    "keep": { "tokens": 16384 },
     "buffer": "25%"
   },
   "providers": {
@@ -32,27 +32,27 @@
       "models": {
         "qwen3:4b": {
           "name": "Qwen3 4B (local)",
-          "limit": { "context": 16384 }
+          "limit": { "context": 65536 }
         },
         "glm-5.3:cloud": {
           "name": "glm-5.3:cloud",
-          "limit": { "context": 16384 }
+          "limit": { "context": 65536 }
         },
         "glm-5.3-flash:cloud": {
           "name": "glm-5.3-flash:cloud",
-          "limit": { "context": 16384 }
+          "limit": { "context": 65536 }
         },
         "glm-5.2:cloud": {
           "name": "glm-5.2:cloud",
-          "limit": { "context": 16384 }
+          "limit": { "context": 65536 }
         },
         "gemma4:cloud": {
           "name": "gemma4:cloud",
-          "limit": { "context": 16384 }
+          "limit": { "context": 65536 }
         },
         "kimi-k2.7-code:cloud": {
           "name": "kimi-k2.7-code:cloud",
-          "limit": { "context": 16384 }
+          "limit": { "context": 65536 }
         }
       }
     }
