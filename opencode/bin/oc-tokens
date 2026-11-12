@@ -21,6 +21,10 @@ set -euo pipefail
 #                             # (default 50)
 #   oc-tokens --db PATH       # explicit DB path
 #
+# Output carries a per-session cache-read/input ratio in the burners table
+# and a "Zero-cache burn" section flagging cache-read 0 with input >= 100k.
+# Treat those zeros as "unknown", not "no cache" (see the report's caveat).
+#
 # A missing DB is not an error (fresh machine): prints a note, exits 0.
 # A malformed DB or unreadable file exits 1.
 
@@ -213,10 +217,30 @@ rows = cur.execute(
         ORDER BY tokens_input DESC LIMIT 10""",
     age_params,
 ).fetchall()
-print(f"{'input':>12} {'cache-read':>13} {'msgs':>5} {'life':>5} {'agent':8} {'model':22} title")
+print(f"{'input':>12} {'cache-read':>13} {'cr/in':>6} {'msgs':>5} {'life':>5} {'agent':8} {'model':22} title")
 for title, agent, model, tin, tout, crd, msgs, tc, lifespan in rows:
+    r = f"{crd / tin:.1f}x" if tin and crd else "0.0x" if tin else "-"
     print(
-        f"{fmt(tin):>12} {fmt(crd):>13} {msgs:>5} {dur(lifespan):>5} "
+        f"{fmt(tin):>12} {fmt(crd):>13} {r:>6} {msgs:>5} {dur(lifespan):>5} "
+        f"{(agent or '-'):8} {model_id(model):22} {str(title)[:38]}"
+    )
+
+print(
+    "\n--- Zero-cache burn: cache-read 0 with input >= 100k"
+    " (zero = unknown per provider caveat) ---"
+)
+rows = cur.execute(
+    f"""SELECT title, agent, model, tokens_input, time_created
+        FROM session_r {age_sql}
+        AND COALESCE(tokens_cache_read, 0) = 0 AND tokens_input >= 100000
+        ORDER BY tokens_input DESC LIMIT 10""",
+    age_params,
+).fetchall()
+if not rows:
+    print("none — every large session recorded cache-read, or ran input < 100k")
+for title, agent, model, tin, tc in rows:
+    print(
+        f"{fmt(tin):>12} {time.strftime('%m-%d', time.localtime(tc / 1000)):>5} "
         f"{(agent or '-'):8} {model_id(model):22} {str(title)[:38]}"
     )
 

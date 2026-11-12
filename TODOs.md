@@ -78,12 +78,14 @@ Priorities: **P1** do soon · **P2** do eventually · **P3** nice to have.
       subagents excluded, band state in-memory, reply capped at two
       sentences. Anchored in the report: top 4 sessions carried ~143M of
       160M input (89%) at 507/1059/252/231 msgs vs the ~8 healthy target.
-- [ ] **P2 · oc-tokens cache-hit ratio** — add a cache-read/input ratio per
-      session and flag zero-cache outliers. Why: the top 3 burners
-      (73M/34M/19.7M input) show cache-read = 0 — full input cost every
-      turn, agent/model `-` — while healthy sessions run 5–6x cache-read;
-      identify what those were and surface future zero-cache burn
-      automatically instead of by eyeball.
+- [x] **P2 · oc-tokens cache-hit ratio** — done 2026-11-11: top-burners
+      table gains a `cr/in` ratio column and a "Zero-cache burn" section
+      auto-flags cache-read = 0 sessions with input >= 100k. Identified:
+      a 8/31–9/3 window of glm-5.3:cloud/flash sessions (9 sessions,
+      94.6M input, ~45% of lifetime input burn) where the openai-compatible
+      provider path recorded cache as 0; later sessions on the same models
+      record 5–16x. Zeros stay framed "unknown, not no-cache" per the
+      provider caveat.
 - [ ] **P3 · SSSM compaction observation** — with the 65536 window cap and the
       49152 trigger live, run `opencode/bin/oc-tokens` after a few days of
       real use: confirm auto-compaction actually fires (~49k; none did under
