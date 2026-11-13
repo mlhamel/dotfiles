@@ -4,6 +4,10 @@ All notable changes to this repo. Dates are YYYY-MM-DD (local commit date);
 entries reference the committing hash. Newest first. When adding an entry,
 use today's date and the hash of the change once committed.
 
+## 2026-11-13
+
+- `ff4e32a` — SSSM §4 progress-discipline rewrite: live-run status must be one quantified line (`<cmd> · <log> · <done>/<total> · elapsed`, counts from a fresh grep of the log in the same turn — "on the final suites" is not a count) with the log path always named so the human can `tail -f` it, uncountable runner output made countable first (verbose/list option or stage markers), notification-turn replies poll ALL live background jobs before writing, `/dev/null` redirects replaced by `/tmp/opencode/` logs, and polling instead of waiting blind on the completion notification — after an opaque "still running — on the final suites" reply on a cargo workspace re-test buried 216-passed/0-failed progress three greps away in the live log; passed `@review` (APPROVE)
+
 ## 2026-11-11
 
 - `6ab705a` — SSSM cap raised in two steps (2026-11-10: double to 32768, 2026-11-11: again to 65536): `limit.context: 65536` on every model under `providers.ollama.models` (uniform, incl. local `qwen3:4b` by owner call despite its ≈32k native window, since `ask-local` rarely runs), `compaction` fires at 49152 (buffer 25% of the capped window, recent tail `keep.tokens: 16384`); narrative numbers synced in `agent_sssm_instructions.md`, the README posture note, and TODOs P3
