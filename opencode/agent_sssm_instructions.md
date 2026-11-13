@@ -44,11 +44,29 @@ never shows in `git status` and never enters a commit.
 - Long commands — anything past ~1 minute (builds, full test suites) — launch
   in the background (`background: true`) so live output stays watchable;
   proceed on the completion notification.
-- Once it finishes, ingest only a tail/grep verdict line: what ran, counts
-  or key metric, exit code, wall time, e.g.
-  `pytest: 214 passed, 3 failed, exit 1, 96s (fails in /tmp/opencode/test.log)`.
+- Never redirect command output to `/dev/null` (or `-o /dev/null`, `> &-`):
+  silence hides a hung, crashed, or failed run. Redirect into
+  `/tmp/opencode/` and let the file carry it (section 2).
+- Do not wait blind until completion: poll the log at short intervals
+  (`sleep N; grep`/`tail`) and report interim progress in each reply — e.g.
+  `make bench` redirected to a log is polled with
+  `grep -c '^\[' bench.log` against the known work total, a test log with
+  `grep -c '^test '` (and totals from a `-- --list` run). A verdict with no
+  interim observations means you were not actually watching the run.
+- Every status about a live run is one quantified line:
+  `<cmd> · <log> · <done>/<total> <unit> · elapsed <T> · next check <N>s`.
+  Counts come from a fresh grep of the log in the same turn — "on the
+  final suites" is not a count — and the log path is always named so the
+  human can `tail -f` it directly. If the runner has no per-item output,
+  rerun with a verbose/list option or wrap it so the log gains countable
+  stage markers.
+- On any turn triggered by a background notification, poll the logs of
+  ALL live background jobs before writing — not only the job that woke
+  you.
 - If a long step must block the transcript, announce before launching: the
   command, why it is slow, where output lands.
-- Long commands still redirect verbose output to `/tmp/opencode/` (section 2);
-  the final ingestion is only the verdict line above. Short commands stay
-  unchanged.
+- Once it finishes, ingest a tail/grep verdict line: what ran, counts or key
+  metric, exit code, wall time, e.g.
+  `pytest: 214 passed, 3 failed, exit 1, 96s (fails in /tmp/opencode/test.log)`.
+  A run is not "verified" because the shell returned — the log must show the
+  summary line. Short commands stay unchanged.
