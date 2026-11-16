@@ -4,6 +4,10 @@ All notable changes to this repo. Dates are YYYY-MM-DD (local commit date);
 entries reference the committing hash. Newest first. When adding an entry,
 use today's date and the hash of the change once committed.
 
+## 2026-11-15
+
+- `0bbbcd4` — setup.sh installs OpenCode **V2**: step 1 always runs the official V2 curl installer (`https://opencode.ai/v2/install` — per docs/migrate-v1 it replaces a curl-installed V1 binary and installs the latest release; the old `opencode.ai/install` URL is V1-only and rejects v2.x, and the old skip-if-installed guard kept a V1 binary forever, surfacing as "V2 permissions are not supported by OpenCode V1"), aborts step 1 with removal hints when opencode is dpkg/brew/npm-managed (the installer replaces only curl-installed binaries), and no longer skips on re-runs so every bootstrap self-heals a stale install; `@review` REQUEST CHANGES ([major] managed-install regression, [minor] failure-tolerant version probe) → fixed → APPROVE
+
 ## 2026-11-13
 
 - `ff4e32a` — SSSM §4 progress-discipline rewrite: live-run status must be one quantified line (`<cmd> · <log> · <done>/<total> · elapsed`, counts from a fresh grep of the log in the same turn — "on the final suites" is not a count) with the log path always named so the human can `tail -f` it, uncountable runner output made countable first (verbose/list option or stage markers), notification-turn replies poll ALL live background jobs before writing, `/dev/null` redirects replaced by `/tmp/opencode/` logs, and polling instead of waiting blind on the completion notification — after an opaque "still running — on the final suites" reply on a cargo workspace re-test buried 216-passed/0-failed progress three greps away in the live log; passed `@review` (APPROVE)
