@@ -81,6 +81,7 @@ dependencies are machine-local:
 | `/diagrams` + `@diagrams`                                    | `mmdc` (mermaid-cli) for the render check; diagrams degrade to syntax-unchecked edits without it                                                        | edits still apply; render verification skipped          |
 | `/director-adopt`, `/director-complete`, `/director-handoff` | the [`director`](https://github.com/mlhamel/director) binary (`plugins/director.js` is its managed shim)                                                | commands fail; plugin no-ops harmlessly                 |
 | `/session-handoff` + `plugins/session-logger.js`             | an Obsidian vault with `log_session.py` under `.opencode/skills/decision-log/`; set `OBSIDIAN_VAULT` if the vault isn't at `~/Dropbox/obsidian/general` | command fails; plugin silently no-ops outside the vault |
+| `/progress`                                                  | `jq` (shipped via the Aptfile) to trim `opencode api` output                                                                                            | command replies it cannot report progress               |
 | every model call (default, title agent, agents)              | the ollama gateway at `localhost:11434` with the models pinned in `opencode.json`                                                                       | requests fail — run `setup-ollama.sh`                   |
 
 ### Director setup
