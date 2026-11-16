@@ -4,6 +4,14 @@ All notable changes to this repo. Dates are YYYY-MM-DD (local commit date);
 entries reference the committing hash. Newest first. When adding an entry,
 use today's date and the hash of the change once committed.
 
+## 2026-11-16
+
+- `0fc6b67` — /progress command ships live progress reporting server-wide: thin `commands/progress.md` trigger + `skills/progress/SKILL.md` procedure — inventory via `opencode api get /api/experimental/job` (background shells/subagents/images) and `/api/session/active` (executing sessions anywhere on the machine), self-exclusion via `$OPENCODE_SESSION_ID`, running-subagent child-session dedup, one S4-quantified line per item (kind · cmd · status · elapsed, log path / counts only when a countable marker exists), deep-dives via the shell-output window with a `/tmp/opencode` log fallback for buffered pipelines and a newest-messages probe (title, agent, `.tokens`, last activity) for subagents/sessions; `$ARGUMENTS` filters and deep-dives only the matches, zero matches fall back to what-is-running (the jobs endpoint carries in-flight jobs only, so finished items are never reconstructed); indexed in AGENTS.md toolkit + README dependency table
+
+- `0118940` — apt/Aptfile: `jq` enters the regen now that it is marked manual (`/progress` dependency — `opencode api` output trimming); the regen also captured 4 machine-drift packages (libasound2-dev libudev-dev openssh-server pwgen) — regen output, machine truth
+
+- `5221be2` — agents: add explicit `model: ollama/glm-5.3-flash:cloud` to the `ask` agent and bump the `title` agent from glm-5.2 → glm-5.3-flash:cloud
+
 ## 2026-11-15
 
 - `0bbbcd4` — setup.sh installs OpenCode **V2**: step 1 always runs the official V2 curl installer (`https://opencode.ai/v2/install` — per docs/migrate-v1 it replaces a curl-installed V1 binary and installs the latest release; the old `opencode.ai/install` URL is V1-only and rejects v2.x, and the old skip-if-installed guard kept a V1 binary forever, surfacing as "V2 permissions are not supported by OpenCode V1"), aborts step 1 with removal hints when opencode is dpkg/brew/npm-managed (the installer replaces only curl-installed binaries), and no longer skips on re-runs so every bootstrap self-heals a stale install; `@review` REQUEST CHANGES ([major] managed-install regression, [minor] failure-tolerant version probe) → fixed → APPROVE
