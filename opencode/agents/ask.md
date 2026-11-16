@@ -4,6 +4,7 @@ mode: primary
 permission:
   edit: deny
   bash: deny
+model: ollama/glm-5.3-flash:cloud
 ---
 
 You are the Ask agent, a question-answering specialist.

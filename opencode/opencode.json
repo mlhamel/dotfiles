@@ -7,7 +7,7 @@
   },
   "agents": {
     "title": {
-      "model": "ollama/glm-5.2:cloud"
+      "model": "ollama/glm-5.3-flash:cloud"
     },
     "compaction": {
       "system": "You are a state compressor (SSSM). Produce a brief oriented toward future actions. Include only: 1) The task's main objective and acceptance criteria, 2) The current state of the code and tests, 3) The relevant files and their paths, 4) The exact next action to execute. Strictly exclude verbose build/test logs, past explanations, and already-resolved failed attempts."
