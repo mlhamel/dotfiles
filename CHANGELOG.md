@@ -4,6 +4,10 @@ All notable changes to this repo. Dates are YYYY-MM-DD (local commit date);
 entries reference the committing hash. Newest first. When adding an entry,
 use today's date and the hash of the change once committed.
 
+## 2026-11-17
+
+- `035cf79` — setup.sh hardens opencode config staleness end-to-end: new step 1 raises `fs.inotify.max_user_watches` to `1048576` via an idempotent sysctl guard (SKIP when runtime ≥ target AND `/etc/sysctl.d/99-dotfiles-inotify.conf` already matches; Linux-only; WARN-not-fail with rc 0 on sudo failure; mktemp → `sudo install -m 0644` → `sudo sysctl -p`, deliberately no pipe into sudo), and the config-deploy step (now 3/6) ends with `command -v opencode && opencode reload` so the running service re-parses after every deploy instead of silently serving a stale watch — the durable fix for the 2026-11-16 ENOSPC root cause (358 `failed to subscribe` watcher failures left `~/.config/opencode` unwatched and the service serving a pre-rebalance parse); steps renumbered 1–6, `OS` hoisted; verified by a 6-case sudo-shadow harness (Darwin SKIP, persisted SKIP, raise→done, warn→rc 0, idem SKIP, live reload) + `prek` (shellcheck/prettier), `@review` APPROVE with 2 accepted minors (mktemp abort edge, /proc TOCTOU)
+
 ## 2026-11-16
 
 - `(hash)` — Agent roster rebalance: the default Build agent drops to the fast/cheap tier — top-level `model` in `opencode.json` switches to `ollama/glm-5.3-flash:cloud` and `agents.plan` pins Plan to it too (Plan rode the default and had been burning the heavy `glm-5.3:cloud` on planning turns); the heavy tier becomes a named opt-in — `agents/build-flash.md` renamed to `agents/build-no-flash.md` re-pinned to `glm-5.3:cloud`, README tree/build/review sections and the token-optimization §5 routing table synced (whose titles row was stale on `glm-5.2:cloud` since 5221be2)
