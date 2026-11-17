@@ -7,7 +7,7 @@ set -euo pipefail
 #   1. kernel inotify limit    (fs.inotify.max_user_watches via sysctl, persisted
 #                              to /etc/sysctl.d/99-dotfiles-inotify.conf)
 #   2. opencode binary         (latest V2 via official curl script, replaces V1;
-#                              SKIP_OPENCODE=1)
+#                              SKIP_OPENCODE=1; FORCE_OPENCODE=1 reinstalls)
 #   3. config symlink          (opencode/install.sh, then `opencode reload`)
 #   4. Director + wiring        (opencode/setup-director.sh; SKIP_DIRECTOR=1)
 #   5. packages                (apt/ on Debian/Ubuntu, homebrew/ hint on macOS;
@@ -66,13 +66,20 @@ else
       echo "[opencode] ${oc_bin} is npm-managed; run 'npm uninstall -g @opencode/cli' first, then re-run setup.sh" >&2
       exit 1
     fi
-    echo "[opencode] the V2 installer replaces it with the latest release"
+    if [ "${FORCE_OPENCODE:-0}" = 1 ]; then
+      echo "[opencode] FORCE_OPENCODE=1 — replacing with the latest release"
+    else
+      echo "[opencode] SKIP ${oc_bin} (${oc_ver:-unknown}) already installed; FORCE_OPENCODE=1 to reinstall"
+      skip_opencode_install=1
+    fi
   fi
-  echo "[opencode] running official V2 install script..."
-  curl -fsSL https://opencode.ai/v2/install | bash
-  command -v opencode >/dev/null 2>&1 || {
-    echo "[opencode] installed but not on PATH in this shell; re-run setup.sh from a fresh shell" >&2
-  }
+  if [ "${skip_opencode_install:-0}" != 1 ]; then
+    echo "[opencode] running official V2 install script..."
+    curl -fsSL https://opencode.ai/v2/install | bash
+    command -v opencode >/dev/null 2>&1 || {
+      echo "[opencode] installed but not on PATH in this shell; re-run setup.sh from a fresh shell" >&2
+    }
+  fi
 fi
 
 # 3. config symlink ---------------------------------------------------------
