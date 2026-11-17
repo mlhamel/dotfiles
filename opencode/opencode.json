@@ -64,7 +64,6 @@
     { "action": "shell", "resource": "*", "effect": "allow" },
     { "action": "shell", "resource": "rm *", "effect": "deny" },
     { "action": "shell", "resource": "sudo *", "effect": "deny" },
-    { "action": "shell", "resource": "git push *", "effect": "deny" },
     { "action": "shell", "resource": "curl * | bash", "effect": "deny" },
     { "action": "shell", "resource": "wget * | bash", "effect": "deny" }
   ]
