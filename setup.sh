@@ -4,22 +4,51 @@ set -euo pipefail
 # setup.sh — one-command bootstrap for a fresh machine.
 #
 # Chains, in order:
-#   1. opencode binary        (latest V2 via official curl script, replaces V1;
+#   1. kernel inotify limit    (fs.inotify.max_user_watches via sysctl, persisted
+#                              to /etc/sysctl.d/99-dotfiles-inotify.conf)
+#   2. opencode binary         (latest V2 via official curl script, replaces V1;
 #                              SKIP_OPENCODE=1)
-#   2. config symlink         (opencode/install.sh)
-#   3. Director + wiring       (opencode/setup-director.sh; SKIP_DIRECTOR=1)
-#   4. packages               (apt/ on Debian/Ubuntu, homebrew/ hint on macOS;
+#   3. config symlink          (opencode/install.sh, then `opencode reload`)
+#   4. Director + wiring        (opencode/setup-director.sh; SKIP_DIRECTOR=1)
+#   5. packages                (apt/ on Debian/Ubuntu, homebrew/ hint on macOS;
 #                              SKIP_PACKAGES=1)
-#   5. ollama gateway + models (opencode/setup-ollama.sh; needs the packages
+#   6. ollama gateway + models (opencode/setup-ollama.sh; needs the packages
 #                              step's python3; SKIP_OLLAMA=1)
 #
 # Idempotent: every step is safe to re-run.
 
 DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
+OS="$(uname -s)"
 
 echo "=== dotfiles bootstrap: ${DIR} ==="
 
-# 1. opencode binary ------------------------------------------------------
+# 1. kernel inotify limit ---------------------------------------------------
+echo "[inotify] checking fs.inotify.max_user_watches for opencode config watching..."
+INOTIFY_TARGET=1048576
+INOTIFY_FILE="/proc/sys/fs/inotify/max_user_watches"
+SYSCTL_CONF="/etc/sysctl.d/99-dotfiles-inotify.conf"
+if [ "${OS}" != "Linux" ]; then
+  echo "[inotify] SKIP ${OS} — Linux-only"
+elif [ ! -r "${INOTIFY_FILE}" ]; then
+  echo "[inotify] SKIP ${INOTIFY_FILE} not readable"
+else
+  inotify_current="$(cat "${INOTIFY_FILE}")"
+  if [ "${inotify_current}" -ge "${INOTIFY_TARGET}" ] && grep -qs "^fs.inotify.max_user_watches=${INOTIFY_TARGET}$" "${SYSCTL_CONF}"; then
+    echo "[inotify] SKIP ${INOTIFY_FILE}=${inotify_current} (runtime >= ${INOTIFY_TARGET} and persisted)"
+  else
+    echo "[inotify] raising ${INOTIFY_FILE}: ${inotify_current} -> ${INOTIFY_TARGET} (sudo)"
+    inotify_tmp="$(mktemp)"
+    printf 'fs.inotify.max_user_watches=%s\n' "${INOTIFY_TARGET}" > "${inotify_tmp}"
+    if sudo install -m 0644 "${inotify_tmp}" "${SYSCTL_CONF}" && sudo sysctl -p "${SYSCTL_CONF}"; then
+      echo "[inotify] done: runtime set and persisted in ${SYSCTL_CONF}"
+    else
+      echo "[inotify] WARN could not raise limit (sudo?); config-staleness guard weakened" >&2
+    fi
+    rm -f "${inotify_tmp}"
+  fi
+fi
+
+# 2. opencode binary --------------------------------------------------------
 if [ "${SKIP_OPENCODE:-0}" = 1 ]; then
   echo "[opencode] SKIP_OPENCODE=1 — skipping binary install"
 else
@@ -46,16 +75,20 @@ else
   }
 fi
 
-# 2. config symlink -------------------------------------------------------
+# 3. config symlink ---------------------------------------------------------
 echo "[config] deploying opencode config..."
 "${DIR}/opencode/install.sh"
+if command -v opencode >/dev/null 2>&1 && opencode reload >/dev/null 2>&1; then
+  echo "[config] opencode service config reloaded"
+else
+  echo "[config] SKIP opencode reload (service not running; fresh install picks it up on first start)"
+fi
 
-# 3. Director -------------------------------------------------------------
+# 4. Director -------------------------------------------------------------
 echo "[director] installing Director + wiring opencode..."
 "${DIR}/opencode/setup-director.sh"
 
-# 4. packages -------------------------------------------------------------
-OS="$(uname -s)"
+# 5. packages ---------------------------------------------------------------
 if [ "${SKIP_PACKAGES:-0}" = "1" ]; then
   echo "[packages] SKIP_PACKAGES=1 — skipping package install"
 elif [ "${OS}" = "Linux" ] && command -v apt-get >/dev/null 2>&1; then
@@ -69,7 +102,7 @@ else
   echo "[packages] no supported package manager (apt/homebrew) — skipping"
 fi
 
-# 5. ollama gateway ---------------------------------------------------------
+# 6. ollama gateway ---------------------------------------------------------
 echo "[ollama] installing gateway + pinned models..."
 "${DIR}/opencode/setup-ollama.sh"
 
