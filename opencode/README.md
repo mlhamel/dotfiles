@@ -13,7 +13,7 @@ opencode/
 ├── opencode.json              # Global permissions (relaxed posture)
 ├── agents/                    # Custom agents
 │   ├── ask.md                 #   read-only Q&A primary agent
-│   ├── build-flash.md         #   fast-build primary agent (glm-5.3-flash:cloud)
+│   ├── build-no-flash.md      #   heavy-build primary agent (glm-5.3:cloud)
 │   ├── build-local.md         #   local-build primary agent (qwen3:4b)
 │   ├── diagrams.md            #   Mermaid diagram maintainer (see below)
 │   └── review.md              #   cross-model code reviewer (see below)
@@ -135,17 +135,18 @@ Primary agent that answers questions about the codebase without ever
 touching it (`edit: deny`, `bash: deny`). Switch to it with **Tab**, or
 use it whenever you want explanations instead of changes.
 
-### `build-flash` / `build-local` — budget build agents
+### `build-no-flash` / `build-local` — heavier build agents
 
-Primary build agents pinned below the heavy default model
-(`glm-5.3:cloud`), for work that does not need it:
+The default Build agent runs `glm-5.3-flash:cloud`, the fast cloud tier
+(~10× cheaper than glm-5.3, 1M context). When flash is not enough:
 
-- **`build-flash`** (`agents/build-flash.md`) — `glm-5.3-flash:cloud`,
-  the fast cloud tier (~10× cheaper than the default, 1M context)
+- **`build-no-flash`** (`agents/build-no-flash.md`) — `glm-5.3:cloud`, the
+  heavy cloud tier (the old default)
 - **`build-local`** (`agents/build-local.md`) — `qwen3:4b`, fully offline
 
 Same contract as the default Build agent: small, focused changes, tests and
-linter after edits. Switch with **Tab** when the task fits a cheaper tier.
+linter after edits. Switch with **Tab** when a task needs more muscle than
+flash, or fully offline execution.
 
 ### `review` — cross-model code review (`agents/review.md`)
 
@@ -153,8 +154,8 @@ Subagent that reviews code using a **different model family** than the
 one that wrote it. This is the whole point: a reviewer with an
 independent perspective catches blind spots the author model shares.
 
-- Pinned to `ollama/kimi-k2.7-code:cloud` (build agent runs `glm-5.3:cloud` —
-  different family, so different biases)
+- Pinned to `ollama/kimi-k2.7-code:cloud` (build agent runs
+  `glm-5.3-flash:cloud` — different family, so different biases)
 - Budget-constrained: single `git diff` up front, max 5 tool calls, then write
   the review; `steps: 10` caps the overall turn count as a backstop
 - Read-only: `edit` denied; bash limited to `git diff`, `git log`, `git show`

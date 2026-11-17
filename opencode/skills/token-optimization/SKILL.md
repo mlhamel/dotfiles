@@ -92,10 +92,10 @@ Divide labor by model strength; pin per agent via `model:` frontmatter.
 
 | Responsibility                              | Model                         | Where                                    |
 | ------------------------------------------- | ----------------------------- | ---------------------------------------- |
-| Heavy build work                            | `ollama/glm-5.3:cloud`        | global default                           |
-| Fast build work (cheap tier)                | `ollama/glm-5.3-flash:cloud`  | `agents/build-flash.md`                  |
+| Heavy build work                            | `ollama/glm-5.3:cloud`        | `agents/build-no-flash.md`               |
+| Fast build work (default)                   | `ollama/glm-5.3-flash:cloud`  | global default                           |
 | Independent review, diagrams (cross-family) | `ollama/kimi-k2.7-code:cloud` | `agents/review.md`, `agents/diagrams.md` |
-| Routine internal tasks (titles, summaries)  | `ollama/glm-5.2:cloud`        | `agents.title.model` in `opencode.json`  |
+| Routine internal tasks (titles, summaries)  | `ollama/glm-5.3-flash:cloud`  | `agents.title.model` in `opencode.json`  |
 
 ## 6. Gateway
 
