@@ -56,6 +56,10 @@
         "kimi-k2.7-code:cloud": {
           "name": "kimi-k2.7-code:cloud",
           "limit": { "context": 65536 }
+        },
+        "inkling-2-small:cloud": {
+          "name": "inkling-2-small:cloud",
+          "limit": { "context": 65536 }
         }
       }
     }
@@ -64,7 +68,6 @@
     { "action": "shell", "resource": "*", "effect": "allow" },
     { "action": "shell", "resource": "rm *", "effect": "deny" },
     { "action": "shell", "resource": "sudo *", "effect": "deny" },
-    { "action": "shell", "resource": "git push *", "effect": "deny" },
     { "action": "shell", "resource": "curl * | bash", "effect": "deny" },
     { "action": "shell", "resource": "wget * | bash", "effect": "deny" }
   ]
