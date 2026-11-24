@@ -359,6 +359,82 @@ case_setup_skip_opencode() {
   finish_case
 }
 
+# --- setup.sh SKIP_* guards -------------------------------------------------
+# setup.sh must honor SKIP_DIRECTOR/SKIP_OLLAMA itself instead of relying
+# on the sub-scripts: it invokes them directly, so a guard that only lives
+# in the sub-script never runs when setup.sh skips the call. These cases
+# run setup.sh from a scratch repo tree whose sub-scripts are markers that
+# log their invocation and fail — proving setup.sh never calls them.
+
+setup_skip_repo() {
+  local repo="${CASE_HOME}/repo"
+  mkdir -p "${repo}/opencode"
+  cp "${ROOT}/setup.sh" "${repo}/setup.sh"
+  cp "${ROOT}/opencode/install.sh" "${repo}/opencode/install.sh"
+  cp "${ROOT}/opencode/opencode.json" "${repo}/opencode/opencode.json"
+  cat > "${repo}/opencode/setup-director.sh" <<'MARKER_EOF'
+#!/bin/sh
+echo "marker-director invoked" >> "$STUB_LOG"
+exit 1
+MARKER_EOF
+  cat > "${repo}/opencode/setup-ollama.sh" <<'MARKER_EOF'
+#!/bin/sh
+echo "marker-ollama invoked" >> "$STUB_LOG"
+exit 1
+MARKER_EOF
+  chmod +x "${repo}/opencode/setup-director.sh" "${repo}/opencode/setup-ollama.sh"
+}
+
+case_setup_skip_both() {
+  new_case
+  stub_curl
+  stub_dpkg
+  stub_sudo
+  stub_opencode
+  setup_skip_repo
+  SKIP_DIRECTOR=1 SKIP_PACKAGES=1 SKIP_OLLAMA=1 bash "${CASE_HOME}/repo/setup.sh" > "${CASE_HOME}/out.log" 2>&1
+  local rc=$?
+  check_rc 0 "${rc}" "both SKIP exit 0"
+  check_contains "${CASE_HOME}/out.log" "[director] SKIP_DIRECTOR=1" "director skip message from setup.sh itself"
+  check_contains "${CASE_HOME}/out.log" "[ollama] SKIP_OLLAMA=1" "ollama skip message from setup.sh itself"
+  check_contains "${CASE_HOME}/out.log" "bootstrap complete" "bootstrap completes"
+  check_not_contains "${STUB_LOG}" "marker-director invoked" "director sub-script not invoked"
+  check_not_contains "${STUB_LOG}" "marker-ollama invoked" "ollama sub-script not invoked"
+  finish_case
+}
+
+case_setup_no_skip_calls_director() {
+  new_case
+  stub_curl
+  stub_dpkg
+  stub_sudo
+  stub_opencode
+  setup_skip_repo
+  SKIP_PACKAGES=1 bash "${CASE_HOME}/repo/setup.sh" > "${CASE_HOME}/out.log" 2>&1
+  local rc=$?
+  check_rc_nonzero "${rc}" "director marker failure aborts setup.sh"
+  check_contains "${STUB_LOG}" "marker-director invoked" "director sub-script invoked without SKIP_DIRECTOR"
+  check_not_contains "${STUB_LOG}" "marker-ollama invoked" "ollama sub-script not reached after director failure"
+  finish_case
+}
+
+case_setup_skip_director_only() {
+  new_case
+  stub_curl
+  stub_dpkg
+  stub_sudo
+  stub_opencode
+  setup_skip_repo
+  SKIP_DIRECTOR=1 SKIP_PACKAGES=1 bash "${CASE_HOME}/repo/setup.sh" > "${CASE_HOME}/out.log" 2>&1
+  local rc=$?
+  check_rc_nonzero "${rc}" "ollama marker failure aborts setup.sh"
+  check_contains "${CASE_HOME}/out.log" "[director] SKIP_DIRECTOR=1" "director skip message"
+  check_not_contains "${CASE_HOME}/out.log" "bootstrap complete" "bootstrap does not complete"
+  check_not_contains "${STUB_LOG}" "marker-director invoked" "director sub-script not invoked"
+  check_contains "${STUB_LOG}" "marker-ollama invoked" "ollama sub-script invoked without SKIP_OLLAMA"
+  finish_case
+}
+
 # --- setup-director.sh ------------------------------------------------------
 
 case_director_skip_pinned() {
@@ -432,6 +508,9 @@ run_case "setup-drift" case_setup_drift
 run_case "setup-force" case_setup_force
 run_case "setup-fresh" case_setup_fresh
 run_case "setup-skip-opencode" case_setup_skip_opencode
+run_case "setup-skip-both" case_setup_skip_both
+run_case "setup-no-skip-calls-director" case_setup_no_skip_calls_director
+run_case "setup-skip-director-only" case_setup_skip_director_only
 run_case "director-skip-pinned" case_director_skip_pinned
 run_case "director-drift" case_director_drift
 run_case "director-fresh" case_director_fresh
