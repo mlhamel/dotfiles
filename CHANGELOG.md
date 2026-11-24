@@ -4,6 +4,22 @@ All notable changes to this repo. Dates are YYYY-MM-DD (local commit date);
 entries reference the committing hash. Newest first. When adding an entry,
 use today's date and the hash of the change once committed.
 
+## 2026-11-24
+
+- `(hash)` — Software-factory review fixes (PR `fix/software-factory-review-2026-11-24`):
+  `setup-ollama.sh` splits the routing table — local models are pulled
+  (hard error on failure), `:cloud` models only register their manifest
+  (warning + `ollama signin` hint on failure, since a cloud pull downloads
+  no weights); `skills/workflow/SKILL.md` `/bless` template moves to the
+  native V2 `permissions` array (`edit`/`shell`, last-match-wins); `setup.sh`
+  pins `OPENCODE_VERSION=2.3.0` (latest 2026-11-24, `--version` flag) and
+  `opencode/setup-director.sh` pins `DIRECTOR_VERSION=v1.23.0` (latest
+  upstream 2026-10-27), with drift-from-pin notes in both skip branches;
+  `TODOs.md` gains the full review backlog. Two first impressions were
+  corrected during verification: a `:cloud` pull is manifest-only and does
+  not fail as such, and the V1 `/bless` template is still normalized by
+  opencode V2 — both are alignment work, not broken-config fixes.
+
 ## 2026-11-17
 
 - `d15677e` — setup.sh step 2 stops re-downloading opencode on every bootstrap: script-managed installs now print `SKIP … already installed` and leave the binary alone unless `FORCE_OPENCODE=1` (which reinstalls the latest release), winding down the always-curl self-heal from 0bbbcd4 that the V1→V2 migration made unnecessary — setup.sh was re-fetching opencode on every run, which the owner flagged as noise (`SKIP_OPENCODE=1` full-step skip and the dpkg/brew/npm hard-fail hints unchanged); verified by a 5-case PATH-sandboxed shadow harness (fresh installs once, idempotent skip zero curl calls, FORCE curls once, deb-owned exits 1 with removal hints, SKIP_OPENCODE skips) + `prek` (shellcheck/prettier), `@review` APPROVE
