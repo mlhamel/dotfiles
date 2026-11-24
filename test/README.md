@@ -26,20 +26,19 @@ by `pushEvent()`), `ctx.session.{get, prompt, hook}`, `ctx.tool.hook`,
 `ctx.agent.get`. The event loop is asynchronous, so tests `waitFor()` the
 prompt they expect and only assert absence after a short settle.
 
-| Suite                          | Covers                                                                                                                                                                                                                                                                                                         |
-| ------------------------------ | -------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
-| `review-enforcer.test.js` (13) | hook registration, `REVIEW_ENFORCER=0` opt-out, edit/write/patch dirty-tracking, read-tool no-op, `~/.opencode/plan` exemption, gate fires once at end of turn (incl. failed turns), new edits reopen the gate, child/foreign/unknown never gated, read-only agents defer the gate and the dirty flag survives |
-| `session-nudger.test.js` (9)   | `SESSION_NUDGER=0` opt-out, no nudge below the bar, one nudge per band crossing, no re-nudge inside a band, interrupted turns count, double turn-end without `started` counts once, child/foreign never nudged, `session.deleted` drops the count                                                              |
-| `session-logger.test.js` (6)   | no-op outside a vault, prompt-hook registration inside a vault, note auto-creation + one-shot injection, empty-note cleanup on delete, note with entries kept, child sessions skipped                                                                                                                          |
-| `director.test.js` (9)         | prompt injection for top sessions (once only), child/foreign get nothing, failing binary degrades silently, post-tool digest append (string + array results), non-completed results untouched                                                                                                                  |
+| Suite                          | Covers                                                                                                                                                                                                                                                                                                                                                                                                                  |
+| ------------------------------ | ----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| `review-enforcer.test.js` (13) | hook registration, `REVIEW_ENFORCER=0` opt-out, edit/write/patch dirty-tracking, read-tool no-op, `~/.opencode/plan` exemption, gate fires once at end of turn (incl. failed turns), new edits reopen the gate, child/foreign/unknown never gated, read-only agents defer the gate and the dirty flag survives                                                                                                          |
+| `session-nudger.test.js` (9)   | `SESSION_NUDGER=0` opt-out, no nudge below the bar, one nudge per band crossing, no re-nudge inside a band, interrupted turns count, double turn-end without `started` counts once, child/foreign never nudged, `session.deleted` drops the count                                                                                                                                                                       |
+| `session-logger.test.js` (6)   | no-op outside a vault, prompt-hook registration inside a vault, note auto-creation + one-shot injection, empty-note cleanup on delete, note with entries kept, child sessions skipped                                                                                                                                                                                                                                   |
+| `director.test.js` (15)        | prompt injection for top sessions (once only), child/foreign get nothing, failing binary degrades silently, post-tool digest append (string + array results), non-completed results untouched, fallback resolution from `HOME` (`~/.local/bin`, then `~/.claude/director/bin`), `DIRECTOR_FALLBACK_BIN` override, `DIRECTOR_BIN` precedence, no-binary degrade, managed-file marker present with no hardcoded home path |
 
 Not covered, on purpose:
 
-- `director.js`: the hardcoded fallback path (`/home/mlhamel/.claude/...`)
-  and the 10s hook timeout are not exercised — testing them would need a
-  refactor of the plugin's binary resolution, which this PR deliberately
-  does not do. The compaction/context re-grounding bridge is not covered
-  either.
+- `director.js`: the 10s hook timeout is not exercised. The fallback
+  path IS covered (HOME-derived tiers, env override, managed-file
+  marker — see the `director.test.js` row above). The compaction/context
+  re-grounding bridge is not covered either.
 - `session-logger.js`: the real `log_session.py` is replaced by a stub
   that answers `init` with a canned `RESULT:` line.
 - The plugins' behaviour under a real opencode server is not tested;

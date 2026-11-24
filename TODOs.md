@@ -50,12 +50,17 @@ not a fix for a broken config.
       review) goes through `localhost:11434` / Ollama Cloud. Add a second
       provider (e.g. Z.ai direct) and a documented offline fallback
       (`build-local` / `qwen3:4b`) so a cloud outage does not stop all work.
-- [ ] **P1 · director.js portability + overwrite detection** — the V2 port
-      hardcodes `/home/mlhamel/.claude/director/bin/director` as its
-      fallback tier, and the next `director install --opencode` will
-      overwrite it once upstream ships V2. Resolve the fallback from
-      `DIRECTOR_BIN` / PATH / `~/.local/bin` instead, and add a check that
-      detects when the managed file has been replaced.
+- [x] **P1 · director.js portability + overwrite detection** — done 2026-11-24 (PR
+      `fix/director-portability-2026-11-24`): the fallback tier is no longer
+      the hardcoded `/home/mlhamel/.claude/director/bin/director` — it
+      resolves from `DIRECTOR_BIN` / PATH / `~/.local/bin` /
+      `~/.claude/director/bin`, all derived from `$HOME`, with a
+      `DIRECTOR_FALLBACK_BIN` override for the fallback tier. The
+      "overwrite detection" is a CI tripwire test asserting the file still
+      carries its `V2 STOPGAP PORT` marker and no hardcoded home path (the
+      plugin itself writes no files, so there is nothing to guard at
+      runtime). `director.test.js` grows 9 → 15 cases. The 10s hook
+      timeout is untouched (a constant, not a portability issue).
 - [ ] **P1 · macOS bootstrap parity** — `setup.sh` on macOS only prints a
       Homebrew hint and `setup-ollama.sh` exits 0 without installing
       Ollama; the Brewfile is stale (see Housekeeping). Make the Mac path

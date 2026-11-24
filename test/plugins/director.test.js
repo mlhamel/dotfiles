@@ -2,9 +2,10 @@
 //
 // runHook() shells out to the Director binary; the tests point
 // DIRECTOR_BIN at a stub script that answers with a canned control
-// payload, so no real Director install is needed. The hardcoded
-// fallback path and the 10s hook timeout are NOT covered here — see
-// test/README.md.
+// payload, so no real Director install is needed. The 10s hook timeout
+// is NOT covered here — see test/README.md. The fallback path IS
+// covered below: the HOME-derived tiers, the DIRECTOR_FALLBACK_BIN
+// override, and the managed-file marker tripwire.
 
 import { describe, test, afterEach } from "node:test";
 import assert from "node:assert/strict";
@@ -24,8 +25,11 @@ const DIR = "/proj";
 const DIGEST = "DIRECTOR DIGEST";
 
 let teardown;
-let stubDir;
+let tempDirs = [];
 let savedDirectorBin;
+let savedFallbackBin;
+let savedHome;
+let savedPath;
 
 afterEach(async () => {
   if (teardown) {
@@ -34,16 +38,34 @@ afterEach(async () => {
   }
   if (savedDirectorBin === undefined) delete process.env.DIRECTOR_BIN;
   else process.env.DIRECTOR_BIN = savedDirectorBin;
-  if (stubDir) {
-    fs.rmSync(stubDir, { recursive: true, force: true });
-    stubDir = undefined;
-  }
+  if (savedFallbackBin === undefined) delete process.env.DIRECTOR_FALLBACK_BIN;
+  else process.env.DIRECTOR_FALLBACK_BIN = savedFallbackBin;
+  if (savedHome === undefined) delete process.env.HOME;
+  else process.env.HOME = savedHome;
+  if (savedPath === undefined) delete process.env.PATH;
+  else process.env.PATH = savedPath;
+  for (const dir of tempDirs) fs.rmSync(dir, { recursive: true, force: true });
+  tempDirs = [];
   await flush(2);
 });
 
+function tempDir(prefix) {
+  const dir = fs.mkdtempSync(path.join(os.tmpdir(), prefix));
+  tempDirs.push(dir);
+  return dir;
+}
+
+function stubBody(digest) {
+  return (
+    "#!/bin/sh\n" +
+    "cat > /dev/null\n" +
+    `printf '%s' '{"hookSpecificOutput":{"additionalContext":"${digest}"}}'\n`
+  );
+}
+
 function makeStub(body) {
-  stubDir = fs.mkdtempSync(path.join(os.tmpdir(), "dotfiles-director-"));
-  const stub = path.join(stubDir, "director");
+  const dir = tempDir("dotfiles-director-");
+  const stub = path.join(dir, "director");
   fs.writeFileSync(stub, body);
   fs.chmodSync(stub, 0o755);
   savedDirectorBin = process.env.DIRECTOR_BIN;
@@ -51,16 +73,51 @@ function makeStub(body) {
   return stub;
 }
 
-function okStub() {
-  return makeStub(
-    "#!/bin/sh\n" +
-      "cat > /dev/null\n" +
-      `printf '%s' '{"hookSpecificOutput":{"additionalContext":"${DIGEST}"}}'\n`,
-  );
+// A stub binary that does NOT touch DIRECTOR_BIN — for fallback-tier tests,
+// where the stub must be found via PATH / HOME, not via the env override.
+function plainStub(digest = DIGEST) {
+  const dir = tempDir("dotfiles-director-");
+  const stub = path.join(dir, "director");
+  fs.writeFileSync(stub, stubBody(digest));
+  fs.chmodSync(stub, 0o755);
+  return stub;
+}
+
+function okStub(digest = DIGEST) {
+  return makeStub(stubBody(digest));
 }
 
 function failingStub() {
   return makeStub("#!/bin/sh\nexit 1\n");
+}
+
+// Scratch HOME with a stub director at `relPath` (e.g.
+// ".local/bin/director"). PATH is left alone unless the test changes it.
+function homeStub(relPath, digest = DIGEST) {
+  const home = tempDir("dotfiles-director-home-");
+  const stub = path.join(home, relPath);
+  fs.mkdirSync(path.dirname(stub), { recursive: true });
+  fs.writeFileSync(stub, stubBody(digest));
+  fs.chmodSync(stub, 0o755);
+  savedHome = process.env.HOME;
+  process.env.HOME = home;
+  return stub;
+}
+
+// PATH with no `director` on it, so the PATH tier misses and the fallback
+// tiers are exercised. The stub's `#!/bin/sh` shebang is absolute, so the
+// child does not need PATH to run.
+function pathWithoutDirector() {
+  savedPath = process.env.PATH;
+  process.env.PATH = tempDir("dotfiles-director-path-");
+}
+
+// No DIRECTOR_BIN / DIRECTOR_FALLBACK_BIN: the full candidate chain runs.
+function clearDirectorEnv() {
+  savedDirectorBin = process.env.DIRECTOR_BIN;
+  delete process.env.DIRECTOR_BIN;
+  savedFallbackBin = process.env.DIRECTOR_FALLBACK_BIN;
+  delete process.env.DIRECTOR_FALLBACK_BIN;
 }
 
 async function setupDirector(ctx) {
@@ -202,5 +259,67 @@ describe("post-tool hook (PostToolUse)", () => {
     };
     await ctx.hooks.tool.get("execute.after")(event);
     assert.equal(event.result.content, "tool output");
+  });
+});
+
+describe("fallback resolution", () => {
+  async function injectViaPrompt() {
+    const ctx = createMockContext({ directory: DIR });
+    await setupDirector(ctx);
+    ctx.pushEvent(created("s1"));
+    await flush();
+    const event = { sessionID: "s1", prompt: { text: "hello" } };
+    await ctx.hooks.session.get("prompt")(event);
+    return event.prompt.text;
+  }
+
+  test("resolves ~/.local/bin/director from HOME when no director is on PATH", async () => {
+    clearDirectorEnv();
+    pathWithoutDirector();
+    homeStub(".local/bin/director");
+    assert.equal(await injectViaPrompt(), `${DIGEST}\n\nhello`);
+  });
+
+  test("falls through to ~/.claude/director/bin/director when ~/.local/bin has none", async () => {
+    clearDirectorEnv();
+    pathWithoutDirector();
+    homeStub(".claude/director/bin/director");
+    assert.equal(await injectViaPrompt(), `${DIGEST}\n\nhello`);
+  });
+
+  test("DIRECTOR_FALLBACK_BIN overrides the HOME-derived tiers", async () => {
+    clearDirectorEnv();
+    pathWithoutDirector();
+    homeStub(".local/bin/director", "HOME-DIGEST");
+    savedFallbackBin = process.env.DIRECTOR_FALLBACK_BIN;
+    process.env.DIRECTOR_FALLBACK_BIN = plainStub("CUSTOM");
+    assert.equal(await injectViaPrompt(), `CUSTOM\n\nhello`);
+  });
+
+  test("DIRECTOR_BIN still wins over the fallback tiers", async () => {
+    pathWithoutDirector();
+    homeStub(".local/bin/director", "HOME-DIGEST");
+    okStub("BIN");
+    assert.equal(await injectViaPrompt(), `BIN\n\nhello`);
+  });
+
+  test("no binary anywhere degrades silently (no injection, no throw)", async () => {
+    clearDirectorEnv();
+    pathWithoutDirector();
+    const home = tempDir("dotfiles-director-home-");
+    savedHome = process.env.HOME;
+    process.env.HOME = home;
+    assert.equal(await injectViaPrompt(), "hello");
+  });
+});
+
+describe("managed file", () => {
+  test("the plugin source still carries the V2 stopgap marker and no hardcoded home path", () => {
+    const src = fs.readFileSync(
+      new URL("../../opencode/plugins/director.js", import.meta.url),
+      "utf8",
+    );
+    assert.match(src, /V2 STOPGAP PORT/);
+    assert.doesNotMatch(src, /\/home\/mlhamel/);
   });
 });
