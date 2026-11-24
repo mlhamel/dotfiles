@@ -6,6 +6,21 @@ use today's date and the hash of the change once committed.
 
 ## 2026-11-24
 
+- `(hash)` — director.js portability + overwrite detection (PR
+  `fix/director-portability-2026-11-24`): the fallback binary tier no
+  longer hardcodes a personal home path — it resolves from `DIRECTOR_BIN`
+  / PATH / `~/.local/bin` / `~/.claude/director/bin`, all derived from
+  `$HOME` (`process.env.HOME` with an `os.homedir()` fallback), with a
+  `DIRECTOR_FALLBACK_BIN` override for the fallback tier; the stale comment
+  about an installer placeholder substitution (which the committed code
+  never used) is replaced by the real resolution. Overwrite detection is a
+  CI tripwire: a test asserts the plugin source still carries its `V2
+STOPGAP PORT` marker and no hardcoded home path, so a silent replacement
+  of the managed file by `director install --opencode` fails CI (the plugin
+  itself writes no files, so there is nothing to guard at runtime).
+  `director.test.js` grows 9 → 15 cases (HOME tiers, override precedence,
+  no-binary degrade, marker); the 10s hook timeout is untouched.
+
 - `(hash)` — Honor `SKIP_DIRECTOR`/`SKIP_OLLAMA` in setup.sh itself (PR
   `fix/setup-skip-2026-11-24`): `setup.sh` documented both skips in its
   header but never tested them — it invoked `setup-director.sh` and
