@@ -6,7 +6,9 @@ set -euo pipefail
 # Chains, in order:
 #   1. kernel inotify limit    (fs.inotify.max_user_watches via sysctl, persisted
 #                              to /etc/sysctl.d/99-dotfiles-inotify.conf)
-#   2. opencode binary         (latest V2 via official curl script, replaces V1;
+#   2. opencode binary         (pinned V2, see OPENCODE_VERSION below, via
+#                              official curl script, replaces V1;
+#                              OPENCODE_VERSION=x.y.z overrides the pin;
 #                              SKIP_OPENCODE=1; FORCE_OPENCODE=1 reinstalls)
 #   3. config symlink          (opencode/install.sh, then `opencode reload`)
 #   4. Director + wiring        (opencode/setup-director.sh; SKIP_DIRECTOR=1)
@@ -19,6 +21,11 @@ set -euo pipefail
 
 DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
 OS="$(uname -s)"
+
+# Pinned opencode version — bump deliberately after checking the release
+# notes, never float to latest on every fresh install. Latest release
+# 2026-11-24: 2.3.0.
+OPENCODE_VERSION="${OPENCODE_VERSION:-2.3.0}"
 
 echo "=== dotfiles bootstrap: ${DIR} ==="
 
@@ -67,15 +74,19 @@ else
       exit 1
     fi
     if [ "${FORCE_OPENCODE:-0}" = 1 ]; then
-      echo "[opencode] FORCE_OPENCODE=1 — replacing with the latest release"
+      echo "[opencode] FORCE_OPENCODE=1 — replacing with pinned ${OPENCODE_VERSION}"
     else
       echo "[opencode] SKIP ${oc_bin} (${oc_ver:-unknown}) already installed; FORCE_OPENCODE=1 to reinstall"
+      oc_installed_ver="$(printf '%s' "${oc_ver:-}" | grep -oE '[0-9]+\.[0-9]+\.[0-9]+' | head -1 || true)"
+      if [ -n "${oc_installed_ver}" ] && [ "${oc_installed_ver}" != "${OPENCODE_VERSION}" ]; then
+        echo "[opencode] NOTE installed ${oc_installed_ver} differs from pinned ${OPENCODE_VERSION} — FORCE_OPENCODE=1 to align" >&2
+      fi
       skip_opencode_install=1
     fi
   fi
   if [ "${skip_opencode_install:-0}" != 1 ]; then
-    echo "[opencode] running official V2 install script..."
-    curl -fsSL https://opencode.ai/v2/install | bash
+    echo "[opencode] running official V2 install script (pinned ${OPENCODE_VERSION})..."
+    curl -fsSL https://opencode.ai/v2/install | bash -s -- --version "${OPENCODE_VERSION}"
     command -v opencode >/dev/null 2>&1 || {
       echo "[opencode] installed but not on PATH in this shell; re-run setup.sh from a fresh shell" >&2
     }

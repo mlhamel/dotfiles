@@ -1,10 +1,20 @@
 #!/usr/bin/env bash
 set -euo pipefail
 
-# setup-ollama.sh — install the ollama gateway and pull the models pinned in
+# setup-ollama.sh — install the ollama gateway and register the models pinned in
 # opencode.json's providers.ollama.models: the routing table is the single
 # source of truth for what gets pulled, so they cannot drift apart.
 # Idempotent: safe to re-run. Skip with: SKIP_OLLAMA=1.
+#
+# Local vs cloud models — the `:cloud` suffix matters:
+#   - plain tags (e.g. qwen3:4b) are local weights: `ollama pull` downloads
+#     them, and a failed pull is a hard error.
+#   - `:cloud` tags (e.g. glm-5.3-flash:cloud) run on Ollama's servers:
+#     `ollama pull` only downloads a tiny manifest that registers the model
+#     locally — no weights, no disk/VRAM. It needs `ollama signin` first.
+#     A failed cloud registration is a warning, not a fatal error: the local
+#     gateway still works, and the cloud model can be registered later with
+#     `ollama signin && ./setup-ollama.sh`.
 
 DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
 
@@ -73,9 +83,44 @@ if [ -z "${MODELS}" ]; then
   exit 1
 fi
 
+# Split the routing table: local weights get downloaded, cloud models only
+# get their manifest registered (see header comment).
+LOCAL_MODELS=""
+CLOUD_MODELS=""
 while IFS= read -r model; do
-  echo "[ollama] pulling ${model}..."
-  ollama pull "${model}"
+  [ -n "${model}" ] || continue
+  case "${model}" in
+    *":cloud") CLOUD_MODELS="${CLOUD_MODELS}${model}"$'\n' ;;
+    *) LOCAL_MODELS="${LOCAL_MODELS}${model}"$'\n' ;;
+  esac
 done <<<"${MODELS}"
 
-echo "Ollama gateway ready: pinned models pulled from ${CONFIG}"
+if [ -n "${LOCAL_MODELS}" ]; then
+  while IFS= read -r model; do
+    [ -n "${model}" ] || continue
+    echo "[ollama] pulling local model ${model}..."
+    ollama pull "${model}"
+  done <<<"${LOCAL_MODELS}"
+else
+  echo "[ollama] no local models to pull"
+fi
+
+CLOUD_FAILED=0
+if [ -n "${CLOUD_MODELS}" ]; then
+  while IFS= read -r model; do
+    [ -n "${model}" ] || continue
+    echo "[ollama] registering cloud model ${model} (manifest only, no weights)..."
+    if ollama pull "${model}"; then
+      :
+    else
+      echo "[ollama] WARN could not register ${model} — run 'ollama signin' then re-run setup-ollama.sh" >&2
+      CLOUD_FAILED=1
+    fi
+  done <<<"${CLOUD_MODELS}"
+fi
+
+if [ "${CLOUD_FAILED}" = 1 ]; then
+  echo "[ollama] gateway ready, but some cloud models are not registered (see WARN above)" >&2
+else
+  echo "Ollama gateway ready: local models pulled, cloud models registered from ${CONFIG}"
+fi

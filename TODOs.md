@@ -5,6 +5,84 @@ deleted, not left to rot.
 
 Priorities: **P1** do soon · **P2** do eventually · **P3** nice to have.
 
+## Revue software factory (2026-11-24)
+
+Review of the whole repo against the "software factory" goal (opencode +
+ollama + Director + GitHub), landed as PR `fix/software-factory-review-2026-11-24`.
+
+Corrections made during verification — two first impressions were overstated:
+`ollama pull` of a `:cloud` model only downloads a tiny manifest, it does not
+fail as such; the real problem was the missing local/cloud distinction and
+the missing `ollama signin` check. And the V1 `permission` map in the `/bless`
+template is still normalized by opencode V2, so migrating it is alignment,
+not a fix for a broken config.
+
+- [x] **P1 · Split ollama local/cloud pulls** — `opencode/setup-ollama.sh`
+      now pulls local weights (hard error on failure) and only registers
+      `:cloud` manifests (warning + `ollama signin` hint on failure).
+- [x] **P1 · Bless template in native V2** — `skills/workflow/SKILL.md`
+      per-project template uses the `permissions` array (`edit`/`shell`,
+      last-match-wins) instead of the V1 `permission` map.
+- [x] **P1 · Pin opencode + Director** — `OPENCODE_VERSION=2.3.0` in
+      `setup.sh` (latest 2026-11-24, `--version` flag) and
+      `DIRECTOR_VERSION=v1.23.0` in `opencode/setup-director.sh` (latest
+      upstream 2026-10-27); both skip branches report drift from the pin.
+- [ ] **P1 · Tests for plugins + shell scripts** — the 4 JS plugins (~900
+      lines, classify/dedup/timeout state machines) and the bootstrap
+      scripts have no committed tests; only lint (prek/shellcheck) and the
+      shadow harnesses cited in CHANGELOG (never committed) cover them.
+      Add a node test runner for plugins and bats/shunit for the scripts,
+      run them in CI.
+- [ ] **P1 · Fallback provider** — everything (default, plan, title,
+      review) goes through `localhost:11434` / Ollama Cloud. Add a second
+      provider (e.g. Z.ai direct) and a documented offline fallback
+      (`build-local` / `qwen3:4b`) so a cloud outage does not stop all work.
+- [ ] **P1 · director.js portability + overwrite detection** — the V2 port
+      hardcodes `/home/mlhamel/.claude/director/bin/director` as its
+      fallback tier, and the next `director install --opencode` will
+      overwrite it once upstream ships V2. Resolve the fallback from
+      `DIRECTOR_BIN` / PATH / `~/.local/bin` instead, and add a check that
+      detects when the managed file has been replaced.
+- [ ] **P1 · macOS bootstrap parity** — `setup.sh` on macOS only prints a
+      Homebrew hint and `setup-ollama.sh` exits 0 without installing
+      Ollama; the Brewfile is stale (see Housekeeping). Make the Mac path
+      real or document it as manual.
+- [ ] **P2 · Shared classify() helper** — `director.js`,
+      `review-enforcer.js` and `session-nudger.js` each reimplement
+      session classification (child/top/foreign/unknown) and the
+      server-wide event subscription; they already diverge in details
+      (e.g. `execution.failed` handling). Extract one shared helper.
+- [ ] **P2 · SSSM compaction validation** — the 64k cap + compaction at
+      ~49k rests on the NVIDIA paper, not on measured use (see the P3
+      observation item below). Confirm with `oc-tokens` that compaction
+      actually fires without thrashing before treating it as settled.
+- [ ] **P2 · Secrets management** — the 2026-10-01 audit was clean, but
+      nothing prevents the next secret from landing. Add a pre-commit
+      secret scan and a documented place for credentials (1Password /
+      sops / age), instead of relying on the audit.
+- [ ] **P2 · Docs drift** — `opencode/README.md` omits `build-mini.md` and
+      `ask-local.md` from its tree, and the `token-optimization` routing
+      table does not mention Inkling. Fix, and add a CI check or a
+      checklist step that keeps the tree/table in sync with `agents/`.
+- [ ] **P2 · Evals + cost tracking** — `oc-tokens` measures tokens, not
+      quality or dollars (and cache-read is 0 on the openai-compatible
+      provider path). Add a small eval set for the agents and a $ cost
+      column to the token loop.
+- [ ] **P2 · Multi-machine story** — Aptfile (Debian) vs Brewfile (Mac)
+      diverge, and `baseURL` is `localhost:11434` while the plan was an
+      Ollama server on the Mac + Framework client over Tailscale. Decide
+      which machine is the source of truth and how the two converge.
+- [ ] **P2 · Director fork vs upstream** — the installer script is fetched
+      from the `mlhamel/director` fork, but it downloads its binary from
+      `colinsurprenant/director` releases (the fork has no releases). The
+      fork is also behind upstream (fork HEAD `0568702` = upstream
+      v1.16.0, upstream is at v1.23.0). Decide: tag releases in the fork,
+      or switch the install URL to upstream.
+- [ ] **P3 · Repo scope / name** — the repo is an opencode toolkit +
+      package lists; it holds no shell, git or editor config despite the
+      "dotfiles" name. Either grow into the name or rename the scope in
+      the README.
+
 ## Setup / portability
 
 - [x] **P1 · Unified bootstrap script** — `setup.sh` at the repo root chains
