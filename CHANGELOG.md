@@ -6,6 +6,18 @@ use today's date and the hash of the change once committed.
 
 ## 2026-11-24
 
+- `(hash)` — Honor SKIP_DIRECTOR/SKIP_OLLAMA in setup.sh itself (PR
+  `fix/setup-skip-2026-11-24`): `setup.sh` documented both skips in its
+  header but never tested them — it invoked `setup-director.sh` and
+  `setup-ollama.sh` directly and unconditionally, so the skips only
+  worked if the sub-scripts ran. Both steps now guard on their SKIP_*
+  with the same skip messages as the sub-scripts. `test/shell/run.sh`
+  grows 14 → 17 cases (both-SKIP, no-SKIP control, `SKIP_DIRECTOR`
+  only) using marker sub-scripts that fail if invoked; the guard cases
+  fail on the old `setup.sh`. Note: the API push of this commit reset
+  `setup.sh` to mode 644 again — the mode-only commit `6111e80` on
+  this branch restores `+x`.
+
 - `(hash)` — Committed tests for plugins + shell scripts (PR `fix/plugin-tests-2026-11-24`):
   `test/plugins/` adds 38 node:test cases on a mock opencode ctx
   (review-enforcer classification/dirty-tracking/review gate/read-only
