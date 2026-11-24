@@ -1,4 +1,5 @@
 #!/usr/bin/env bash
+# shellcheck disable=SC2329  # case functions are invoked indirectly via run_case
 # test/shell/run.sh — committed harness for the bootstrap scripts.
 #
 # Each case runs the real script with a scratch HOME and stub binaries on
