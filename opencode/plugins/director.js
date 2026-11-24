@@ -5,6 +5,10 @@
 // port to the V2 plugin API so the integration keeps working; the next
 // `director install --opencode` will overwrite it once upstream ships V2.
 //
+// The "V2 STOPGAP PORT" marker above is load-bearing: the test suite asserts
+// it is present, so a silent replacement of this file by `director install
+// --opencode` fails CI instead of going unnoticed.
+//
 // This file IS the OpenCode shim: where Claude Code and Codex run bash shims
 // that pipe hook stdin JSON to `director _hook <event>`, OpenCode hooks are
 // in-process function calls — so this plugin fabricates the same CC-shaped
@@ -50,22 +54,33 @@
 // silently absent coordination, never a blocked turn.
 
 import { spawn } from "node:child_process";
+import os from "node:os";
+import path from "node:path";
 
-// fallbackBin resolves the install-symlink tier (<hooks root>/bin/director) —
-// the same PATH-independent tier the bash shims probe, for GUI/launchd
-// processes whose PATH misses `director`. `director install --opencode`
-// substitutes the UNQUOTED placeholder identifier with a complete JSON-encoded
-// string literal, so no path character can escape the literal. The identifier
-// is referenced only INSIDE this function so that an untemplated copy (someone
-// hand-copying the repo source instead of running install) stays importable —
-// the ReferenceError is confined here and read as "no fallback tier", instead
-// of failing the whole module at evaluation time where only OpenCode's loader
-// isolation would save the session.
-function fallbackBin() {
+// fallbackBins resolves the install tiers below `director` on PATH, all
+// derived from $HOME — no personal path is baked into this file. (The
+// committed file used to carry a literal home path substituted at install
+// time on one machine; on every other machine it probed a path that could
+// never exist there.)
+//   - ~/.local/bin/director: where this repo's setup-director.sh installs
+//     the binary, so a fresh bootstrap just works.
+//   - ~/.claude/director/bin/director: the hooks-root tier the bash shims
+//     probe, for GUI/launchd processes whose PATH misses `director`.
+// DIRECTOR_FALLBACK_BIN overrides both tiers with a single explicit path.
+// A missing HOME (or an os.homedir() that throws) yields no tiers: the hook
+// degrades to a no-op, never a broken session.
+function fallbackBins() {
+  if (process.env.DIRECTOR_FALLBACK_BIN)
+    return [process.env.DIRECTOR_FALLBACK_BIN];
   try {
-    return "/home/mlhamel/.claude/director/bin/director";
+    const home = process.env.HOME || os.homedir();
+    if (!home) return [];
+    return [
+      path.join(home, ".local", "bin", "director"),
+      path.join(home, ".claude", "director", "bin", "director"),
+    ];
   } catch {
-    return null;
+    return [];
   }
 }
 
@@ -81,11 +96,11 @@ const hookTimeoutMs = 10_000;
 // runHook pipes a CC-shaped payload to `director _hook <event>` and returns the
 // parsed control JSON from stdout, or null on any failure (missing binary,
 // timeout, non-JSON output). Resolution order mirrors the bash shims:
-// DIRECTOR_BIN → `director` on PATH → the templated install symlink.
+// DIRECTOR_BIN → `director` on PATH → the HOME-derived fallback tiers.
 function runHook(event, payload) {
   const candidates = process.env.DIRECTOR_BIN
     ? [process.env.DIRECTOR_BIN]
-    : ["director", fallbackBin()].filter(Boolean);
+    : ["director", ...fallbackBins()].filter(Boolean);
   return tryCandidates(candidates, event, payload);
 }
 
