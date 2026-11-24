@@ -34,10 +34,11 @@ opencode/
 │   ├── token-optimization/SKILL.md  #   token-efficiency: ingestion, routing, oc-tokens loop
 │   └── dotfiles/SKILL.md      #   maintenance playbook for this repo itself
 ├── plugins/                   # JS plugins (director state, session logger, review
-│   ├── director.js            #   enforcement, session nudger — see the sections)
+│   ├── director.js            #   enforcement, session nudger, cloud fallback — see the sections)
 │   ├── session-logger.js
 │   ├── review-enforcer.js
-│   └── session-nudger.js
+│   ├── session-nudger.js
+│   └── cloud-fallback.js
 ├── install.sh                 # Deploy: symlink into ~/.config/opencode
 ├── setup-director.sh          # Optional: install Director binary + wire opencode
 └── setup-ollama.sh            # Optional: install ollama gateway + pull pinned models
@@ -75,14 +76,14 @@ ln -s ~/dotfiles/opencode ~/.config/opencode
 Not everything in this toolkit is self-contained. Two external
 dependencies are machine-local:
 
-| Piece                                                        | Needs                                                                                                                                                   | Without it                                              |
-| ------------------------------------------------------------ | ------------------------------------------------------------------------------------------------------------------------------------------------------- | ------------------------------------------------------- |
-| `/bless`, `/new`, `@ask`, `@review`                          | nothing extra                                                                                                                                           | fully portable                                          |
-| `/diagrams` + `@diagrams`                                    | `mmdc` (mermaid-cli) for the render check; diagrams degrade to syntax-unchecked edits without it                                                        | edits still apply; render verification skipped          |
-| `/director-adopt`, `/director-complete`, `/director-handoff` | the [`director`](https://github.com/mlhamel/director) binary (`plugins/director.js` is its managed shim)                                                | commands fail; plugin no-ops harmlessly                 |
-| `/session-handoff` + `plugins/session-logger.js`             | an Obsidian vault with `log_session.py` under `.opencode/skills/decision-log/`; set `OBSIDIAN_VAULT` if the vault isn't at `~/Dropbox/obsidian/general` | command fails; plugin silently no-ops outside the vault |
-| `/progress`                                                  | `jq` (shipped via the Aptfile) to trim `opencode api` output                                                                                            | command replies it cannot report progress               |
-| every model call (default, title agent, agents)              | the ollama gateway at `localhost:11434` with the models pinned in `opencode.json`                                                                       | requests fail — run `setup-ollama.sh`                   |
+| Piece                                                        | Needs                                                                                                                                                   | Without it                                                                                                                                                                                |
+| ------------------------------------------------------------ | ------------------------------------------------------------------------------------------------------------------------------------------------------- | ----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| `/bless`, `/new`, `@ask`, `@review`                          | nothing extra                                                                                                                                           | fully portable                                                                                                                                                                            |
+| `/diagrams` + `@diagrams`                                    | `mmdc` (mermaid-cli) for the render check; diagrams degrade to syntax-unchecked edits without it                                                        | edits still apply; render verification skipped                                                                                                                                            |
+| `/director-adopt`, `/director-complete`, `/director-handoff` | the [`director`](https://github.com/mlhamel/director) binary (`plugins/director.js` is its managed shim)                                                | commands fail; plugin no-ops harmlessly                                                                                                                                                   |
+| `/session-handoff` + `plugins/session-logger.js`             | an Obsidian vault with `log_session.py` under `.opencode/skills/decision-log/`; set `OBSIDIAN_VAULT` if the vault isn't at `~/Dropbox/obsidian/general` | command fails; plugin silently no-ops outside the vault                                                                                                                                   |
+| `/progress`                                                  | `jq` (shipped via the Aptfile) to trim `opencode api` output                                                                                            | command replies it cannot report progress                                                                                                                                                 |
+| every model call (default, title agent, agents)              | the ollama gateway at `localhost:11434` with the models pinned in `opencode.json`                                                                       | requests fail — run `setup-ollama.sh`; if the cloud tier is unreachable mid-session, `plugins/cloud-fallback.js` switches to local `qwen3:4b` and switches back when the gateway recovers |
 
 ### Director setup
 
@@ -244,6 +245,30 @@ discipline into an enforced rule instead of a habit:
 Each nudge is a full turn, so on very long sessions it re-sends the
 context once to warn about context re-sends — immediacy over economy,
 deliberately. Raise the threshold if the cadence ever feels too chatty.
+
+### Cloud fallback (`plugins/cloud-fallback.js`)
+
+opencode has no native fallback chain — only a catalog default — so a
+dead cloud tier used to stop every session until a manual switch to
+`build-local`. This plugin makes the switch automatic:
+
+- A failed call on an ollama `:cloud` model whose error reads as
+  cloud-unavailable (gateway down, model not registered / not signed in)
+  switches the session to local `ollama/qwen3:4b` and retries the same
+  step, with a one-shot notice prompt. Rate limits (429) and other
+  errors are left to OpenCode's built-in retry.
+- On the next user message, the plugin probes the gateway (`GET
+/api/tags`, 2s timeout): if the primary cloud model is listed again,
+  the session switches back and a note is prepended to the prompt.
+  Otherwise it stays local, silently.
+- A manual model change while fallen back clears the state, so the
+  plugin never yanks a session back against the user's choice.
+
+Tune: `CLOUD_FALLBACK_MODEL` (default `ollama/qwen3:4b`),
+`CLOUD_FALLBACK_GATEWAY` (default `http://localhost:11434`),
+`CLOUD_FALLBACK_TIMEOUT_MS` (default 2000). Opt out:
+`CLOUD_FALLBACK=0`. A slow-but-alive cloud is not detected — only
+failures trigger the hook.
 
 ## How to extend
 

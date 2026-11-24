@@ -6,6 +6,34 @@ use today's date and the hash of the change once committed.
 
 ## 2026-11-24
 
+- `(hash)` — Automatic cloud fallback (PR `fix/cloud-fallback-2026-11-24`):
+  opencode 2.3.0 has no native fallback chain — only a catalog default
+  ("falls back to the newest available supported model",
+  opencode.ai/docs/models) — so the fallback is a new plugin
+  `opencode/plugins/cloud-fallback.js` built on the V2 `retry` hook +
+  `switchModel` (opencode.ai/docs/build/plugins/server; same pattern as
+  the community failover plugins, implemented locally with zero
+  dependencies). A failed call on an ollama `:cloud` model whose error
+  reads as cloud-unavailable (gateway down, model not registered / not
+  signed in; 401/402/403/404/502/503/504 or network/not-found/auth
+  text) switches the session to local `ollama/qwen3:4b` and retries the
+  same step, with a one-shot notice prompt; 429 and other errors are
+  left to OpenCode's built-in retry. On the next user message the plugin
+  probes `GET /api/tags` (2s timeout) and switches back to the primary
+  cloud model when it is listed again; a manual model change while
+  fallen back clears the state, and `session.deleted` drops it. Opt out
+  with `CLOUD_FALLBACK=0`; tune with `CLOUD_FALLBACK_MODEL`,
+  `CLOUD_FALLBACK_GATEWAY`, `CLOUD_FALLBACK_TIMEOUT_MS`.
+  `cloud-fallback.test.js` adds 19 cases (44 → 63 plugin cases) and the
+  mock gains a `switchModel` recorder; the shell harness is unchanged
+  (17/17, no shell files touched). Known limits: a slow-but-alive cloud
+  is not detected (only failures trigger the hook); a failed title /
+  compaction call can trigger a session-level switch; the switch-back
+  assumes registered cloud models show up in `/api/tags` (the inventory
+  behind `ollama list`) — a wrong "yes" self-corrects on the next failed
+  call. The "second provider (Z.ai direct)" half of the TODO item is
+  not done.
+
 - `(hash)` — director.js portability + overwrite detection (PR
   `fix/director-portability-2026-11-24`): the fallback binary tier no
   longer hardcodes a personal home path — it resolves from `DIRECTOR_BIN`
