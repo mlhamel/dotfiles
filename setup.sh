@@ -103,8 +103,12 @@ else
 fi
 
 # 4. Director -------------------------------------------------------------
-echo "[director] installing Director + wiring opencode..."
-"${DIR}/opencode/setup-director.sh"
+if [ "${SKIP_DIRECTOR:-0}" = "1" ]; then
+  echo "[director] SKIP_DIRECTOR=1 — skipping Director setup"
+else
+  echo "[director] installing Director + wiring opencode..."
+  "${DIR}/opencode/setup-director.sh"
+fi
 
 # 5. packages ---------------------------------------------------------------
 if [ "${SKIP_PACKAGES:-0}" = "1" ]; then
@@ -121,7 +125,11 @@ else
 fi
 
 # 6. ollama gateway ---------------------------------------------------------
-echo "[ollama] installing gateway + pinned models..."
-"${DIR}/opencode/setup-ollama.sh"
+if [ "${SKIP_OLLAMA:-0}" = "1" ]; then
+  echo "[ollama] SKIP_OLLAMA=1 — skipping ollama gateway setup"
+else
+  echo "[ollama] installing gateway + pinned models..."
+  "${DIR}/opencode/setup-ollama.sh"
+fi
 
 echo "=== bootstrap complete ==="

@@ -49,7 +49,7 @@ Not covered, on purpose:
 
 Each case runs the real script with a scratch HOME and stub binaries on
 PATH: no sudo, no apt, no network, no model downloads. Stubs log every
-invocation to `$STUB_LOG`. Cases (14):
+invocation to `$STUB_LOG`. Cases (17):
 
 - `setup-ollama.sh`: happy path (local pull + cloud manifest), local
   pull failure aborts, cloud failure is a warning with the `ollama signin`
@@ -60,7 +60,16 @@ invocation to `$STUB_LOG`. Cases (14):
 2.3.0` to the installer, fresh install, `SKIP_OPENCODE=1`. Director,
   packages and ollama steps are skipped via `SKIP_*` to isolate step 2;
   the inotify step runs against the real `/proc` value with a stub `sudo`
-  that fails, so it takes the WARN path and continues.
+  that fails, so it takes the WARN path and continues. Three more cases
+  prove `setup.sh` honors `SKIP_DIRECTOR`/`SKIP_OLLAMA` itself (the
+  header documents them, and the guards used to live only in the
+  sub-scripts): with both set, the bootstrap completes and neither
+  sub-script is invoked; without either, the director marker is invoked
+  and its failure aborts the bootstrap before ollama; with only
+  `SKIP_DIRECTOR=1`, the director marker is skipped and the ollama marker
+  is invoked. The markers replace the sub-scripts in a scratch repo tree
+  and fail if called, so a missing guard fails the case instead of
+  silently falling through to the sub-script's own guard.
 - `setup-director.sh`: skip when healthy on v1.23.0, drift note for
   v1.20.0, fresh install (the fake installer creates a stub binary and
   the script wires opencode), `SKIP_DIRECTOR=1`.

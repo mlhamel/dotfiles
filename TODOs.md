@@ -39,6 +39,13 @@ not a fix for a broken config.
       the uncovered director.js fallback/timeout paths. (The missing `+x`
       on the three scripts, surfaced by the harness, was fixed on this
       branch by the mode-only commit `4a1eec9d`.)
+- [x] **P1 · Honor `SKIP_*` in setup.sh itself** — done 2026-11-24 (PR
+      `fix/setup-skip-2026-11-24`): `setup.sh` now tests `SKIP_DIRECTOR`
+      and `SKIP_OLLAMA` itself before invoking the sub-scripts (it only
+      documented them in its header; the sub-scripts honored them, but
+      only if they ran). Harness grows 14 → 17 cases (both-SKIP, no-SKIP
+      control, `SKIP_DIRECTOR` only), with marker sub-scripts that fail
+      if invoked; the guard cases fail on the old `setup.sh`.
 - [ ] **P1 · Fallback provider** — everything (default, plan, title,
       review) goes through `localhost:11434` / Ollama Cloud. Add a second
       provider (e.g. Z.ai direct) and a documented offline fallback
