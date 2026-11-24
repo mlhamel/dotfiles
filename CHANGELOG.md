@@ -6,6 +6,21 @@ use today's date and the hash of the change once committed.
 
 ## 2026-11-24
 
+- `(hash)` — Committed tests for plugins + shell scripts (PR `fix/plugin-tests-2026-11-24`):
+  `test/plugins/` adds 38 node:test cases on a mock opencode ctx
+  (review-enforcer classification/dirty-tracking/review gate/read-only
+  deferral, session-nudger bands, session-logger vault fixture,
+  director.js against a stub binary) and `test/shell/run.sh` adds 14
+  bash cases with stub binaries + scratch HOME (ollama local/cloud split,
+  setup.sh pin/skip/drift/force, setup-director.sh pin/skip/drift); both
+  wired into CI as a `test` job in `.github/workflows/lint.yml`
+  (setup-node v7.1.0, node 24). A root `package.json` (`type: module`,
+  zero dependencies) lets node:test import the ESM plugins. The harness
+  surfaced a real bug: `setup.sh`, `opencode/setup-ollama.sh` and
+  `opencode/setup-director.sh` were mode 644 in git, so direct execution
+  failed 126 on a fresh clone — scripts are invoked via `bash` in the
+  harness; the mode-only commit `4a1eec9d` on this branch restores `+x`.
+
 - `(hash)` — Software-factory review fixes (PR `fix/software-factory-review-2026-11-24`):
   `setup-ollama.sh` splits the routing table — local models are pulled
   (hard error on failure), `:cloud` models only register their manifest
