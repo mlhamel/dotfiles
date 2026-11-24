@@ -53,26 +53,33 @@ Rules for the template:
 
 ### Per-project opencode.json template
 
-Strict posture for unfamiliar code:
+Strict posture for unfamiliar code, in the native opencode V2 shape
+(`permissions` array; rules are ordered and the last match wins, so the
+broad `ask` comes first and the specific `allow` exceptions follow it).
+`edit` covers write/patch, `shell` replaces the V1 `bash` name, and no
+matching rule defaults to `ask` — so `git commit` / `git push` stay on
+`ask` even without an explicit rule. The old V1 `permission` map is still
+normalized by opencode V2, but new projects should use this shape.
+Verify the generated file with `opencode debug config`.
 
 ```json
 {
   "$schema": "https://opencode.ai/config.json",
-  "permission": {
-    "edit": "ask",
-    "bash": {
-      "*": "ask",
-      "git status*": "allow",
-      "git diff*": "allow",
-      "git log*": "allow",
-      "<test command>*": "allow",
-      "<lint command>*": "allow"
-    }
-  }
+  "permissions": [
+    { "action": "edit", "resource": "*", "effect": "ask" },
+    { "action": "shell", "resource": "*", "effect": "ask" },
+    { "action": "shell", "resource": "git status *", "effect": "allow" },
+    { "action": "shell", "resource": "git diff *", "effect": "allow" },
+    { "action": "shell", "resource": "git log *", "effect": "allow" },
+    { "action": "shell", "resource": "<test command> *", "effect": "allow" },
+    { "action": "shell", "resource": "<lint command> *", "effect": "allow" },
+    { "action": "shell", "resource": "git commit *", "effect": "ask" },
+    { "action": "shell", "resource": "git push *", "effect": "ask" }
+  ]
 }
 ```
 
-Replace `<test command>*` and `<lint command>*` with the detected tooling (e.g. `pytest *`, `npm test*`, `cargo test*`, `ruff *`, `golangci-lint *`). Leave `git commit`, `git push`, and destructive commands on `ask`.
+Replace `<test command> *` and `<lint command> *` with the detected tooling (e.g. `pytest *`, `npm test*`, `cargo test*`, `ruff *`, `golangci-lint *`). Leave `git commit`, `git push`, and destructive commands on `ask`.
 
 ## New-project playbook
 
