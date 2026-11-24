@@ -102,6 +102,14 @@ shellcheck on the setup scripts, prettier on markdown/JSON. Lockfiles
 (`package-lock.json`, `Brewfile.lock.json`), `node_modules/`, and the
 Director-managed `opencode/plugins/` are excluded.
 
+Tests run in CI too (same workflow, `test` job) — see
+[test/README.md](test/README.md):
+
+```bash
+node --test test/plugins/*.test.js   # plugin suites
+bash test/shell/run.sh               # bootstrap scripts
+```
+
 ## History note
 
 This repo merged two previously unrelated histories in Oct 2026: the

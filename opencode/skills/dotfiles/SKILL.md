@@ -13,6 +13,7 @@ itself.
 
 - `opencode/` — opencode config (agents, commands, skills, plugins); `README.md` there documents architecture
 - `apt/` — Debian/Ubuntu packages; `homebrew/` — macOS packages
+- `test/` — node:test suites for the plugins + bash harness for the bootstrap scripts (see `test/README.md`)
 - `setup.sh` — fresh-machine bootstrap; `opencode/setup-director.sh` — Director install
 - `TODOs.md` — prioritized backlog (P1/P2/P3). `CHANGELOG.md` — dated change log.
 - `.pre-commit-config.yaml` — hooks (markdownlint, shellcheck, prettier, hygiene)
@@ -27,6 +28,20 @@ itself.
    filled in after the commit (amend or a pin commit is fine).
 5. Check off / update the relevant `TODOs.md` item if one existed.
 6. Push is the user's action — never push (global permission denies it).
+
+## Tests
+
+Run both suites before committing a change to a plugin or a script:
+
+```bash
+node --test test/plugins/*.test.js   # plugin suites (node 18+)
+bash test/shell/run.sh               # bootstrap scripts (scratch HOME + stubs)
+```
+
+New plugin behaviour gets a case in `test/plugins/` on the mock ctx;
+new bootstrap-script behaviour gets a case in `test/shell/run.sh`
+(stub the new binary, never the real HOME). See `test/README.md` for
+what is covered and what is deliberately not.
 
 ## Regenerate the Aptfile (after apt install/remove on this machine)
 
@@ -59,7 +74,8 @@ prek run --all-files   # recreates envs; fix any fallout the bumps surface
 ## CI
 
 `.github/workflows/lint.yml` runs `prek run --all-files` on push/PR via
-`j178/prek-action`. Do NOT add `apt/generate.sh --check` to CI — it diffs
+`j178/prek-action`, plus a `test` job (`node --test test/plugins/*.test.js`
+and `bash test/shell/run.sh`). Do NOT add `apt/generate.sh --check` to CI — it diffs
 against the machine's installed packages and would always fail on a runner.
 
 ## Conventions

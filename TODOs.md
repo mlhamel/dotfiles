@@ -27,12 +27,18 @@ not a fix for a broken config.
       `setup.sh` (latest 2026-11-24, `--version` flag) and
       `DIRECTOR_VERSION=v1.23.0` in `opencode/setup-director.sh` (latest
       upstream 2026-10-27); both skip branches report drift from the pin.
-- [ ] **P1 · Tests for plugins + shell scripts** — the 4 JS plugins (~900
-      lines, classify/dedup/timeout state machines) and the bootstrap
-      scripts have no committed tests; only lint (prek/shellcheck) and the
-      shadow harnesses cited in CHANGELOG (never committed) cover them.
-      Add a node test runner for plugins and bats/shunit for the scripts,
-      run them in CI.
+- [x] **P1 · Tests for plugins + shell scripts** — done 2026-11-24 (PR
+      `fix/plugin-tests-2026-11-24`): `test/plugins/` runs 38 node:test
+      cases on a mock ctx (review-enforcer classify/dirty/gate/read-only,
+      session-nudger bands, session-logger vault fixture, director.js
+      with a stub binary) and `test/shell/run.sh` runs 14 bash cases
+      (stub binaries + scratch HOME; ollama local/cloud split, setup.sh
+      pin/skip/drift/force, setup-director.sh pin/skip/drift); both wired
+      into CI (`.github/workflows/lint.yml` `test` job). Deliberately
+      plain bash, zero new dependencies — no bats/shunit. Still open:
+      the uncovered director.js fallback/timeout paths. (The missing `+x`
+      on the three scripts, surfaced by the harness, was fixed on this
+      branch by the mode-only commit `4a1eec9d`.)
 - [ ] **P1 · Fallback provider** — everything (default, plan, title,
       review) goes through `localhost:11434` / Ollama Cloud. Add a second
       provider (e.g. Z.ai direct) and a documented offline fallback
