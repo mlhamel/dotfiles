@@ -6,6 +6,13 @@ use today's date and the hash of the change once committed.
 
 ## 2026-11-24
 
+- `(hash)` — TODOs: new "Agent cloud/async — OpenHands" section (PR
+  `fix/openhands-todo-section-2026-11-25`): from the AI software factory
+  landscape tour (2026-11-25), the trial plan for OpenHands Agent Canvas
+  as the factory's async agent — local Docker trial, eval comparison
+  against opencode, the ACP option, a dedicated always-on PC, and the
+  adopt-or-drop decision.
+
 - `(hash)` — Pre-commit: exclude `.opencode/` from the markdownlint hook
   (PR `fix/precommit-exclude-opencode-2026-11-24`): the `markdownlint-cli2`
   hook had no `exclude`, so its `**/*.md` glob swept the untracked scratch
