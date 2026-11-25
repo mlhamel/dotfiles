@@ -7,9 +7,10 @@
 //     plugin sees every session. classify() therefore also verifies the
 //     session's location before acting, or a second instance loaded for
 //     another project would double-fire the gate.
-//   - V1's session.idle is gone in V2; turn end is session.execution.succeeded
-//     (or .interrupted). session.idle is deliberately NOT handled — if both
-//     fired, the gate would send twice.
+//   - V1's session.idle is gone in V2; turn end is session.execution.succeeded,
+//     .interrupted or .failed (see lib/session-classify.js for the converged
+//     rule). session.idle is deliberately NOT handled — if both fired, the
+//     gate would send twice.
 //   - V1's chat.message part injection has no V2 equivalent; the prompt hook
 //     prepends the nudge to the persisted prompt text instead.
 //   - ctx.session.get keeps returning Session.Info with parentID, so subagent
@@ -42,6 +43,8 @@
 
 import os from "node:os";
 
+import { createSessionClassifier } from "../lib/session-classify.js";
+
 const EDIT_TOOLS = new Set(["edit", "write", "patch", "apply_patch"]);
 const PLAN_DIR = `${os.homedir()}/.opencode/plan`;
 
@@ -54,35 +57,13 @@ export default {
     // tracking (benign — the worst case is a missing nudge for in-flight
     // sessions).
     const dirty = new Set(); // sessions with unreviewed substantive edits
-    const children = new Set(); // subagent session ids (never gated)
-    const tops = new Set(); // confirmed top-level sessions in this location
     const reviewed = new Set(); // sessions whose gate already fired this turn
 
-    // classify resolves a session to "child" | "top" | "foreign" | "unknown".
-    // "foreign" is new in V2: the server-wide event stream delivers sessions
-    // from every project this shared server hosts, and only the instance
-    // whose location matches the session's may act. Nothing is cached on
-    // failure, so a transient client error costs one skipped beat, not a
-    // permanent misclassification.
-    const classify = async (sid) => {
-      if (children.has(sid)) return "child";
-      if (tops.has(sid)) return "top";
-      try {
-        const res = await ctx.session.get({ path: { id: sid } });
-        const info = res?.data ?? res;
-        if (info && typeof info === "object" && "id" in info) {
-          if (info.parentID) {
-            children.add(sid);
-            return "child";
-          }
-          if (info.location?.directory !== ctx.location.directory)
-            return "foreign";
-          tops.add(sid);
-          return "top";
-        }
-      } catch {}
-      return "unknown";
-    };
+    // Shared session classification + server-wide event subscription
+    // (see ../lib/session-classify.js): classify() resolves a session to
+    // child/top/foreign/unknown, surviving server restarts via a
+    // ctx.session.get lookup for unknown ids.
+    const sessions = createSessionClassifier(ctx);
 
     // Read-only agents — any agent whose ruleset carries edit * → deny —
     // cannot act on a review demand. Their sessions get no nudge and no
@@ -138,56 +119,28 @@ export default {
       } catch {}
     };
 
-    // The event stream is server-wide; location filtering happens inside.
-    const controller = new AbortController();
-    void (async () => {
-      try {
-        for await (const event of ctx.event.subscribe({
-          signal: controller.signal,
-        })) {
-          try {
-            const data = event?.data;
-            const sid = data?.sessionID;
-            if (!sid) continue;
-            switch (event?.type) {
-              case "session.created": {
-                // The created payload carries the session's location, so
-                // same-location top-level sessions pre-cache without a
-                // lookup; child events carry parentID when present.
-                if (data.parentID) children.add(sid);
-                else if (data.location?.directory === ctx.location.directory)
-                  tops.add(sid);
-                continue;
-              }
-              case "session.deleted":
-                dirty.delete(sid);
-                children.delete(sid);
-                tops.delete(sid);
-                reviewed.delete(sid);
-                continue;
-              case "session.execution.succeeded":
-              case "session.execution.interrupted":
-              case "session.execution.failed": {
-                if (!dirty.has(sid) || reviewed.has(sid)) continue;
-                if ((await classify(sid)) !== "top") continue;
-                // Read-only turns defer: keep the flag, and the gate fires
-                // when a turn run by an editing agent ends.
-                if (await isReadOnly(await activeAgent(sid))) continue;
-                // Fire once per dirty stretch: clear before sending so a
-                // misfiring hook can't loop the gate.
-                dirty.delete(sid);
-                reviewed.add(sid);
-                await sendGate(sid);
-                continue;
-              }
-            }
-          } catch {}
-        }
-      } catch {}
-      // The stream itself (subscribe/iterator/abort) sits outside the
-      // per-event catch; a broken event bus must never become an unhandled
-      // rejection that takes the server down.
-    })();
+    // The event stream is server-wide; location filtering happens inside
+    // the shared classifier. Turn end is succeeded, interrupted OR
+    // failed — a failed turn still ends the dirty stretch (see
+    // ../lib/session-classify.js for the converged rule).
+    const stopEvents = sessions.subscribe({
+      deleted: (sid) => {
+        dirty.delete(sid);
+        reviewed.delete(sid);
+      },
+      ended: async (sid) => {
+        if (!dirty.has(sid) || reviewed.has(sid)) return;
+        if ((await sessions.classify(sid)) !== "top") return;
+        // Read-only turns defer: keep the flag, and the gate fires
+        // when a turn run by an editing agent ends.
+        if (await isReadOnly(await activeAgent(sid))) return;
+        // Fire once per dirty stretch: clear before sending so a
+        // misfiring hook can't loop the gate.
+        dirty.delete(sid);
+        reviewed.add(sid);
+        await sendGate(sid);
+      },
+    });
 
     // Hooks are location-scoped in V2: only this location's sessions run
     // them, so no cross-project filtering is needed here.
@@ -231,7 +184,7 @@ export default {
     );
 
     return () => {
-      controller.abort();
+      stopEvents();
       for (const reg of hookRegistrations) {
         try {
           Promise.resolve(reg?.dispose?.()).catch(() => {});

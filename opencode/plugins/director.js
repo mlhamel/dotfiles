@@ -40,8 +40,9 @@
 //     per-location instance sees every session, so classify() also verifies
 //     the session's location, or a second instance loaded for another
 //     project would double-fire fleet bookkeeping.
-//   - V1's session.idle is gone; turn end is session.execution.succeeded
-//     (or .interrupted). session.idle is deliberately NOT handled — if both
+//   - V1's session.idle is gone; turn end is session.execution.succeeded,
+//     .interrupted or .failed (see lib/session-classify.js for the
+//     converged rule). session.idle is deliberately NOT handled — if both
 //     fired, the stop hook would run twice per turn.
 //   - V1's chat.message part injection has no V2 equivalent; the prompt hook
 //     prepends the digest to the persisted prompt text instead.
@@ -56,6 +57,8 @@
 import { spawn } from "node:child_process";
 import os from "node:os";
 import path from "node:path";
+
+import { createSessionClassifier } from "../lib/session-classify.js";
 
 // fallbackBins resolves the install tiers below `director` on PATH, all
 // derived from $HOME — no personal path is baked into this file. (The
@@ -178,56 +181,25 @@ export default {
   id: "director",
   async setup(ctx) {
     // Per-location-instance state, same lifecycle as the V1 server instance.
-    // injected: sessions already carrying the ground truth. children/tops:
-    // subagent classification (children are excluded from injection and fleet
-    // everywhere, mirroring the CC throwaway filter). compacted: sessions in
-    // the post-compaction window, with compactCtx caching their re-grounding
-    // text so the per-request system-prompt bridge doesn't spawn a hook per
-    // LLM call. stopSent: turn-end dedup between execution.succeeded and
-    // execution.interrupted, cleared when the next turn starts. A server
-    // restart or plugin reload clears all of this; injected/compacted degrade
-    // to a benign re-injection (what CC does on resume), and the child
-    // classification is RECOVERED, not guessed: an unknown session id is
-    // looked up via ctx.session.get (see classify) so a resumed child doesn't
-    // come back as a top-level session with a fleet row.
+    // injected: sessions already carrying the ground truth. compacted:
+    // sessions in the post-compaction window, with compactCtx caching their
+    // re-grounding text so the per-request system-prompt bridge doesn't spawn
+    // a hook per LLM call. stopSent: turn-end dedup between the three
+    // terminal execution events, cleared when the next turn starts. Session
+    // classification (children/tops) lives in the shared classifier
+    // (../lib/session-classify.js): an unknown session id is looked up via
+    // ctx.session.get, so a resumed child doesn't come back as a top-level
+    // session with a fleet row. A server restart or plugin reload clears all
+    // of this; injected/compacted degrade to a benign re-injection (what CC
+    // does on resume).
     const injected = new Set();
-    const children = new Set();
-    const tops = new Set();
     const compacted = new Set();
     const compactCtx = new Map();
     const stopSent = new Set();
 
-    // classify resolves a session to "child" | "top" | "foreign" | "unknown",
-    // surviving server restarts: the created-event cache first, then one
-    // ctx.session.get lookup for an unknown id (cached on success). "foreign"
-    // is the V2 addition: the event stream is server-wide, and only the
-    // instance whose location matches the session's may act on it. A failed
-    // lookup is reported as "unknown", never guessed: every consumer SKIPS
-    // its action on unknown and retries on its next firing, because acting
-    // on a guess is worse in both directions — injecting the full ground
-    // truth into a subagent, or materializing a fleet row for one, pollutes
-    // the sibling counts other sessions see. Nothing is cached on failure,
-    // so a transient client error costs one skipped beat, not a permanent
-    // misclassification.
-    const classify = async (sid) => {
-      if (children.has(sid)) return "child";
-      if (tops.has(sid)) return "top";
-      try {
-        const res = await ctx.session.get({ path: { id: sid } });
-        const info = res?.data ?? res;
-        if (info && typeof info === "object" && "id" in info) {
-          if (info.parentID) {
-            children.add(sid);
-            return "child";
-          }
-          if (info.location?.directory !== ctx.location.directory)
-            return "foreign";
-          tops.add(sid);
-          return "top";
-        }
-      } catch {}
-      return "unknown";
-    };
+    // Shared session classification + server-wide event subscription
+    // (see ../lib/session-classify.js).
+    const sessions = createSessionClassifier(ctx);
 
     // cwd is the instance's location directory: OpenCode runs one server per
     // project directory in practice, so it matches every session's root. If
@@ -241,55 +213,35 @@ export default {
       agent: "opencode",
     });
 
-    // The event stream is server-wide; location filtering happens inside.
-    const controller = new AbortController();
-    void (async () => {
-      for await (const event of ctx.event.subscribe({
-        signal: controller.signal,
-      })) {
-        try {
-          const data = event?.data;
-          const sid = data?.sessionID;
-          if (!sid) continue;
-          switch (event?.type) {
-            case "session.created": {
-              // The created payload carries the session's location and, for
-              // children, parentID when present.
-              if (data.parentID) children.add(sid);
-              else if (data.location?.directory === ctx.location.directory)
-                tops.add(sid);
-              continue;
-            }
-            case "session.execution.started":
-              // A new turn opens: re-arm the stop hook for it.
-              stopSent.delete(sid);
-              continue;
-            case "session.deleted":
-              injected.delete(sid);
-              children.delete(sid);
-              tops.delete(sid);
-              compacted.delete(sid);
-              compactCtx.delete(sid);
-              stopSent.delete(sid);
-              continue;
-            case "session.execution.succeeded":
-            case "session.execution.interrupted":
-              if (stopSent.has(sid)) continue;
-              if ((await classify(sid)) !== "top") continue;
-              stopSent.add(sid);
-              // End-of-turn Stop: fleet bookkeeping only. The emit-guard needs
-              // a transcript to ever block, and this payload carries none, so
-              // any control output is ignored by design — a block here would
-              // have nowhere to go anyway (OpenCode has no blockable stop).
-              await runHook("stop", {
-                ...basePayload("Stop", sid),
-                stop_hook_active: false,
-              });
-              continue;
-          }
-        } catch {}
-      }
-    })();
+    // The event stream is server-wide; location filtering happens inside
+    // the shared classifier. Turn end is succeeded, interrupted OR
+    // failed — a failed turn still ran, so fleet bookkeeping records it
+    // (see ../lib/session-classify.js for the converged rule).
+    const stopEvents = sessions.subscribe({
+      started: (sid) => {
+        // A new turn opens: re-arm the stop hook for it.
+        stopSent.delete(sid);
+      },
+      deleted: (sid) => {
+        injected.delete(sid);
+        compacted.delete(sid);
+        compactCtx.delete(sid);
+        stopSent.delete(sid);
+      },
+      ended: async (sid) => {
+        if (stopSent.has(sid)) return;
+        if ((await sessions.classify(sid)) !== "top") return;
+        stopSent.add(sid);
+        // End-of-turn Stop: fleet bookkeeping only. The emit-guard needs
+        // a transcript to ever block, and this payload carries none, so
+        // any control output is ignored by design — a block here would
+        // have nowhere to go anyway (OpenCode has no blockable stop).
+        await runHook("stop", {
+          ...basePayload("Stop", sid),
+          stop_hook_active: false,
+        });
+      },
+    });
 
     // Hooks below are location-scoped in V2: only this location's sessions
     // run them, so no cross-project filtering is needed there.
@@ -302,7 +254,7 @@ export default {
       try {
         const sid = event.sessionID;
         if (!sid || injected.has(sid)) return;
-        if ((await classify(sid)) !== "top") return;
+        if ((await sessions.classify(sid)) !== "top") return;
         // The classify call suspended, so a concurrent fire for the same
         // session may have passed the guard above in the meantime — re-check
         // before claiming the injection, then mark. The mark is deliberately
@@ -375,7 +327,7 @@ export default {
     await ctx.tool.hook("execute.after", async (event) => {
       try {
         const sid = event.sessionID;
-        if (!sid || (await classify(sid)) !== "top") return;
+        if (!sid || (await sessions.classify(sid)) !== "top") return;
         const control = await runHook("posttooluse", {
           ...basePayload("PostToolUse", sid),
           tool_name: event.tool,
@@ -405,6 +357,6 @@ export default {
       } catch {}
     });
 
-    return () => controller.abort();
+    return () => stopEvents();
   },
 };

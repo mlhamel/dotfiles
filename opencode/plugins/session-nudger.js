@@ -6,7 +6,8 @@
 // V2 port notes (from the V1 API):
 //   - V1 counted messages via client.session.messages; V2 has no equivalent,
 //     so turns are counted in-memory from session.execution.succeeded /
-//     .interrupted events instead. One turn ≈ two messages, so the default
+//     .interrupted / .failed events instead (see lib/session-classify.js for
+//     the converged turn-end rule). One turn ≈ two messages, so the default
 //     bar is 25 turns (the V1 default was 50 messages).
 //   - V1's session.idle is gone in V2; the execution events above are the
 //     turn-end signal. session.idle is deliberately NOT handled, and a
@@ -31,6 +32,8 @@
 // the reply at two sentences to keep the added cost to the input re-send.
 // Opt out: SESSION_NUDGER=0. Tune the bar: SESSION_NUDGER_THRESHOLD (turns).
 
+import { createSessionClassifier } from "../lib/session-classify.js";
+
 function threshold() {
   const raw = Number(process.env.SESSION_NUDGER_THRESHOLD);
   if (Number.isInteger(raw) && raw > 0) return raw;
@@ -43,35 +46,15 @@ export default {
     if (process.env.SESSION_NUDGER === "0") return;
 
     const bar = threshold();
-    const children = new Set(); // subagent session ids (never nudged)
-    const tops = new Set(); // confirmed top-level sessions in this location
     const turns = new Map(); // session id → completed turn count
     const band = new Map(); // session id → highest band already nudged
-    const counted = new Set(); // turn-end dedup (succeeded/interrupted), cleared on execution.started
+    const counted = new Set(); // turn-end dedup (succeeded/interrupted/failed), cleared on execution.started
 
-    // classify resolves a session to "child" | "top" | "foreign" | "unknown".
-    // "foreign" covers sessions from other locations sharing the server-wide
-    // event stream; only this instance's own location may nudge. Nothing is
-    // cached on failure, so a transient client error costs one skipped beat.
-    const classify = async (sid) => {
-      if (children.has(sid)) return "child";
-      if (tops.has(sid)) return "top";
-      try {
-        const res = await ctx.session.get({ path: { id: sid } });
-        const info = res?.data ?? res;
-        if (info && typeof info === "object" && "id" in info) {
-          if (info.parentID) {
-            children.add(sid);
-            return "child";
-          }
-          if (info.location?.directory !== ctx.location.directory)
-            return "foreign";
-          tops.add(sid);
-          return "top";
-        }
-      } catch {}
-      return "unknown";
-    };
+    // Shared session classification + server-wide event subscription
+    // (see ../lib/session-classify.js): classify() resolves a session to
+    // child/top/foreign/unknown, surviving server restarts via a
+    // ctx.session.get lookup for unknown ids.
+    const sessions = createSessionClassifier(ctx);
 
     const sendNudge = async (sid, count) => {
       try {
@@ -89,52 +72,33 @@ export default {
       } catch {}
     };
 
-    const controller = new AbortController();
-    void (async () => {
-      for await (const event of ctx.event.subscribe({
-        signal: controller.signal,
-      })) {
-        try {
-          const data = event?.data;
-          const sid = data?.sessionID;
-          if (!sid) continue;
-          switch (event?.type) {
-            case "session.created": {
-              if (data.parentID) children.add(sid);
-              else if (data.location?.directory === ctx.location.directory)
-                tops.add(sid);
-              continue;
-            }
-            case "session.deleted":
-              children.delete(sid);
-              tops.delete(sid);
-              turns.delete(sid);
-              band.delete(sid);
-              counted.delete(sid);
-              continue;
-            case "session.execution.started":
-              // A new turn opens: re-arm the turn-end dedup for it.
-              counted.delete(sid);
-              continue;
-            case "session.execution.succeeded":
-            case "session.execution.interrupted": {
-              if (counted.has(sid)) continue;
-              if ((await classify(sid)) !== "top") continue;
-              counted.add(sid);
-              const count = (turns.get(sid) ?? 0) + 1;
-              turns.set(sid, count);
-              const current = Math.floor(count / bar);
-              const last = band.get(sid) ?? 0;
-              if (current <= last) continue;
-              band.set(sid, current);
-              await sendNudge(sid, count);
-              continue;
-            }
-          }
-        } catch {}
-      }
-    })();
+    // Turn end is succeeded, interrupted OR failed — a failed turn still
+    // ran and consumed a full context re-send, so it counts toward the
+    // bar (see ../lib/session-classify.js for the converged rule).
+    const stopEvents = sessions.subscribe({
+      started: (sid) => {
+        // A new turn opens: re-arm the turn-end dedup for it.
+        counted.delete(sid);
+      },
+      deleted: (sid) => {
+        turns.delete(sid);
+        band.delete(sid);
+        counted.delete(sid);
+      },
+      ended: async (sid) => {
+        if (counted.has(sid)) return;
+        if ((await sessions.classify(sid)) !== "top") return;
+        counted.add(sid);
+        const count = (turns.get(sid) ?? 0) + 1;
+        turns.set(sid, count);
+        const current = Math.floor(count / bar);
+        const last = band.get(sid) ?? 0;
+        if (current <= last) return;
+        band.set(sid, current);
+        await sendNudge(sid, count);
+      },
+    });
 
-    return () => controller.abort();
+    return () => stopEvents();
   },
 };
