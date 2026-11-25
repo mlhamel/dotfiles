@@ -1,0 +1,1 @@
+The session-nudger plugin in `opencode/plugins/session-nudger.js` nudges too early: with `SESSION_NUDGER_THRESHOLD=2` it fires after 1 turn instead of 2. Find the off-by-one in the band computation and fix it. Do not modify anything under `test/`. Verify with: `node --test test/plugins/session-nudger.test.js` (all 9 tests must pass).

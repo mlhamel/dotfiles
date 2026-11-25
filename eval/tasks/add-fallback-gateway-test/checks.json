@@ -1,0 +1,30 @@
+{
+  "checks": [
+    {
+      "cmd": "node --test test/plugins/cloud-fallback.test.js",
+      "kind": "cmd",
+      "name": "fallback suite passes"
+    },
+    {
+      "file": "test/plugins/cloud-fallback.test.js",
+      "kind": "count-gt",
+      "name": "one more test case",
+      "pattern": "test\\("
+    },
+    {
+      "file": "test/plugins/cloud-fallback.test.js",
+      "kind": "count-gt",
+      "name": "gateway override exercised",
+      "pattern": "CLOUD_FALLBACK_GATEWAY"
+    },
+    {
+      "files": [
+        "opencode/plugins/cloud-fallback.js",
+        "test/plugins/mock-context.js",
+        "package.json"
+      ],
+      "kind": "unchanged",
+      "name": "plugin and helpers untouched"
+    }
+  ]
+}

@@ -1,0 +1,12 @@
+{
+  "checks": [
+    {
+      "file": "target.txt",
+      "kind": "contains",
+      "name": "target says after",
+      "text": "after"
+    },
+    { "cmd": "test -f target.txt", "kind": "cmd", "name": "target exists" },
+    { "files": ["other.txt"], "kind": "unchanged", "name": "other untouched" }
+  ]
+}

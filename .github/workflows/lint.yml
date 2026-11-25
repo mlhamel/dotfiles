@@ -20,6 +20,7 @@ jobs:
         with:
           node-version: "24"
       - run: node --test test/plugins/*.test.js
+      - run: node --test test/eval/*.test.js
       - run: bash test/shell/run.sh
 
   # Note: apt/generate.sh --check is intentionally NOT run in CI — it

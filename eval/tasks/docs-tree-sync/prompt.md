@@ -1,0 +1,1 @@
+`opencode/README.md` has an architecture tree listing the agents in `opencode/agents/`, but `build-mini.md` and `ask-local.md` are missing from it. Update the tree so it lists every agent file actually present in `opencode/agents/`, keeping the existing format and alignment. Do not change anything else in the README.
