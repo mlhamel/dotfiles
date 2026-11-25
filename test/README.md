@@ -1,16 +1,18 @@
 # Tests
 
-Committed tests for the two things that used to be covered only by lint
-and by uncommitted shadow harnesses: the opencode plugins and the
-bootstrap shell scripts. Both suites run in CI (`.github/workflows/lint.yml`,
+Committed tests for the things that used to be covered only by lint and
+by uncommitted shadow harnesses: the opencode plugins and the shell
+scripts under `opencode/` (the bootstrap scripts and `bin/oc-tokens`).
+Both suites run in CI (`.github/workflows/lint.yml`,
 job `test`) and locally with no extra dependencies.
 
 ```bash
 node --test test/plugins/*.test.js   # plugin suites (node 18+)
 node --test test/eval/*.test.js      # eval harness suites (stub opencode)
 node --test test/profiles/*.test.js  # permission profiles + threat-model never-list
-bash test/shell/run.sh               # bootstrap scripts (scratch HOME + stubs)
+bash test/shell/run.sh               # shell scripts (scratch HOME + stubs)
 bash test/shell/run.sh ollama        # only cases matching "ollama"
+bash test/shell/run.sh oc-tokens     # only oc-tokens cases (real SQLite fixture)
 ```
 
 Use the explicit `test/plugins/*.test.js` glob: `node --test test/plugins`
@@ -89,7 +91,7 @@ reference the profiles (checked too).
 
 Each case runs the real script with a scratch HOME and stub binaries on
 PATH: no sudo, no apt, no network, no model downloads. Stubs log every
-invocation to `$STUB_LOG`. Cases (24):
+invocation to `$STUB_LOG`. Cases (36):
 
 - `setup-ollama.sh`: happy path (local pull + cloud manifest), local
   pull failure aborts, cloud failure is a warning with the `ollama signin`
@@ -123,6 +125,15 @@ invocation to `$STUB_LOG`. Cases (24):
   `darwin_arm64` and `darwin_amd64` tarballs, verified against the release
   download URLs). A run on a real Mac is still untested — see the macOS
   item in `TODOs.md`.
+- `opencode/bin/oc-tokens`: report cases against real SQLite fixtures
+  built with python3's sqlite3 module (v2 and legacy v1 schemas), so the
+  reporting SQL runs end to end: happy totals, `--spiral` threshold
+  boundary, `--days` cutoff, v1/v2 reconciliation (the v1/v2 max wins),
+  half-migrated and pre-v2 schemas, missing and malformed DBs, argument
+  validation, and the `OPENCODE_DB` env var. Fixtures embed `NOW_MS`
+  tokens that a builder rewrites to the current epoch millis, so the
+  `--days` cases never rot; `--days 0` is pinned as a real cutoff because
+  the parser accepts `0` but must not treat it as "no filter".
 
 Scripts are invoked via `bash` on purpose: it keeps the harness working
 regardless of file modes, and `setup.sh` itself invokes the other two
@@ -131,3 +142,5 @@ directly. The harness surfaced a missing `+x` on these three scripts (mode
 was fixed on this branch by the mode-only commit `4a1eec9d` — a kind of
 commit the GitHub API used for this PR cannot produce, which is also the
 probable cause of the original loss (PR #2 was pushed through the API).
+`opencode/bin/oc-tokens` is still mode 644 in git, so its cases invoke it
+the same way.

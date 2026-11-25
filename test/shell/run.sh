@@ -13,6 +13,11 @@
 # fresh clone); that was fixed on this branch by commit 4a1eec9d ("fix:
 # restore executable bit on bootstrap scripts"). See test/README.md.
 #
+# The bin/oc-tokens cases are a variant on the recipe: instead of stub
+# binaries they build a real SQLite database with python3 so the script's
+# SQL reporting runs end to end. bin/oc-tokens is also mode 644 in git,
+# hence the same `bash` invocation.
+#
 #   bash test/shell/run.sh           # run everything
 #   bash test/shell/run.sh ollama    # only cases matching "ollama"
 #
@@ -61,6 +66,18 @@ check_not_contains() {
     echo "  FAIL: ${desc} (unexpected '${needle}')" >&2
     CASE_FAILED=1
   fi
+}
+
+check_line_order() {
+  local file="$1" first="$2" second="$3" desc="$4"
+  local ln_first ln_second
+  ln_first="$(grep -nF -- "${first}" "${file}" | head -n 1 | cut -d: -f1)"
+  ln_second="$(grep -nF -- "${second}" "${file}" | head -n 1 | cut -d: -f1)"
+  if [ -n "${ln_first}" ] && [ -n "${ln_second}" ] && [ "${ln_first}" -lt "${ln_second}" ]; then
+    return 0
+  fi
+  echo "  FAIL: ${desc} ('${first}' at line ${ln_first:-none}, '${second}' at line ${ln_second:-none})" >&2
+  CASE_FAILED=1
 }
 
 check_symlink_to() {
@@ -657,6 +674,274 @@ case_director_darwin() {
   finish_case
 }
 
+# --- bin/oc-tokens -----------------------------------------------------------
+# oc-tokens reports on the opencode SQLite DB (v2 session_v2 schema, legacy
+# v1 session/message schema). Cases call it via `bash` (the file is also
+# mode 644 in git, like the bootstrap scripts) and build real fixtures with
+# python3's sqlite3 module so the reporting SQL runs end to end. Fixtures
+# embed NOW_MS tokens that build_db replaces with the current epoch millis,
+# so the --days cases never rot. Per-row token counts stay under 1,000 so
+# fmt() emits no commas except where a Total line asserts them.
+
+build_db() {
+  mkdir -p "$(dirname "$1")"
+  python3 -c '
+import sqlite3, sys, time
+con = sqlite3.connect(sys.argv[1])
+con.executescript(sys.stdin.read().replace("NOW_MS", str(int(time.time() * 1000))))
+con.commit()
+con.close()
+' "$@"
+}
+
+case_oc_tokens_happy() {
+  new_case
+  local db="${CASE_HOME}/.local/share/opencode/opencode.db"
+  build_db "${db}" <<'SQL_EOF'
+CREATE TABLE session_v2(id TEXT, title TEXT, agent TEXT, model TEXT, tokens_input INT, tokens_output INT, tokens_cache_read INT, time_created INT, time_updated INT);
+CREATE TABLE session_message(session_id TEXT, type TEXT);
+INSERT INTO session_v2 VALUES('a1','Alpha Co','build','claude-x',900,40,50,NOW_MS-86400000,NOW_MS);
+INSERT INTO session_v2 VALUES('b2','Beta Co','build','claude-x',400,30,60,NOW_MS-7200000,NOW_MS);
+INSERT INTO session_v2 VALUES('c3','Gamma Co','build','claude-x',90,10,40,NOW_MS-3600000,NOW_MS);
+INSERT INTO session_message VALUES('a1','user');
+INSERT INTO session_message VALUES('a1','assistant');
+INSERT INTO session_message VALUES('b2','user');
+INSERT INTO session_message VALUES('c3','user');
+SQL_EOF
+  bash "${ROOT}/opencode/bin/oc-tokens" > "${CASE_HOME}/out.log" 2> "${CASE_HOME}/err.log"
+  local rc=$?
+  check_rc 0 "${rc}" "happy path exits 0"
+  check_contains "${CASE_HOME}/out.log" "opencode session efficiency report" "report header"
+  check_contains "${CASE_HOME}/out.log" "Total: 3 sessions | input 1,390 | output 80 | cache-read 150" "token totals with comma grouping"
+  check_line_order "${CASE_HOME}/out.log" "Alpha Co" "Beta Co" "burners ordered by tokens_input desc (1/2)"
+  check_line_order "${CASE_HOME}/out.log" "Beta Co" "Gamma Co" "burners ordered by tokens_input desc (2/3)"
+  check_contains "${CASE_HOME}/out.log" "every large session recorded cache-read" "zero-cache section empty"
+  check_contains "${CASE_HOME}/out.log" "no session crossed the message threshold" "spirals section empty"
+  check_not_contains "${CASE_HOME}/err.log" "oc-tokens:" "stderr clean on a well-formed DB"
+  finish_case
+}
+
+case_oc_tokens_msg_filter() {
+  new_case
+  local db="${CASE_HOME}/spiral.db"
+  build_db "${db}" <<'SQL_EOF'
+CREATE TABLE session_v2(id TEXT, title TEXT, agent TEXT, model TEXT, tokens_input INT, tokens_output INT, tokens_cache_read INT, time_created INT, time_updated INT);
+CREATE TABLE session_message(session_id TEXT, type TEXT);
+INSERT INTO session_v2 VALUES('s1','Spiral Co','build','claude-x',500,50,50,NOW_MS-3600000,NOW_MS);
+INSERT INTO session_message VALUES('s1','user');
+INSERT INTO session_message VALUES('s1','assistant');
+INSERT INTO session_message VALUES('s1','user');
+INSERT INTO session_message VALUES('s1','assistant');
+INSERT INTO session_message VALUES('s1','user');
+INSERT INTO session_message VALUES('s1','idle');
+INSERT INTO session_message VALUES('s1','synthetic');
+SQL_EOF
+  bash "${ROOT}/opencode/bin/oc-tokens" --db "${db}" --spiral 5 > "${CASE_HOME}/out.log" 2> "${CASE_HOME}/err.log"
+  local rc=$?
+  check_rc 0 "${rc}" "threshold 5 run exits 0"
+  check_contains "${CASE_HOME}/out.log" "5 msgs" "session at the threshold is listed (only user/assistant count)"
+  check_not_contains "${CASE_HOME}/out.log" "no session crossed the message threshold" "spirals section not empty at threshold 5"
+  bash "${ROOT}/opencode/bin/oc-tokens" --db "${db}" --spiral 6 > "${CASE_HOME}/out2.log" 2> "${CASE_HOME}/err.log"
+  rc=$?
+  check_rc 0 "${rc}" "threshold 6 run exits 0"
+  check_not_contains "${CASE_HOME}/out2.log" "5 msgs" "session below the threshold is not listed"
+  check_contains "${CASE_HOME}/out2.log" "no session crossed the message threshold" "spirals section empty at threshold 6"
+  finish_case
+}
+
+case_oc_tokens_days() {
+  new_case
+  local db="${CASE_HOME}/days.db"
+  build_db "${db}" <<'SQL_EOF'
+CREATE TABLE session_v2(id TEXT, title TEXT, agent TEXT, model TEXT, tokens_input INT, tokens_output INT, tokens_cache_read INT, time_created INT, time_updated INT);
+CREATE TABLE session_message(session_id TEXT, type TEXT);
+INSERT INTO session_v2 VALUES('f1','Fresh Co','build','claude-x',300,30,30,NOW_MS-86400000,NOW_MS);
+INSERT INTO session_v2 VALUES('s2','Stale Co','build','claude-x',200,20,20,NOW_MS-2592000000,NOW_MS);
+INSERT INTO session_message VALUES('f1','user');
+INSERT INTO session_message VALUES('s2','user');
+SQL_EOF
+  bash "${ROOT}/opencode/bin/oc-tokens" --db "${db}" > "${CASE_HOME}/out.log" 2> "${CASE_HOME}/err.log"
+  local rc=$?
+  check_rc 0 "${rc}" "no-filter run exits 0"
+  check_contains "${CASE_HOME}/out.log" "Total: 2 sessions" "no filter counts both sessions"
+  check_contains "${CASE_HOME}/out.log" "Fresh Co" "one-day-old session listed"
+  check_contains "${CASE_HOME}/out.log" "Stale Co" "30-day-old session listed"
+  bash "${ROOT}/opencode/bin/oc-tokens" --db "${db}" --days 7 > "${CASE_HOME}/out2.log" 2> "${CASE_HOME}/err.log"
+  rc=$?
+  check_rc 0 "${rc}" "--days run exits 0"
+  check_contains "${CASE_HOME}/out2.log" "Total: 1 sessions" "--days 7 keeps the one-day-old session"
+  check_not_contains "${CASE_HOME}/out2.log" "Stale Co" "--days 7 drops the 30-day-old session everywhere"
+  finish_case
+}
+
+case_oc_tokens_reconcile_max() {
+  new_case
+  local db="${CASE_HOME}/reconcile.db"
+  build_db "${db}" <<'SQL_EOF'
+CREATE TABLE session_v2(id TEXT, title TEXT, agent TEXT, model TEXT, tokens_input INT, tokens_output INT, tokens_cache_read INT, time_created INT, time_updated INT);
+CREATE TABLE session_message(session_id TEXT, type TEXT);
+CREATE TABLE session(id TEXT, title TEXT, agent TEXT, model TEXT, tokens_input INT, tokens_output INT, tokens_cache_read INT, time_created INT, time_updated INT);
+CREATE TABLE message(session_id TEXT, type TEXT);
+INSERT INTO session_v2 VALUES('dual','v2-row','v2-agent','claude-x',222,50,60,NOW_MS-3600000,NOW_MS);
+INSERT INTO session_message VALUES('dual','user');
+INSERT INTO session VALUES('dual','v1-row','v1-agent','claude-x',999,300,500,NOW_MS-3600000,NOW_MS);
+INSERT INTO message VALUES('dual','user');
+INSERT INTO message VALUES('dual','assistant');
+INSERT INTO message VALUES('dual','x1');
+INSERT INTO message VALUES('dual','x2');
+SQL_EOF
+  bash "${ROOT}/opencode/bin/oc-tokens" --db "${db}" > "${CASE_HOME}/out.log" 2> "${CASE_HOME}/err.log"
+  local rc=$?
+  check_rc 0 "${rc}" "reconciled v1+v2 DB exits 0"
+  check_contains "${CASE_HOME}/out.log" "Total: 1 sessions | input 999 | output 300 | cache-read 500" "MAX(v1,v2) wins the token columns"
+  check_contains "${CASE_HOME}/out.log" "v2-row" "v2 title wins the reconcile"
+  check_contains "${CASE_HOME}/out.log" "v2-agent" "v2 agent wins the reconcile"
+  check_not_contains "${CASE_HOME}/out.log" "v1-row" "v1 title loses the reconcile"
+  check_not_contains "${CASE_HOME}/out.log" "v1-agent" "v1 agent loses the reconcile"
+  check_not_contains "${CASE_HOME}/out.log" "222" "v1 max beats the v2 token counts"
+  finish_case
+}
+
+case_oc_tokens_v1_only_rows() {
+  new_case
+  local db="${CASE_HOME}/v1only.db"
+  build_db "${db}" <<'SQL_EOF'
+CREATE TABLE session_v2(id TEXT, title TEXT, agent TEXT, model TEXT, tokens_input INT, tokens_output INT, tokens_cache_read INT, time_created INT, time_updated INT);
+CREATE TABLE session_message(session_id TEXT, type TEXT);
+CREATE TABLE session(id TEXT, title TEXT, agent TEXT, model TEXT, tokens_input INT, tokens_output INT, tokens_cache_read INT, time_created INT, time_updated INT);
+CREATE TABLE message(session_id TEXT, type TEXT);
+INSERT INTO session_v2 VALUES('v2only','V2 Only','build','claude-x',300,30,30,NOW_MS-3600000,NOW_MS);
+INSERT INTO session VALUES('v1only','V1 Only','build','claude-x',700,70,70,NOW_MS-7200000,NOW_MS);
+INSERT INTO message VALUES('v1only','user');
+INSERT INTO message VALUES('v1only','assistant');
+INSERT INTO message VALUES('v1only','tool');
+SQL_EOF
+  bash "${ROOT}/opencode/bin/oc-tokens" --db "${db}" > "${CASE_HOME}/out.log" 2> "${CASE_HOME}/err.log"
+  local rc=$?
+  check_rc 0 "${rc}" "v1-only rows are reconciled in"
+  check_contains "${CASE_HOME}/out.log" "Total: 2 sessions" "both the v2-only and v1-only sessions count"
+  check_contains "${CASE_HOME}/out.log" "V1 Only" "v1-only session title listed"
+  check_contains "${CASE_HOME}/out.log" "V2 Only" "v2-only session title listed"
+  check_not_contains "${CASE_HOME}/err.log" "v1 tables incomplete" "complete v1 tables produce no warning"
+  finish_case
+}
+
+case_oc_tokens_v1_half() {
+  new_case
+  local db="${CASE_HOME}/v1half.db"
+  build_db "${db}" <<'SQL_EOF'
+CREATE TABLE session_v2(id TEXT, title TEXT, agent TEXT, model TEXT, tokens_input INT, tokens_output INT, tokens_cache_read INT, time_created INT, time_updated INT);
+CREATE TABLE session_message(session_id TEXT, type TEXT);
+CREATE TABLE session(id TEXT, title TEXT, agent TEXT, model TEXT, tokens_input INT, tokens_output INT, tokens_cache_read INT, time_created INT, time_updated INT);
+INSERT INTO session_v2 VALUES('h1','Half Co','build','claude-x',150,15,15,NOW_MS-3600000,NOW_MS);
+INSERT INTO session_message VALUES('h1','user');
+SQL_EOF
+  bash "${ROOT}/opencode/bin/oc-tokens" --db "${db}" > "${CASE_HOME}/out.log" 2> "${CASE_HOME}/err.log"
+  local rc=$?
+  check_rc 0 "${rc}" "half-migrated v1 side is tolerated, not fatal"
+  check_contains "${CASE_HOME}/err.log" "v1 tables incomplete; ignoring the v1 side" "warns about the incomplete v1 side"
+  check_contains "${CASE_HOME}/out.log" "Total: 1 sessions" "the v2 side still reports"
+  finish_case
+}
+
+case_oc_tokens_prev2() {
+  new_case
+  local db="${CASE_HOME}/prev2.db"
+  build_db "${db}" <<'SQL_EOF'
+CREATE TABLE session(id TEXT, title TEXT, agent TEXT, model TEXT, tokens_input INT, tokens_output INT, tokens_cache_read INT, time_created INT, time_updated INT);
+CREATE TABLE message(session_id TEXT, type TEXT);
+INSERT INTO session VALUES('p1','Pre V2 Co','build','claude-x',100,10,10,NOW_MS-3600000,NOW_MS);
+INSERT INTO message VALUES('p1','user');
+SQL_EOF
+  bash "${ROOT}/opencode/bin/oc-tokens" --db "${db}" > "${CASE_HOME}/out.log" 2> "${CASE_HOME}/err.log"
+  local rc=$?
+  check_rc_nonzero "${rc}" "a DB without session_v2 is a hard error"
+  check_contains "${CASE_HOME}/err.log" "DB predates the v2 schema" "predates message"
+  check_not_contains "${CASE_HOME}/out.log" "Total:" "no report is produced"
+  finish_case
+}
+
+case_oc_tokens_missing_db() {
+  new_case
+  bash "${ROOT}/opencode/bin/oc-tokens" --db "${CASE_HOME}/absent.db" > "${CASE_HOME}/out.log" 2> "${CASE_HOME}/err.log"
+  local rc=$?
+  check_rc 0 "${rc}" "a missing DB is not an error (fresh machine)"
+  check_contains "${CASE_HOME}/err.log" "no opencode DB at" "missing-DB note on stderr"
+  check_contains "${CASE_HOME}/err.log" "absent.db" "note names the offending path"
+  check_not_contains "${CASE_HOME}/out.log" "Total:" "no report is produced"
+  finish_case
+}
+
+case_oc_tokens_malformed() {
+  new_case
+  local db="${CASE_HOME}/garbage.db"
+  printf 'this is definitely not a sqlite database\n' > "${db}"
+  bash "${ROOT}/opencode/bin/oc-tokens" --db "${db}" > "${CASE_HOME}/out.log" 2> "${CASE_HOME}/err.log"
+  local rc=$?
+  check_rc_nonzero "${rc}" "a malformed DB is a hard error"
+  check_contains "${CASE_HOME}/err.log" "falling back to the pre-checkpoint view" "WAL-mode warning"
+  check_contains "${CASE_HOME}/err.log" "file is not a database" "the sqlite error surfaces in the traceback"
+  finish_case
+}
+
+case_oc_tokens_bad_args() {
+  new_case
+  bash "${ROOT}/opencode/bin/oc-tokens" --bogus > "${CASE_HOME}/out.log" 2> "${CASE_HOME}/err.log"
+  local rc=$?
+  check_rc_nonzero "${rc}" "unknown flag is rejected"
+  check_contains "${CASE_HOME}/err.log" "unknown flag: --bogus" "unknown flag message"
+  bash "${ROOT}/opencode/bin/oc-tokens" --days abc > "${CASE_HOME}/out2.log" 2> "${CASE_HOME}/err.log"
+  rc=$?
+  check_rc_nonzero "${rc}" "non-numeric --days is rejected"
+  check_contains "${CASE_HOME}/err.log" "positive integers" "non-numeric value message"
+  bash "${ROOT}/opencode/bin/oc-tokens" --days > "${CASE_HOME}/out3.log" 2> "${CASE_HOME}/err.log"
+  rc=$?
+  check_rc_nonzero "${rc}" "--days without a value is rejected"
+  check_contains "${CASE_HOME}/err.log" "needs a value" "missing value message"
+  check_not_contains "${CASE_HOME}/out.log" "Total:" "bad args never open the DB"
+  finish_case
+}
+
+case_oc_tokens_env_db() {
+  new_case
+  local db="${CASE_HOME}/env.db"
+  build_db "${db}" <<'SQL_EOF'
+CREATE TABLE session_v2(id TEXT, title TEXT, agent TEXT, model TEXT, tokens_input INT, tokens_output INT, tokens_cache_read INT, time_created INT, time_updated INT);
+CREATE TABLE session_message(session_id TEXT, type TEXT);
+INSERT INTO session_v2 VALUES('e1','Env db One','build','claude-x',120,12,12,NOW_MS-3600000,NOW_MS);
+INSERT INTO session_message VALUES('e1','user');
+SQL_EOF
+  OPENCODE_DB="${db}" bash "${ROOT}/opencode/bin/oc-tokens" > "${CASE_HOME}/out.log" 2> "${CASE_HOME}/err.log"
+  local rc=$?
+  check_rc 0 "${rc}" "OPENCODE_DB env var is honored"
+  check_contains "${CASE_HOME}/out.log" "Env db One" "the env-var DB is reported"
+  check_contains "${CASE_HOME}/out.log" "Total: 1 sessions" "no missing-DB fallback happened"
+  check_not_contains "${CASE_HOME}/err.log" "no opencode DB" "the env-var DB exists"
+  finish_case
+}
+
+case_oc_tokens_days_zero_pin() {
+  new_case
+  local db="${CASE_HOME}/days0.db"
+  build_db "${db}" <<'SQL_EOF'
+CREATE TABLE session_v2(id TEXT, title TEXT, agent TEXT, model TEXT, tokens_input INT, tokens_output INT, tokens_cache_read INT, time_created INT, time_updated INT);
+CREATE TABLE session_message(session_id TEXT, type TEXT);
+INSERT INTO session_v2 VALUES('f1','Future Co','build','claude-x',333,33,33,NOW_MS+60000,NOW_MS+70000);
+INSERT INTO session_v2 VALUES('o1','Old Co','build','claude-x',222,22,22,NOW_MS-86400000,NOW_MS);
+INSERT INTO session_message VALUES('f1','user');
+INSERT INTO session_message VALUES('o1','user');
+SQL_EOF
+  bash "${ROOT}/opencode/bin/oc-tokens" --db "${db}" --days 0 > "${CASE_HOME}/out.log" 2> "${CASE_HOME}/err.log"
+  local rc=$?
+  check_rc 0 "${rc}" "--days 0 is accepted"
+  check_contains "${CASE_HOME}/out.log" "Total: 1 sessions" "the days-0 cutoff excludes exactly one session"
+  check_contains "${CASE_HOME}/out.log" "Future Co" "future-dated session survives the days-0 cutoff"
+  # Pin: --days 0 must enforce a real cutoff (not be treated as "no filter"),
+  # else the total would be 2 sessions and Old Co would appear.
+  check_not_contains "${CASE_HOME}/out.log" "Old Co" "'0' is filtered, not treated as no-filter"
+  finish_case
+}
+
 # --- runner -----------------------------------------------------------------
 
 run_case() {
@@ -699,6 +984,19 @@ run_case "director-drift" case_director_drift
 run_case "director-fresh" case_director_fresh
 run_case "director-skip" case_director_skip
 run_case "director-darwin" case_director_darwin
+
+run_case "oc-tokens-happy" case_oc_tokens_happy
+run_case "oc-tokens-msg-filter" case_oc_tokens_msg_filter
+run_case "oc-tokens-days" case_oc_tokens_days
+run_case "oc-tokens-reconcile-max" case_oc_tokens_reconcile_max
+run_case "oc-tokens-v1-only-rows" case_oc_tokens_v1_only_rows
+run_case "oc-tokens-v1-half" case_oc_tokens_v1_half
+run_case "oc-tokens-prev2" case_oc_tokens_prev2
+run_case "oc-tokens-missing-db" case_oc_tokens_missing_db
+run_case "oc-tokens-malformed" case_oc_tokens_malformed
+run_case "oc-tokens-bad-args" case_oc_tokens_bad_args
+run_case "oc-tokens-env-db" case_oc_tokens_env_db
+run_case "oc-tokens-days-zero-pin" case_oc_tokens_days_zero_pin
 
 echo "shell tests: ${PASS_COUNT} passed, ${FAIL_COUNT} failed"
 if [ "${FAIL_COUNT}" -gt 0 ]; then
