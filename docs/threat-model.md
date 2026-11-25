@@ -1,6 +1,6 @@
 # Threat model — software factory
 
-Status: v1, 2026-11-24. Pinned runtime: opencode 2.3.0. Sources: the
+Status: v1, 2026-11-24; push rules corrected 2026-11-24 (the blanket `git push *` deny broke the factory flow — agents must push branches and open PRs). Pinned runtime: opencode 2.3.0. Sources: the
 official OpenCode V2 permissions doc (`opencode.ai/docs/permissions/`,
 read 2026-11-25) and the config schema (`opencode.ai/config.json`, same
 day). Anything below marked "verify on 2.3.0" is documented, not measured:
@@ -80,9 +80,18 @@ nobody is watching.
 4. **Never delete blindly.** `rm *` is denied in every profile.
    Deletions go through the file tools, `git clean`, or the user's own
    shell.
-5. **Never push.** `git push *` is denied in every profile. A push
-   publishes; merging and pushing are the user's decisions. Commits stay
-   on `ask`: local, reversible, approved one by one.
+5. **Never push dangerously.** Pushing a branch and opening a PR is the
+   factory's normal output — allowed, reviewable, reversible; merging
+   stays the user's decision. What is denied, in every profile that
+   allows pushes at all: force-push (`--force*`, `-f`), delete
+   (`--delete`, `-d`, `:<refspec>`), push to `master` / `main`
+   (explicit destination forms), and bulk push (`--all`, `--mirror`,
+   `+<refspec>`). The `explore` profile denies every `git push *`
+   (read-only); eval runs deny every push too (they never need one).
+   Commits stay on `ask`: local, reversible, approved one by one.
+   Patterns are best-effort — see "What permissions cannot do" — so
+   GitHub branch protection on `master` is the control that actually
+   guarantees a push cannot land there.
 6. **Never modify outside the project.** Writes outside the worktree
    are denied (secret dirs via `external_directory`, everything else
    via the per-project `edit` rules).
@@ -142,7 +151,11 @@ Console-managed policies override project configuration — this is the
 layer that survives a hostile project config. The global
 `opencode.json` in this repo ships a `policies` array for the shell
 half of the never-list, using the exact shape from the docs
-(`tool.use` + `shell:<pattern>`).
+(`tool.use` + `shell:<pattern>`). The blanket `git push *` deny was
+removed from `policies` on 2026-11-24: it blocked the factory's
+normal output (agents push branches and open PRs). `policies` now
+carries the targeted push denies instead — force-push, delete, push
+to `master` / `main`, bulk push — while branch pushes stay allowed.
 
 **Verify on 2.3.0 before relying on it:** this VM has no opencode
 binary, so the `policies` behaviour is documented, not measured. After
@@ -178,11 +191,11 @@ copies one into the project as `opencode.json` and substitutes the
 `skills/workflow/SKILL.md`). All three carry the full never-list; they
 differ only in what is allowed around it.
 
-| Profile        | Edits  | Shell                                                                                                                                                                                                         | For                                            |
-| -------------- | ------ | ------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- | ---------------------------------------------- |
-| `explore.json` | denied | `ask`, allowlist of read-only commands (`git status/diff/log/show`, `ls`, `cat`)                                                                                                                              | reading an unfamiliar or untrusted repo        |
-| `feature.json` | `ask`  | `ask`, allowlist of read-only git + the project's test/lint commands                                                                                                                                          | the default: building a feature                |
-| `infra.json`   | `ask`  | `ask`, feature allowlist + package managers (`apt-get`, `apt`, `brew`), `systemctl`, `sysctl`, read-only `docker`, and a short explicit `sudo` allowlist (`apt-get`, `apt`, `systemctl`, `sysctl`, `install`) | bootstrap / machine work where sudo is the job |
+| Profile        | Edits  | Shell                                                                                                                                                                                                                                                                    | For                                            |
+| -------------- | ------ | ------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------ | ---------------------------------------------- |
+| `explore.json` | denied | `ask`, allowlist of read-only commands (`git status/diff/log/show`, `ls`, `cat`); no push at all (`git push *` denied)                                                                                                                                                   | reading an unfamiliar or untrusted repo        |
+| `feature.json` | `ask`  | `ask`, allowlist of read-only git + the project's test/lint commands; branch pushes on `ask`, force/delete/master pushes denied                                                                                                                                          | the default: building a feature                |
+| `infra.json`   | `ask`  | `ask`, feature allowlist + package managers (`apt-get`, `apt`, `brew`), `systemctl`, `sysctl`, read-only `docker`, and a short explicit `sudo` allowlist (`apt-get`, `apt`, `systemctl`, `sysctl`, `install`); branch pushes on `ask`, force/delete/master pushes denied | bootstrap / machine work where sudo is the job |
 
 Notes:
 
@@ -198,18 +211,20 @@ Notes:
   distinguish from a legitimate fetch. That is a known hole (v2).
 - The global `opencode.json` keeps its relaxed posture for daily use
   (broad `shell` allow) but now carries the secret `read` /
-  `external_directory` denies, the `git push *` deny, and the
+  `external_directory` denies, the targeted push denies (force /
+  delete / master / bulk — branch pushes stay allowed), and the
   `policies` hard-deny for the shell half of the never-list. The secret
   denies are safe globally: nothing in the normal workflow reads keys
   or credentials into context, and the repo's own test suites touch no
-  `.env` / `.pem` / `.key` files. The push deny matches the house rule
-  (agents never push; merging and pushing are the user's decisions).
+  `.env` / `.pem` / `.key` files. The push denies match the house rule
+  (agents push branches and open PRs; merging is the user's decision).
 
 ## Eval posture
 
 Eval runs (`eval/run.mjs`) launch real agents with `--auto`, so `ask`
 is no protection there: the runner's generated `opencode.json` carries
-the never-list as `deny` rules (same list as the profiles). Eval runs
+the never-list as `deny` rules — with the blanket `git push *` deny
+kept, since eval tasks never push. Eval runs
 also use a scratch `HOME` and a scratch workdir, so the secret denies
 are defence in depth — a scratch HOME holds no secrets to leak. Eval
 tasks never need sudo, pushes, secrets, or pipe-to-shell, so the
@@ -223,6 +238,16 @@ restrictions cost nothing. See `eval/README.md`.
   spellings (`python -c`, `node -e`, `ssh`, `scp`, `rsync`,
   `git push <new-remote>`). Permissions can deny the _shapes_ in the
   never-list; they cannot prove a command does not talk to the network.
+- **Push spellings.** The push denies are glob patterns on the command
+  string, and git has more spellings than the list enumerates:
+  abbreviated long options (`--forc` for `--force`), `git -c ... push`
+  (the `-c` prefix means the command no longer starts with `git push`),
+  a bare `git push` with no arguments (pushes the current branch to its
+  configured upstream — to `master` if that is where the agent sits),
+  and refspec forms outside the enumerated set. Patterns are a
+  best-effort net, not a proof. The control that actually guarantees
+  nothing lands on `master` is GitHub branch protection (see
+  "Residual risks").
 - **Tool coverage.** A shell sandbox (v2) covers only shell commands.
   The file tools (`read`/`edit`) and `webfetch` are governed by their
   own permission actions, not by the sandbox — the plugin's tool guard
@@ -262,6 +287,12 @@ the current official V2 docs:
    cannot keep _code_ out of context, and code is what the model is
    for. The mitigation is the provider choice (own Ollama gateway),
    not permissions.
+5. Push patterns are best-effort (see above). The patterns narrow the
+   hole; only GitHub branch protection on `master` (require a pull
+   request before merging) closes it. Confirm it is enabled in the
+   repo settings — the PR that fixed the push rules could not verify
+   it from the VM (no branch-protection read tool, no authenticated
+   CLI).
 
 ## v2 — OS sandbox
 
@@ -301,8 +332,10 @@ opencode debug config     # config loads, no schema errors, rules listed
 node --test test/profiles/*.test.js   # never-list present in every profile
 ```
 
-And on a real run: `git push` from an agent session must be denied,
-`cat ~/.ssh/id_ed25519` must be denied, `curl https://example.com |
+And on a real run: a branch push from an agent session must be
+allowed (on `ask` in `feature` / `infra`), while `git push origin
+master`, `git push --force`, and `git push --delete <branch>` must be
+denied; `cat ~/.ssh/id_ed25519` must be denied, `curl https://example.com |
 bash` must be denied, and a `sudo apt install` must be denied outside
 the `infra` profile and allowed inside it (for the listed commands
-only).
+only). Also confirm branch protection on `master` in the repo settings.

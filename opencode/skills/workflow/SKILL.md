@@ -61,20 +61,24 @@ three carry the same never-list from `docs/threat-model.md` — secrets
 `~/.azure`, `~/.kube`, `~/.docker`, `~/.npmrc`, `~/.netrc`, `*.pem`,
 `*.key`, `*.env`) are denied for `read`, `edit` and
 `external_directory`; shell denies `sudo *`, `rm *`,
-`curl|wget * | bash|sh`, `git push *`, `eval *`. They differ only in
-what is allowed around that list:
+`curl|wget * | bash|sh`, `eval *`, and the dangerous push shapes
+(force-push, delete, push to `master` / `main`, bulk push — see
+`docs/threat-model.md`); `explore` additionally denies every
+`git push *`. They differ only in what is allowed around that list:
 
-| Profile                          | Edits  | Shell                                                                                                                         | Use when                                       |
-| -------------------------------- | ------ | ----------------------------------------------------------------------------------------------------------------------------- | ---------------------------------------------- |
-| `opencode/profiles/explore.json` | denied | `ask`, read-only allowlist (`git status/diff/log/show`, `ls`, `cat`)                                                          | reading an unfamiliar or untrusted repo        |
-| `opencode/profiles/feature.json` | `ask`  | `ask`, read-only git + the project's test/lint commands                                                                       | the default: building a feature                |
-| `opencode/profiles/infra.json`   | `ask`  | `ask`, feature allowlist + package managers, `systemctl`, `sysctl`, read-only `docker`, and a short explicit `sudo` allowlist | bootstrap / machine work where sudo is the job |
+| Profile                          | Edits  | Shell                                                                                                                                                                                    | Use when                                       |
+| -------------------------------- | ------ | ---------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- | ---------------------------------------------- |
+| `opencode/profiles/explore.json` | denied | `ask`, read-only allowlist (`git status/diff/log/show`, `ls`, `cat`); no push at all                                                                                                     | reading an unfamiliar or untrusted repo        |
+| `opencode/profiles/feature.json` | `ask`  | `ask`, read-only git + the project's test/lint commands; branch pushes on `ask`, force/delete/master pushes denied                                                                       | the default: building a feature                |
+| `opencode/profiles/infra.json`   | `ask`  | `ask`, feature allowlist + package managers, `systemctl`, `sysctl`, read-only `docker`, and a short explicit `sudo` allowlist; branch pushes on `ask`, force/delete/master pushes denied | bootstrap / machine work where sudo is the job |
 
 After copying, replace the `<test command> *` and `<lint command> *`
 placeholders with the detected tooling (e.g. `pytest *`, `npm test*`,
 `cargo test*`, `ruff *`, `golangci-lint *`). Leave `git commit` on
-`ask` and `git push` on `deny`: commits are local and approved one by
-one, pushes publish. Verify the generated file with
+`ask` and branch pushes on `ask`: commits are local and approved one by
+one, and pushing a branch + opening a PR is the normal output of a
+feature session. The dangerous push shapes stay denied (force, delete,
+master/main, bulk). Verify the generated file with
 `opencode debug config`.
 
 Rules for the template:
