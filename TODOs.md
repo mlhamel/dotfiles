@@ -125,11 +125,16 @@ not a fix for a broken config.
       (`opencode-sandbox` / `universal-opencode-sandbox` plugins,
       bubblewrap / sandbox-exec). The pre-commit secret scan stays a
       separate P2 item.
-- [ ] **P2 · Shared classify() helper** — `director.js`,
-      `review-enforcer.js` and `session-nudger.js` each reimplement
-      session classification (child/top/foreign/unknown) and the
-      server-wide event subscription; they already diverge in details
-      (e.g. `execution.failed` handling). Extract one shared helper.
+- [x] **P2 · Shared classify() helper** — done 2026-11-24 (PR
+      `fix/shared-classify-helper-2026-11-24`): `opencode/lib/session-classify.js`
+      is the one shared helper for `director.js`, `review-enforcer.js` and
+      `session-nudger.js` (classification child/top/foreign/unknown + the
+      server-wide event subscription). Divergences converged: turn end is
+      succeeded, interrupted OR failed (director's Stop now fires and the
+      nudger now counts on failed turns — both asserted by tests), and the
+      event loop is guarded twice everywhere (per-event + outer catch).
+      `session-logger.js` keeps its own narrower `isChild` (parentID-only,
+      prompt hook only) — a follow-up candidate, not part of this item.
 - [ ] **P2 · SSSM compaction validation** — the 64k cap + compaction at
       ~49k rests on the NVIDIA paper, not on measured use (see the P3
       observation item below). Confirm with `oc-tokens` that compaction

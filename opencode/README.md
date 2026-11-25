@@ -34,6 +34,8 @@ opencode/
 │   ├── grilling/SKILL.md      #   round-based interview workflow
 │   ├── token-optimization/SKILL.md  #   token-efficiency: ingestion, routing, oc-tokens loop
 │   └── dotfiles/SKILL.md      #   maintenance playbook for this repo itself
+├── lib/                       # Shared plugin helpers (not plugins — never scanned)
+│   └── session-classify.js    #   session classification + server-wide event loop
 ├── plugins/                   # JS plugins (director state, session logger, review
 │   ├── director.js            #   enforcement, session nudger, cloud fallback — see the sections)
 │   ├── session-logger.js
@@ -230,7 +232,7 @@ sessions carried ~89% of all input tokens at 200–1000+ messages, against
 a healthy average of ~8. This plugin turns the skill's §3 session
 discipline into an enforced rule instead of a habit:
 
-- At end of turn, a top-level session whose turn count crossed a new
+- At end of turn (succeeded, interrupted or failed), a top-level session whose turn count crossed a new
   multiple of the spiral bar (25 turns ≈ the 50-message `oc-tokens
 --spiral` bar; one turn ≈ two messages) gets a one-shot injected nudge
   via `ctx.session.prompt`: recommend `/session-handoff` to checkpoint
