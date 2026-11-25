@@ -91,7 +91,9 @@ function isCloudUnavailable(error) {
 function fallbackNotice(primary, fallback, error) {
   const reason = error?.status
     ? `HTTP ${error.status}`
-    : String(error?.message ?? "unreachable").split("\n")[0].slice(0, 120);
+    : String(error?.message ?? "unreachable")
+        .split("\n")[0]
+        .slice(0, 120);
   return (
     `CLOUD FALLBACK: the cloud model ${primary.providerID}/${primary.id} is unreachable (${reason}), ` +
     `so this session switched to the local model ${fallback.providerID}/${fallback.id}. ` +
@@ -133,10 +135,9 @@ export default {
       process.env.CLOUD_FALLBACK_MODEL,
       FALLBACK_MODEL_DEFAULT,
     );
-    const gateway = (process.env.CLOUD_FALLBACK_GATEWAY ?? GATEWAY_DEFAULT).replace(
-      /\/+$/,
-      "",
-    );
+    const gateway = (
+      process.env.CLOUD_FALLBACK_GATEWAY ?? GATEWAY_DEFAULT
+    ).replace(/\/+$/, "");
     const timeoutMs = parseTimeoutMs(
       process.env.CLOUD_FALLBACK_TIMEOUT_MS,
       TIMEOUT_MS_DEFAULT,

@@ -201,7 +201,9 @@ export default {
           const sid = event?.sessionID;
           if (!sid) return;
           const path =
-            event?.input?.path ?? event?.input?.file_path ?? event?.input?.filename;
+            event?.input?.path ??
+            event?.input?.file_path ??
+            event?.input?.filename;
           dirty.add(sid);
           reviewed.delete(sid); // new edits reopen the gate
         } catch {}
