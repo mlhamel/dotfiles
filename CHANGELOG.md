@@ -6,6 +6,16 @@ use today's date and the hash of the change once committed.
 
 ## 2026-11-24
 
+- `(hash)` — Pre-commit: exclude `.opencode/` from the markdownlint hook
+  (PR `fix/precommit-exclude-opencode-2026-11-24`): the `markdownlint-cli2`
+  hook had no `exclude`, so its `**/*.md` glob swept the untracked scratch
+  file `.opencode/STATE.md` and blocked a commit on opencode's own state,
+  not on the changes. The hook now excludes `^\.opencode/` in
+  `.pre-commit-config.yaml` and the glob list in `.markdownlint-cli2.jsonc`
+  gains `!.opencode/**`. Verified: a dirty `STATE.md` is ignored while a
+  real violation in another `.md` is still caught (50 files, 0 issues on a
+  clean tree).
+
 - `(hash)` — Shared classify() helper (PR
   `fix/shared-classify-helper-2026-11-24`): `opencode/lib/session-classify.js`
   is the one shared helper for `director.js`, `review-enforcer.js` and
