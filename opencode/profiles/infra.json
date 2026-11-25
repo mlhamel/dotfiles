@@ -43,7 +43,43 @@
     { "action": "shell", "effect": "deny", "resource": "curl * | sh" },
     { "action": "shell", "effect": "deny", "resource": "wget * | bash" },
     { "action": "shell", "effect": "deny", "resource": "wget * | sh" },
-    { "action": "shell", "effect": "deny", "resource": "git push *" },
+    { "action": "shell", "effect": "deny", "resource": "git push --force*" },
+    { "action": "shell", "effect": "deny", "resource": "git push * --force*" },
+    { "action": "shell", "effect": "deny", "resource": "git push -f *" },
+    { "action": "shell", "effect": "deny", "resource": "git push * -f *" },
+    { "action": "shell", "effect": "deny", "resource": "git push --delete *" },
+    {
+      "action": "shell",
+      "effect": "deny",
+      "resource": "git push * --delete *"
+    },
+    { "action": "shell", "effect": "deny", "resource": "git push -d *" },
+    { "action": "shell", "effect": "deny", "resource": "git push * -d *" },
+    { "action": "shell", "effect": "deny", "resource": "git push * :*" },
+    { "action": "shell", "effect": "deny", "resource": "git push * master *" },
+    { "action": "shell", "effect": "deny", "resource": "git push * main *" },
+    {
+      "action": "shell",
+      "effect": "deny",
+      "resource": "git push * HEAD:master *"
+    },
+    {
+      "action": "shell",
+      "effect": "deny",
+      "resource": "git push * HEAD:main *"
+    },
+    { "action": "shell", "effect": "deny", "resource": "git push * :master *" },
+    { "action": "shell", "effect": "deny", "resource": "git push * :main *" },
+    { "action": "shell", "effect": "deny", "resource": "git push --all *" },
+    { "action": "shell", "effect": "deny", "resource": "git push * --all *" },
+    { "action": "shell", "effect": "deny", "resource": "git push --mirror *" },
+    {
+      "action": "shell",
+      "effect": "deny",
+      "resource": "git push * --mirror *"
+    },
+    { "action": "shell", "effect": "deny", "resource": "git push * +*" },
+    { "action": "shell", "effect": "deny", "resource": "git push +*" },
     { "action": "shell", "effect": "deny", "resource": "eval *" },
     { "action": "read", "effect": "deny", "resource": "~/.ssh/*" },
     { "action": "read", "effect": "deny", "resource": "~/.gnupg/*" },
