@@ -89,6 +89,19 @@ not a fix for a broken config.
       upstream v1.23.0 ships `darwin_arm64`/`darwin_amd64` tarballs. Shell
       harness 17 → 24 cases (Darwin simulated with a stub `uname`); a run
       on a real Mac is still untested.
+- [ ] **P1 · Evals (reference tasks)** — the old P2 "Evals + cost tracking"
+      item covered quality and $ in a single line; split them. A fixed set
+      of 5–10 reference tasks (fix a bug, add a feature with tests, small
+      refactor — each with a checkable outcome), replayed on every model or
+      prompt change, with pass/fail and a quality score. A model swap
+      becomes measured instead of felt.
+- [ ] **P1 · Sandbox / threat model** — nothing says today what an agent is
+      allowed to do: the `/bless` template asks for everything by default,
+      and nothing stops a confused or compromised agent from exfiltrating
+      data with `curl` or reading secrets from disk. Define the threat
+      model (least-privilege per project type, egress rules, secrets never
+      in context) and enforce what can be enforced (permissions, sandbox,
+      secret scan — see Secrets management).
 - [ ] **P2 · Shared classify() helper** — `director.js`,
       `review-enforcer.js` and `session-nudger.js` each reimplement
       session classification (child/top/foreign/unknown) and the
@@ -106,10 +119,18 @@ not a fix for a broken config.
       `ask-local.md` from its tree, and the `token-optimization` routing
       table does not mention Inkling. Fix, and add a CI check or a
       checklist step that keeps the tree/table in sync with `agents/`.
-- [ ] **P2 · Evals + cost tracking** — `oc-tokens` measures tokens, not
-      quality or dollars (and cache-read is 0 on the openai-compatible
-      provider path). Add a small eval set for the agents and a $ cost
-      column to the token loop.
+- [ ] **P2 · $ cost tracking** — `oc-tokens` measures tokens, not dollars
+      (and cache-read is 0 on the openai-compatible provider path). Add a
+      $ cost column to the token loop, per project.
+- [ ] **P2 · Factory observability** — `session-logger` and `oc-tokens`
+      exist, but nobody reads them systematically. Produce a weekly rollup
+      (tasks, failures by cause, $ per project, fallback activations) so
+      the measure → fix loop runs on real production data instead of
+      impressions.
+- [ ] **P2 · Run reproducibility** — the binaries are pinned, but cloud
+      models float under the same name and prompts change without
+      versioning. Record for each build what actually ran (model + digest,
+      skill/prompt version) so it can be replayed and compared.
 - [ ] **P2 · Multi-machine story** — Aptfile (Debian) vs Brewfile (Mac)
       diverge, and `baseURL` is `localhost:11434` while the plan was an
       Ollama server on the Mac + Framework client over Tailscale. Decide
