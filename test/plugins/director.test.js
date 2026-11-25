@@ -18,6 +18,7 @@ import {
   createMockContext,
   topSession,
   flush,
+  sleep,
   waitFor,
 } from "./mock-context.js";
 
@@ -89,6 +90,33 @@ function okStub(digest = DIGEST) {
 
 function failingStub() {
   return makeStub("#!/bin/sh\nexit 1\n");
+}
+
+// A stub binary that logs each invocation's hook event to a file, so the
+// Stop hook's firings are observable (the hook's control output is ignored
+// by design, so there is nothing else to observe).
+function loggingStub(logFile) {
+  const dir = tempDir("dotfiles-director-");
+  const stub = path.join(dir, "director");
+  fs.writeFileSync(
+    stub,
+    "#!/bin/sh\n" +
+      "cat > /dev/null\n" +
+      `echo "$2" >> "${logFile}"\n` +
+      `printf '%s' '{"hookSpecificOutput":{"additionalContext":"${DIGEST}"}}'\n`,
+  );
+  fs.chmodSync(stub, 0o755);
+  savedDirectorBin = process.env.DIRECTOR_BIN;
+  process.env.DIRECTOR_BIN = stub;
+  return stub;
+}
+
+function readLog(logFile) {
+  try {
+    return fs.readFileSync(logFile, "utf8").trim().split("\n").filter(Boolean);
+  } catch {
+    return [];
+  }
 }
 
 // Scratch HOME with a stub director at `relPath` (e.g.
@@ -321,5 +349,78 @@ describe("managed file", () => {
     );
     assert.match(src, /V2 STOPGAP PORT/);
     assert.doesNotMatch(src, /\/home\/mlhamel/);
+  });
+});
+
+describe("end-of-turn Stop hook", () => {
+  async function endTurn(ctx, sid, type) {
+    ctx.pushEvent({
+      type: "session.execution.started",
+      data: { sessionID: sid },
+    });
+    await flush(3);
+    ctx.pushEvent({ type, data: { sessionID: sid } });
+    await flush(5);
+  }
+
+  function logPath() {
+    return path.join(tempDir("dotfiles-director-log-"), "calls.log");
+  }
+
+  test("Stop fires on a succeeded turn", async () => {
+    const log = logPath();
+    loggingStub(log);
+    const ctx = createMockContext({ directory: DIR });
+    await setupDirector(ctx);
+    ctx.pushEvent(created("s1"));
+    await flush();
+    await endTurn(ctx, "s1", "session.execution.succeeded");
+    await waitFor(() => readLog(log).length === 1);
+    assert.deepEqual(readLog(log), ["stop"]);
+  });
+
+  test("Stop fires on a failed turn", async () => {
+    // Deliberate convergence (see lib/session-classify.js): a failed turn
+    // still ran, so fleet bookkeeping records it — director ignored failed
+    // turns before the shared helper.
+    const log = logPath();
+    loggingStub(log);
+    const ctx = createMockContext({ directory: DIR });
+    await setupDirector(ctx);
+    ctx.pushEvent(created("s1"));
+    await flush();
+    await endTurn(ctx, "s1", "session.execution.failed");
+    await waitFor(() => readLog(log).length === 1);
+    assert.deepEqual(readLog(log), ["stop"]);
+  });
+
+  test("Stop fires once for a failed then succeeded turn without a new started", async () => {
+    const log = logPath();
+    loggingStub(log);
+    const ctx = createMockContext({ directory: DIR });
+    await setupDirector(ctx);
+    ctx.pushEvent(created("s1"));
+    await flush();
+    await endTurn(ctx, "s1", "session.execution.failed");
+    await waitFor(() => readLog(log).length === 1);
+    ctx.pushEvent({
+      type: "session.execution.succeeded",
+      data: { sessionID: "s1" },
+    });
+    await flush(5);
+    await sleep(50);
+    assert.deepEqual(readLog(log), ["stop"]);
+  });
+
+  test("child sessions get no Stop", async () => {
+    const log = logPath();
+    loggingStub(log);
+    const ctx = createMockContext({ directory: DIR });
+    await setupDirector(ctx);
+    ctx.pushEvent(created("kid", DIR, "parent-1"));
+    await flush();
+    await endTurn(ctx, "kid", "session.execution.succeeded");
+    await sleep(50);
+    assert.deepEqual(readLog(log), []);
   });
 });

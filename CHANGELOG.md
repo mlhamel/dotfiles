@@ -6,6 +6,22 @@ use today's date and the hash of the change once committed.
 
 ## 2026-11-24
 
+- `(hash)` — Shared classify() helper (PR
+  `fix/shared-classify-helper-2026-11-24`): `opencode/lib/session-classify.js`
+  is the one shared helper for `director.js`, `review-enforcer.js` and
+  `session-nudger.js` — session classification (child/top/foreign/unknown)
+  plus the server-wide event subscription, which the three plugins each
+  reimplemented and had already diverged on. Converged: a turn ends on
+  succeeded, interrupted OR failed (director's Stop now fires and the
+  nudger now counts on failed turns), and the event loop is guarded twice
+  everywhere (per-event catch plus an outer catch around the stream). The
+  helper lives in `opencode/lib/`, not `plugins/` — opencode loads every
+  file under `plugins/` as a plugin. Tests: new
+  `test/plugins/session-classify.test.js` (15 cases); plugin suites grow
+  63 → 83, eval 15/15, profiles 12/12, shell harness 24/24.
+  `session-logger.js` keeps its own narrower `isChild` (follow-up
+  candidate).
+
 - `(hash)` — Git push rules fix (PR
   `fix/git-push-rules-2026-11-24`): the blanket `git push *` deny from
   the threat-model v1 broke the factory flow (agents must push branches

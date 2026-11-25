@@ -116,6 +116,19 @@ describe("bands", () => {
     await waitFor(() => ctx.prompts.length === 1);
   });
 
+  test("a failed turn counts like a succeeded one", async () => {
+    // Deliberate convergence (see lib/session-classify.js): a failed turn
+    // still ran and consumed a full context re-send, so it counts toward
+    // the bar — director ignored failed turns and this plugin did too
+    // before the shared helper.
+    const ctx = createMockContext({ directory: DIR });
+    await setupNudger(ctx);
+    await top(ctx);
+    await turn(ctx, "s1", "session.execution.failed");
+    await turn(ctx, "s1", "session.execution.failed");
+    await waitFor(() => ctx.prompts.length === 1);
+  });
+
   test("a double turn-end without a new started counts once", async () => {
     const ctx = createMockContext({ directory: DIR });
     await setupNudger(ctx);
