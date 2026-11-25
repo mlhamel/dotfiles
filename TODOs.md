@@ -174,6 +174,38 @@ not a fix for a broken config.
       "dotfiles" name. Either grow into the name or rename the scope in
       the README.
 
+## Agent cloud/async — OpenHands
+
+From the AI software factory landscape tour (2026-11-25): the direct gain
+for this setup is not replacing opencode or Director, but adding what
+they do not do — a cloud/async agent that works a task and opens a PR
+while nobody is at the machine. OpenHands Agent Canvas is the chosen
+trial: MIT, self-hosted, Docker sandbox, LiteLLM so the Ollama gateway
+stays in the loop. The two other recommended additions from the tour —
+Langfuse (self-hosted observability) and Spec Kit (spec → plan → tasks)
+— are not part of this section.
+
+- [ ] **Essai local** — Agent Canvas 1.43.0 in a Docker sandbox on the
+      Framework, model `openai/glm-5.3-flash:cloud` via the Ollama gateway
+      (`http://host.docker.internal:11434/v1`, never `127.0.0.1` from
+      inside the container), smoke test in a scratch project plus a check
+      that the sandbox boundary holds, then the first real task: add the
+      `.opencode/` line to the repo `.gitignore`. Start-up checklist in
+      Obsidian (OpenHands Agent Canvas — Checklist de démarrage).
+- [ ] **Comparaison eval** — run one reference task (`eval/tasks/`, e.g.
+      `docs-tree-sync`) through OpenHands and compare with opencode using
+      the deterministic checks as judge. This is the measurement that
+      decides whether OpenHands joins the factory or stays an experiment.
+- [ ] **Option ACP** — drive opencode itself as the agent inside Canvas
+      (already configured, with cloud fallback and permissions). Test in
+      a conversation first: automations + ACP + Ollama are known to fall
+      back to direct litellm instead of routing through ACP.
+- [ ] **PC dédié** — if the trial concludes, move the same Docker setup
+      to the always-on PC as a systemd service with an API key, reached
+      from the Framework over Tailscale.
+- [ ] **Décision** — adopt OpenHands as the factory's async agent, or
+      drop it, with the reason noted here.
+
 ## Setup / portability
 
 - [x] **P1 · Unified bootstrap script** — `setup.sh` at the repo root chains
