@@ -6,6 +6,26 @@ use today's date and the hash of the change once committed.
 
 ## 2026-11-24
 
+- `(hash)` — Evals v1 — reference tasks harness (PR `fix/evals-v1-2026-11-24`):
+  `eval/run.mjs` (node ESM, no deps) runs each reference task in a scratch
+  copy through
+  `opencode run --standalone --auto --archived --format json -m <model>`,
+  scores with deterministic checks only (no LLM-as-judge), and writes
+  `eval/results/<date>-<model-slug>.json`. 5 reference tasks (planted
+  one-line bugs, missing test cases, docs tree sync, Darwin services
+  fail case); discrimination validated without a model (checks fail on
+  the fixture as-shipped, pass on a manually-fixed copy). Self-tests
+  `test/eval/run.test.js` (15 cases, stub opencode); CI runs the mocked
+  mechanics only, real evals are
+  manual. `modelDigest` is null in v1 (no reliable digest for ollama
+  `:cloud` models — see Run reproducibility). Known limit: the
+  `opencode run` flags were verified against current docs, not the
+  pinned 2.3.0 binary — re-check with `opencode run --help` before a
+  real eval. Note: the API push of the first commit reset all eight
+  `.sh` files to mode 644 (same blobs, mode only) — the mode-only
+  commit `7273c95` on this branch restores `+x`, and CI went green
+  after it.
+
 - `(hash)` — macOS bootstrap parity (PR `fix/macos-bootstrap-2026-11-24`):
   `setup.sh` now runs `brew bundle` on Darwin instead of printing a
   manual hint (WARN + continue when Homebrew is missing or the bundle

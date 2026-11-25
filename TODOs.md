@@ -89,12 +89,21 @@ not a fix for a broken config.
       upstream v1.23.0 ships `darwin_arm64`/`darwin_amd64` tarballs. Shell
       harness 17 → 24 cases (Darwin simulated with a stub `uname`); a run
       on a real Mac is still untested.
-- [ ] **P1 · Evals (reference tasks)** — the old P2 "Evals + cost tracking"
-      item covered quality and $ in a single line; split them. A fixed set
-      of 5–10 reference tasks (fix a bug, add a feature with tests, small
-      refactor — each with a checkable outcome), replayed on every model or
-      prompt change, with pass/fail and a quality score. A model swap
-      becomes measured instead of felt.
+- [x] **P1 · Evals (reference tasks)** — done 2026-11-24 (PR
+      `fix/evals-v1-2026-11-24`): `eval/run.mjs` (node ESM, no deps) runs
+      each reference task in a scratch copy through
+      `opencode run --standalone --auto --archived --format json -m <model>`,
+      scores with deterministic checks only (no LLM-as-judge), writes
+      `eval/results/<date>-<model-slug>.json`. 5 reference tasks
+      (planted one-line bugs, missing test cases, docs tree sync, Darwin
+      services fail case); discrimination validated without a model
+      (checks fail on the fixture as-shipped, pass on a manually-fixed
+      copy). Self-tests `test/eval/run.test.js` (15 cases, stub opencode);
+      CI runs the mocked mechanics only, real evals are manual.
+      `modelDigest` is null in v1 (no reliable digest for ollama `:cloud`
+      models — see Run reproducibility). The `opencode run` flags were
+      verified against current docs, not the pinned 2.3.0 binary —
+      re-check with `opencode run --help` before a real eval.
 - [ ] **P1 · Sandbox / threat model** — nothing says today what an agent is
       allowed to do: the `/bless` template asks for everything by default,
       and nothing stops a confused or compromised agent from exfiltrating
