@@ -126,7 +126,7 @@ elif [ "${OS}" = "Darwin" ]; then
     fi
   else
     echo "[packages] WARN Homebrew not found — install it first, then re-run setup.sh:" >&2
-    echo '  /bin/bash -c "$(curl -fsSL https://raw.githubusercontent.com/Homebrew/install/HEAD/install.sh)"' >&2
+    echo "  /bin/bash -c \"\$(curl -fsSL https://raw.githubusercontent.com/Homebrew/install/HEAD/install.sh)\"" >&2
   fi
 else
   echo "[packages] no supported package manager (apt/homebrew) — skipping"
