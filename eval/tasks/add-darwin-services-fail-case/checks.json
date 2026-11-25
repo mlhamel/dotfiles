@@ -1,0 +1,26 @@
+{
+  "checks": [
+    {
+      "cmd": "bash test/shell/run.sh ollama-darwin-services-fail | grep -q \"PASS: ollama-darwin-services-fail\"",
+      "kind": "cmd",
+      "name": "new harness case passes"
+    },
+    {
+      "file": "test/shell/run.sh",
+      "kind": "count-gt",
+      "name": "case registered",
+      "pattern": "case_ollama_darwin_services_fail"
+    },
+    {
+      "file": "test/shell/run.sh",
+      "kind": "contains",
+      "name": "services failure stubbed",
+      "text": "STUB_BREW_SERVICES_RC=1"
+    },
+    {
+      "files": ["opencode/setup-ollama.sh"],
+      "kind": "unchanged",
+      "name": "script under test untouched"
+    }
+  ]
+}

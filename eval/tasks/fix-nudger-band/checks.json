@@ -1,0 +1,18 @@
+{
+  "checks": [
+    {
+      "cmd": "node --test test/plugins/session-nudger.test.js",
+      "kind": "cmd",
+      "name": "nudger suite passes"
+    },
+    {
+      "files": [
+        "test/plugins/session-nudger.test.js",
+        "test/plugins/mock-context.js",
+        "package.json"
+      ],
+      "kind": "unchanged",
+      "name": "tests untouched"
+    }
+  ]
+}

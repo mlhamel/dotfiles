@@ -63,6 +63,32 @@ function syntheticTasksDir() {
   );
 }
 
+test("the real eval tasks load and validate", () => {
+  const tasksDir = path.join(
+    path.dirname(new URL(import.meta.url).pathname),
+    "..",
+    "..",
+    "eval",
+    "tasks",
+  );
+  const tasks = loadTasks(tasksDir);
+  assert.deepEqual(
+    tasks.map((t) => t.id),
+    [
+      "add-darwin-services-fail-case",
+      "add-fallback-gateway-test",
+      "docs-tree-sync",
+      "fix-nudger-band",
+      "fix-plan-exemption",
+    ],
+  );
+  for (const task of tasks) {
+    assert.ok(task.prompt.length > 0, `${task.id} has a prompt`);
+    assert.ok(task.checks.length >= 2, `${task.id} has checks`);
+    assert.ok(task.files.length > 0, `${task.id} has a fixture`);
+  }
+});
+
 test("loadTasks finds the synthetic tasks with prompt, checks and fixture", () => {
   const tasks = loadTasks(syntheticTasksDir());
   assert.deepEqual(

@@ -1,0 +1,27 @@
+{
+  "checks": [
+    {
+      "cmd": "grep -A10 '├── agents/' opencode/README.md | grep -q 'build-mini.md'",
+      "kind": "cmd",
+      "name": "tree lists build-mini"
+    },
+    {
+      "cmd": "grep -A10 '├── agents/' opencode/README.md | grep -q 'ask-local.md'",
+      "kind": "cmd",
+      "name": "tree lists ask-local"
+    },
+    {
+      "files": [
+        "opencode/agents/ask-local.md",
+        "opencode/agents/ask.md",
+        "opencode/agents/build-local.md",
+        "opencode/agents/build-mini.md",
+        "opencode/agents/build-no-flash.md",
+        "opencode/agents/diagrams.md",
+        "opencode/agents/review.md"
+      ],
+      "kind": "unchanged",
+      "name": "agent files untouched"
+    }
+  ]
+}

@@ -1,0 +1,18 @@
+{
+  "checks": [
+    {
+      "cmd": "node --test test/plugins/review-enforcer.test.js",
+      "kind": "cmd",
+      "name": "enforcer suite passes"
+    },
+    {
+      "files": [
+        "test/plugins/review-enforcer.test.js",
+        "test/plugins/mock-context.js",
+        "package.json"
+      ],
+      "kind": "unchanged",
+      "name": "tests untouched"
+    }
+  ]
+}
