@@ -78,10 +78,17 @@ not a fix for a broken config.
       plugin itself writes no files, so there is nothing to guard at
       runtime). `director.test.js` grows 9 → 15 cases. The 10s hook
       timeout is untouched (a constant, not a portability issue).
-- [ ] **P1 · macOS bootstrap parity** — `setup.sh` on macOS only prints a
-      Homebrew hint and `setup-ollama.sh` exits 0 without installing
-      Ollama; the Brewfile is stale (see Housekeeping). Make the Mac path
-      real or document it as manual.
+- [x] **P1 · macOS bootstrap parity** — `setup.sh` now runs `brew bundle`
+      on Darwin (WARN + continue when Homebrew is missing or the bundle
+      fails) and `setup-ollama.sh` installs ollama via Homebrew and starts
+      the gateway with `brew services start ollama`; the Brewfile gains
+      the bootstrap dependencies (`python`, `jq`, `ollama`), the `docker`
+      cask is renamed `docker-desktop`, and the 2022 `Brewfile.lock.json`
+      is deleted (`brew bundle` regenerates it on first run). Director on
+      Darwin needs no change: the fork installer maps `darwin/arm64` and
+      upstream v1.23.0 ships `darwin_arm64`/`darwin_amd64` tarballs. Shell
+      harness 17 → 24 cases (Darwin simulated with a stub `uname`); a run
+      on a real Mac is still untested.
 - [ ] **P2 · Shared classify() helper** — `director.js`,
       `review-enforcer.js` and `session-nudger.js` each reimplement
       session classification (child/top/foreign/unknown) and the
@@ -207,8 +214,12 @@ not a fix for a broken config.
 
 ## Housekeeping
 
-- [ ] **P3 · Brewfile refresh** — `homebrew/Brewfile` predates the apt work; run
-      `rake homebrew:update` on the Mac next time to sync it with reality.
+- [x] **P3 · Brewfile refresh** — done as part of the macOS parity work:
+      the Brewfile gains the bootstrap dependencies (`python`, `jq`,
+      `ollama`), the `docker` cask is renamed `docker-desktop`, and the
+      2022 `Brewfile.lock.json` is deleted (`brew bundle` regenerates it
+      on first run). Still open: re-run `rake homebrew:update` on the Mac
+      to sync the remaining entries with reality.
 - [ ] **P3 · Gemfile relevance** — now that prek replaced the rake-driven dev
       flow for linting, decide whether the Rakefile/Gemfile still earn
       their keep or should be folded into a plain script.

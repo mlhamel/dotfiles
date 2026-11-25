@@ -15,6 +15,11 @@ set -euo pipefail
 #     A failed cloud registration is a warning, not a fatal error: the local
 #     gateway still works, and the cloud model can be registered later with
 #     `ollama signin && ./setup-ollama.sh`.
+#
+# macOS: ollama is installed with Homebrew (`brew install ollama`) and the
+# gateway is started with `brew services start ollama` before the wait
+# loop below. The manual hint + exit 0 remains only when Homebrew itself
+# is absent.
 
 DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
 
@@ -31,8 +36,23 @@ fi
 if command -v ollama >/dev/null 2>&1; then
   echo "[ollama] already installed: $(command -v ollama)"
 elif [ "$(uname -s)" = "Darwin" ]; then
-  echo "[ollama] macOS detected — install manually with: brew install ollama"
-  exit 0
+  if command -v brew >/dev/null 2>&1; then
+    echo "[ollama] installing via Homebrew..."
+    brew install ollama
+    echo "[ollama] starting gateway service..."
+    if brew services start ollama; then
+      echo "[ollama] gateway service started"
+    else
+      echo "[ollama] WARN could not start ollama service — start it manually with: ollama serve" >&2
+    fi
+    command -v ollama >/dev/null 2>&1 || {
+      echo "Error: ollama binary not on PATH after install — re-run from a fresh shell" >&2
+      exit 1
+    }
+  else
+    echo "[ollama] macOS detected — install manually with: brew install ollama"
+    exit 0
+  fi
 else
   echo "[ollama] installing via official install script..."
   curl -fsSL https://ollama.com/install | sh

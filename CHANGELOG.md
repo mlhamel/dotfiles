@@ -6,6 +6,23 @@ use today's date and the hash of the change once committed.
 
 ## 2026-11-24
 
+- `(hash)` — macOS bootstrap parity (PR `fix/macos-bootstrap-2026-11-24`):
+  `setup.sh` now runs `brew bundle` on Darwin instead of printing a
+  manual hint (WARN + continue when Homebrew is missing or the bundle
+  fails, so a packages failure never aborts the bootstrap);
+  `setup-ollama.sh` installs ollama via Homebrew and starts the gateway
+  with `brew services start ollama`, keeping the manual hint + exit 0
+  only when Homebrew is absent. The Brewfile gains the bootstrap
+  dependencies (`python`, `jq`, `ollama`) and the `docker` cask is
+  renamed `docker-desktop` (the bare `docker` token is a deprecated
+  alias); the 2022 `Brewfile.lock.json` (Monterey, Homebrew 3.6.7) is
+  deleted — `brew bundle` regenerates it on first run. Director needs no
+  change: the fork installer maps `darwin/arm64`/`darwin/amd64` and
+  upstream v1.23.0 ships both tarballs. Shell harness 17 → 24 cases
+  (Darwin simulated with a stub `uname`; `node --test` unchanged at 63).
+  Known limit: no run on a real Mac yet — the first macOS bootstrap is
+  still to be validated by hand.
+
 - `(hash)` — Automatic cloud fallback (PR `fix/cloud-fallback-2026-11-24`):
   opencode 2.3.0 has no native fallback chain — only a catalog default
   ("falls back to the newest available supported model",
