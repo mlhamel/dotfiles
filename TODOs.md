@@ -104,13 +104,27 @@ not a fix for a broken config.
       models — see Run reproducibility). The `opencode run` flags were
       verified against current docs, not the pinned 2.3.0 binary —
       re-check with `opencode run --help` before a real eval.
-- [ ] **P1 · Sandbox / threat model** — nothing says today what an agent is
-      allowed to do: the `/bless` template asks for everything by default,
-      and nothing stops a confused or compromised agent from exfiltrating
-      data with `curl` or reading secrets from disk. Define the threat
-      model (least-privilege per project type, egress rules, secrets never
-      in context) and enforce what can be enforced (permissions, sandbox,
-      secret scan — see Secrets management).
+- [x] **P1 · Sandbox / threat model** — done 2026-11-24 (PR
+      `fix/sandbox-threat-model-2026-11-24`): `docs/threat-model.md`
+      (assets, adversaries, the seven-rule never-list, enforcement
+      layers, known holes, v2 OS sandbox) and three per-project profiles
+      in `opencode/profiles/` (`explore` read-only, `feature` default,
+      `infra` with a narrow sudo allowlist), all carrying the never-list
+      and guarded by `test/profiles/profiles.test.js` (10 cases). The
+      global `opencode.json` gains the secret `read` /
+      `external_directory` denies, the `git push *` deny, and a
+      `policies` hard-deny for the shell half of the never-list
+      (documented in the official V2 permissions doc and valid against
+      the live config schema; verify with `opencode debug config` on
+      2.3.0 before relying on it). The eval runner's generated config
+      carries the never-list too. Verified against the current official
+      docs: a shell pattern ending in a space plus `*` also matches the
+      bare command (the PR #2 note that said otherwise was wrong), and
+      the default `external_directory` policy is allow, not ask.
+      opencode 2.3.0 core has no native OS sandbox — that is v2
+      (`opencode-sandbox` / `universal-opencode-sandbox` plugins,
+      bubblewrap / sandbox-exec). The pre-commit secret scan stays a
+      separate P2 item.
 - [ ] **P2 · Shared classify() helper** — `director.js`,
       `review-enforcer.js` and `session-nudger.js` each reimplement
       session classification (child/top/foreign/unknown) and the

@@ -72,6 +72,7 @@
     { "action": "shell", "resource": "curl * | sh", "effect": "deny" },
     { "action": "shell", "resource": "wget * | bash", "effect": "deny" },
     { "action": "shell", "resource": "wget * | sh", "effect": "deny" },
+    { "action": "shell", "resource": "git push *", "effect": "deny" },
     { "action": "shell", "resource": "eval *", "effect": "deny" },
     { "action": "read", "resource": "~/.ssh/*", "effect": "deny" },
     { "action": "read", "resource": "~/.gnupg/*", "effect": "deny" },
@@ -88,21 +89,61 @@
     { "action": "read", "resource": "*.env", "effect": "deny" },
     { "action": "read", "resource": "*.env.*", "effect": "deny" },
     { "action": "read", "resource": "*.env.example", "effect": "allow" },
-    { "action": "external_directory", "resource": "~/.ssh/*", "effect": "deny" },
-    { "action": "external_directory", "resource": "~/.gnupg/*", "effect": "deny" },
-    { "action": "external_directory", "resource": "~/.aws/*", "effect": "deny" },
-    { "action": "external_directory", "resource": "~/.config/gh/*", "effect": "deny" },
-    { "action": "external_directory", "resource": "~/.config/gcloud/*", "effect": "deny" },
-    { "action": "external_directory", "resource": "~/.azure/*", "effect": "deny" },
-    { "action": "external_directory", "resource": "~/.kube/*", "effect": "deny" },
-    { "action": "external_directory", "resource": "~/.docker/*", "effect": "deny" }
+    {
+      "action": "external_directory",
+      "resource": "~/.ssh/*",
+      "effect": "deny"
+    },
+    {
+      "action": "external_directory",
+      "resource": "~/.gnupg/*",
+      "effect": "deny"
+    },
+    {
+      "action": "external_directory",
+      "resource": "~/.aws/*",
+      "effect": "deny"
+    },
+    {
+      "action": "external_directory",
+      "resource": "~/.config/gh/*",
+      "effect": "deny"
+    },
+    {
+      "action": "external_directory",
+      "resource": "~/.config/gcloud/*",
+      "effect": "deny"
+    },
+    {
+      "action": "external_directory",
+      "resource": "~/.azure/*",
+      "effect": "deny"
+    },
+    {
+      "action": "external_directory",
+      "resource": "~/.kube/*",
+      "effect": "deny"
+    },
+    {
+      "action": "external_directory",
+      "resource": "~/.docker/*",
+      "effect": "deny"
+    }
   ],
   "policies": [
     { "action": "tool.use", "resource": "shell:sudo *", "effect": "deny" },
     { "action": "tool.use", "resource": "shell:rm *", "effect": "deny" },
-    { "action": "tool.use", "resource": "shell:curl * | bash", "effect": "deny" },
+    {
+      "action": "tool.use",
+      "resource": "shell:curl * | bash",
+      "effect": "deny"
+    },
     { "action": "tool.use", "resource": "shell:curl * | sh", "effect": "deny" },
-    { "action": "tool.use", "resource": "shell:wget * | bash", "effect": "deny" },
+    {
+      "action": "tool.use",
+      "resource": "shell:wget * | bash",
+      "effect": "deny"
+    },
     { "action": "tool.use", "resource": "shell:wget * | sh", "effect": "deny" },
     { "action": "tool.use", "resource": "shell:git push *", "effect": "deny" },
     { "action": "tool.use", "resource": "shell:eval *", "effect": "deny" }

@@ -64,11 +64,11 @@ three carry the same never-list from `docs/threat-model.md` — secrets
 `curl|wget * | bash|sh`, `git push *`, `eval *`. They differ only in
 what is allowed around that list:
 
-| Profile | Edits | Shell | Use when |
-| ------- | ----- | ----- | -------- |
-| `explore.json` | denied | `ask`, read-only allowlist (`git status/diff/log/show`, `ls`, `cat`) | reading an unfamiliar or untrusted repo |
-| `feature.json` | `ask` | `ask`, read-only git + the project's test/lint commands | the default: building a feature |
-| `infra.json` | `ask` | `ask`, feature allowlist + package managers, `systemctl`, `sysctl`, read-only `docker`, and a short explicit `sudo` allowlist | bootstrap / machine work where sudo is the job |
+| Profile                          | Edits  | Shell                                                                                                                         | Use when                                       |
+| -------------------------------- | ------ | ----------------------------------------------------------------------------------------------------------------------------- | ---------------------------------------------- |
+| `opencode/profiles/explore.json` | denied | `ask`, read-only allowlist (`git status/diff/log/show`, `ls`, `cat`)                                                          | reading an unfamiliar or untrusted repo        |
+| `opencode/profiles/feature.json` | `ask`  | `ask`, read-only git + the project's test/lint commands                                                                       | the default: building a feature                |
+| `opencode/profiles/infra.json`   | `ask`  | `ask`, feature allowlist + package managers, `systemctl`, `sysctl`, read-only `docker`, and a short explicit `sudo` allowlist | bootstrap / machine work where sudo is the job |
 
 After copying, replace the `<test command> *` and `<lint command> *`
 placeholders with the detected tooling (e.g. `pytest *`, `npm test*`,
@@ -84,7 +84,7 @@ Rules for the template:
   stay on `ask` even without an explicit rule. The old V1 `permission`
   map is still normalized by opencode V2, but new projects should use
   this shape.
-- A shell pattern ending in ` *` also matches the bare command
+- A shell pattern ending in a space followed by `*` also matches the bare command
   (`git status *` covers `git status`), per the official V2 docs.
 - Do not loosen a never-list rule for a project without saying so in
   the report: the profiles are the enforcement of the threat model,

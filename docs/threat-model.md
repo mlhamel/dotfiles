@@ -26,19 +26,19 @@ agent do something is the threat, not a malicious user.
 
 ## Assets
 
-| Asset | Where it lives | Why it matters |
-| ----- | -------------- | -------------- |
-| Source code, incl. private repos the agent works in | project worktrees | leak or corruption of work |
-| SSH keys, GPG keys | `~/.ssh`, `~/.gnupg` | full identity takeover |
-| Cloud credentials | `~/.aws`, `~/.config/gcloud`, `~/.azure`, `~/.kube`, `~/.docker/config.json` | paid resources, data access |
-| GitHub credentials | `~/.config/gh` | push to any repo as the user |
-| Package tokens, netrc | `~/.npmrc`, `~/.netrc` | publish / fetch as the user |
-| App secrets | `.env` files, `*.pem`, `*.key` | credentials in context leak to the model provider |
-| The home directory itself | `~` | everything above, plus mail, vault, photos |
-| Git remotes | `origin` and friends | a push publishes; hard to un-publish |
-| The machine | sudo, `rm`, package managers | destructive or privileged action |
-| Network egress | `curl`, `ssh`, `scp`, `git push`, `webfetch` | the exfiltration channel |
-| The model channel | every prompt + tool result | anything in context leaves the machine |
+| Asset                                               | Where it lives                                                               | Why it matters                                    |
+| --------------------------------------------------- | ---------------------------------------------------------------------------- | ------------------------------------------------- |
+| Source code, incl. private repos the agent works in | project worktrees                                                            | leak or corruption of work                        |
+| SSH keys, GPG keys                                  | `~/.ssh`, `~/.gnupg`                                                         | full identity takeover                            |
+| Cloud credentials                                   | `~/.aws`, `~/.config/gcloud`, `~/.azure`, `~/.kube`, `~/.docker/config.json` | paid resources, data access                       |
+| GitHub credentials                                  | `~/.config/gh`                                                               | push to any repo as the user                      |
+| Package tokens, netrc                               | `~/.npmrc`, `~/.netrc`                                                       | publish / fetch as the user                       |
+| App secrets                                         | `.env` files, `*.pem`, `*.key`                                               | credentials in context leak to the model provider |
+| The home directory itself                           | `~`                                                                          | everything above, plus mail, vault, photos        |
+| Git remotes                                         | `origin` and friends                                                         | a push publishes; hard to un-publish              |
+| The machine                                         | sudo, `rm`, package managers                                                 | destructive or privileged action                  |
+| Network egress                                      | `curl`, `ssh`, `scp`, `git push`, `webfetch`                                 | the exfiltration channel                          |
+| The model channel                                   | every prompt + tool result                                                   | anything in context leaves the machine            |
 
 ## Adversaries
 
@@ -98,7 +98,7 @@ The `permissions` array in `opencode.json`: ordered rules
 means `ask`. Any `deny` on a multi-resource operation denies the whole
 operation. Wildcards are whole-value: `*` matches any run of
 characters including `/`, `?` matches one character. A shell pattern
-ending in ` *` also matches the bare command (`git status *` matches
+ending in a space followed by `*` also matches the bare command (`git status *` matches
 both `git status` and `git status --short`).
 
 Rule of construction: broad `ask` first, specific `allow` next, the
@@ -150,7 +150,7 @@ deploying, run `opencode debug config` and confirm the policies load;
 if the binary rejects the key, delete the `policies` block — the
 `permissions` denies still hold for honest projects, and only the
 hostile-project-config case weakens. The `read` / `external_directory`
-half of the never-list is intentionally *not* duplicated in `policies`
+half of the never-list is intentionally _not_ duplicated in `policies`
 yet: the docs demonstrate only the `shell:` resource shape, and the
 `read:` / `external_directory:` shapes are an extrapolation to
 validate the same way.
@@ -178,15 +178,15 @@ copies one into the project as `opencode.json` and substitutes the
 `skills/workflow/SKILL.md`). All three carry the full never-list; they
 differ only in what is allowed around it.
 
-| Profile | Edits | Shell | For |
-| ------- | ----- | ----- | --- |
-| `explore.json` | denied | `ask`, allowlist of read-only commands (`git status/diff/log/show`, `ls`, `cat`) | reading an unfamiliar or untrusted repo |
-| `feature.json` | `ask` | `ask`, allowlist of read-only git + the project's test/lint commands | the default: building a feature |
-| `infra.json` | `ask` | `ask`, feature allowlist + package managers (`apt-get`, `apt`, `brew`), `systemctl`, `sysctl`, read-only `docker`, and a short explicit `sudo` allowlist (`apt-get`, `apt`, `systemctl`, `sysctl`, `install`) | bootstrap / machine work where sudo is the job |
+| Profile        | Edits  | Shell                                                                                                                                                                                                         | For                                            |
+| -------------- | ------ | ------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- | ---------------------------------------------- |
+| `explore.json` | denied | `ask`, allowlist of read-only commands (`git status/diff/log/show`, `ls`, `cat`)                                                                                                                              | reading an unfamiliar or untrusted repo        |
+| `feature.json` | `ask`  | `ask`, allowlist of read-only git + the project's test/lint commands                                                                                                                                          | the default: building a feature                |
+| `infra.json`   | `ask`  | `ask`, feature allowlist + package managers (`apt-get`, `apt`, `brew`), `systemctl`, `sysctl`, read-only `docker`, and a short explicit `sudo` allowlist (`apt-get`, `apt`, `systemctl`, `sysctl`, `install`) | bootstrap / machine work where sudo is the job |
 
 Notes:
 
-- In `infra`, the `sudo *` deny comes *before* the explicit `sudo`
+- In `infra`, the `sudo *` deny comes _before_ the explicit `sudo`
   allows, and the never-list denies come last: last-match-wins is what
   makes the allowlist narrow instead of decorative.
 - `curl` / `wget` stay on `ask` in `feature` and `infra` (a human
@@ -198,11 +198,12 @@ Notes:
   distinguish from a legitimate fetch. That is a known hole (v2).
 - The global `opencode.json` keeps its relaxed posture for daily use
   (broad `shell` allow) but now carries the secret `read` /
-  `external_directory` denies and the `policies` hard-deny for the
-  shell half of the never-list. The secret denies are safe globally:
-  nothing in the normal workflow reads keys or credentials into
-  context, and the repo's own test suites touch no `.env` / `.pem` /
-  `.key` files.
+  `external_directory` denies, the `git push *` deny, and the
+  `policies` hard-deny for the shell half of the never-list. The secret
+  denies are safe globally: nothing in the normal workflow reads keys
+  or credentials into context, and the repo's own test suites touch no
+  `.env` / `.pem` / `.key` files. The push deny matches the house rule
+  (agents never push; merging and pushing are the user's decisions).
 
 ## Eval posture
 
@@ -220,7 +221,7 @@ restrictions cost nothing. See `eval/README.md`.
   strings. `curl https://github.com/*` does not match
   `curl -fsSL https://github.com/...`, and exfiltration has many
   spellings (`python -c`, `node -e`, `ssh`, `scp`, `rsync`,
-  `git push <new-remote>`). Permissions can deny the *shapes* in the
+  `git push <new-remote>`). Permissions can deny the _shapes_ in the
   never-list; they cannot prove a command does not talk to the network.
 - **Tool coverage.** A shell sandbox (v2) covers only shell commands.
   The file tools (`read`/`edit`) and `webfetch` are governed by their
@@ -238,8 +239,8 @@ restrictions cost nothing. See `eval/README.md`.
 Two claims recorded during the 2026-11-24 review were wrong against
 the current official V2 docs:
 
-- **Bare commands.** `git status *` *does* match bare `git status`:
-  a shell pattern ending in ` *` matches the command without
+- **Bare commands.** `git status *` _does_ match bare `git status`:
+  a shell pattern ending in a space followed by `*` matches the command without
   arguments. The PR #2 validation note that said otherwise was wrong.
 - **External directories.** The default `external_directory` policy is
   **allow**, not ask: reads and edits outside the project proceed
@@ -258,7 +259,7 @@ the current official V2 docs:
    stores them per project) and remove stale ones.
 4. The model channel itself: anything in context leaves the machine
    to the provider. The never-list keeps secrets out of context; it
-   cannot keep *code* out of context, and code is what the model is
+   cannot keep _code_ out of context, and code is what the model is
    for. The mitigation is the provider choice (own Ollama gateway),
    not permissions.
 

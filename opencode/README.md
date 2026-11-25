@@ -10,7 +10,8 @@ opencode/
 ├── README.md                  # You are here. Human-facing docs.
 ├── AGENTS.md                  # Agent rules. Loaded in EVERY session. Keep lean.
 ├── agent_sssm_instructions.md # SSSM discipline: STATE.md logbook, selective reads, atomic actions, visible progress. Loaded in EVERY session.
-├── opencode.json              # Global permissions (relaxed posture)
+├── opencode.json              # Global permissions (relaxed posture + secret denies + policies hard-deny)
+├── profiles/                  # Per-project permission profiles (explore/feature/infra — see docs/threat-model.md)
 ├── agents/                    # Custom agents
 │   ├── ask.md                 #   read-only Q&A primary agent
 │   ├── build-no-flash.md      #   heavy-build primary agent (glm-5.3:cloud)
@@ -27,7 +28,7 @@ opencode/
 ├── bin/                       # CLI utilities (on-demand, not in every session)
 │   └── oc-tokens              #   token-efficiency report from opencode.db
 ├── skills/                    # Deep docs, loaded ON DEMAND via the skill tool
-│   ├── workflow/SKILL.md      #   bless/new playbooks, per-project config template
+│   ├── workflow/SKILL.md      #   bless/new playbooks, per-project permission profiles
 │   ├── scaffolding/SKILL.md   #   per-language scaffolder reference
 │   ├── grill-me/SKILL.md      #   opt-in, stateless interview entry point
 │   ├── grilling/SKILL.md      #   round-based interview workflow
