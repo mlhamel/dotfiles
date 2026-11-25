@@ -1,0 +1,10 @@
+{
+  "checks": [
+    {
+      "file": "target.txt",
+      "kind": "contains",
+      "name": "target says after",
+      "text": "after"
+    }
+  ]
+}

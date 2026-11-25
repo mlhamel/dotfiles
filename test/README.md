@@ -7,6 +7,7 @@ job `test`) and locally with no extra dependencies.
 
 ```bash
 node --test test/plugins/*.test.js   # plugin suites (node 18+)
+node --test test/eval/*.test.js      # eval harness suites (stub opencode)
 bash test/shell/run.sh               # bootstrap scripts (scratch HOME + stubs)
 bash test/shell/run.sh ollama        # only cases matching "ollama"
 ```
@@ -48,6 +49,21 @@ Not covered, on purpose:
   that answers `init` with a canned `RESULT:` line.
 - The plugins' behaviour under a real opencode server is not tested;
   the mocks assert the contract the plugins rely on, not the server.
+
+## Eval harness tests (`test/eval/`, node:test + node:assert)
+
+`run.test.js` (14) covers `eval/run.mjs` without ever calling a real
+model: a stub `opencode` binary is written to a temp dir by the tests
+themselves (so no committed executable is needed) and answers `--version`
+plus the JSONL events a real `opencode run --format json` emits. Cases:
+task loading and validation, model slug + default-model resolution,
+JSONL parsing (tokens, cost, session id), the exact `run` argv
+(`--standalone --auto --archived --format json -m <model> -- <prompt>`)
+and scratch cwd/HOME, failure / timeout / empty-output runs, the four
+check kinds (`cmd`, `contains`, `count-gt`, `unchanged`), end-to-end
+pass and fail runs, results-file shape, and the `main()` exit code.
+Synthetic tasks live in `test/eval/fixtures/tasks/`; they are test-only
+and never run against a real model.
 
 ## Shell tests (`test/shell/run.sh`, plain bash)
 
