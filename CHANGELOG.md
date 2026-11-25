@@ -6,6 +6,20 @@ use today's date and the hash of the change once committed.
 
 ## 2026-11-24
 
+- `(hash)` — Git push rules fix (PR
+  `fix/git-push-rules-2026-11-24`): the blanket `git push *` deny from
+  the threat-model v1 broke the factory flow (agents must push branches
+  and open PRs). `policies` and the `feature` / `infra` profiles now
+  deny only the dangerous shapes — force-push, delete, push to
+  `master` / `main`, bulk push — while branch pushes stay allowed (on
+  `ask` in the profiles); `explore` and the eval runner keep the
+  blanket deny. Threat model updated: push patterns are best-effort
+  (abbreviated long options, `git -c ... push`, bare `git push` on
+  `master` all evade them) — GitHub branch protection on `master` is
+  the control that actually guarantees nothing lands there, and the PR
+  could not verify its status from the VM (check the repo settings).
+  Profile tests grow 10 → 12 cases.
+
 - `(hash)` — Sandbox / threat model (PR
   `fix/sandbox-threat-model-2026-11-24`): `docs/threat-model.md`
   (assets, adversaries, the seven-rule never-list, enforcement layers,

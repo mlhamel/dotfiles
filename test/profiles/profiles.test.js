@@ -47,8 +47,31 @@ const SHELL_DENY = [
   "curl * | sh",
   "wget * | bash",
   "wget * | sh",
-  "git push *",
   "eval *",
+];
+
+const PUSH_DENY = [
+  "git push --force*",
+  "git push * --force*",
+  "git push -f *",
+  "git push * -f *",
+  "git push --delete *",
+  "git push * --delete *",
+  "git push -d *",
+  "git push * -d *",
+  "git push * :*",
+  "git push * master *",
+  "git push * main *",
+  "git push * HEAD:master *",
+  "git push * HEAD:main *",
+  "git push * :master *",
+  "git push * :main *",
+  "git push --all *",
+  "git push * --all *",
+  "git push --mirror *",
+  "git push * --mirror *",
+  "git push * +*",
+  "git push +*",
 ];
 
 const SUDO_ALLOWLIST = [
@@ -62,6 +85,12 @@ const SUDO_ALLOWLIST = [
 function loadProfile(name) {
   return JSON.parse(
     fs.readFileSync(path.join(profilesDir, `${name}.json`), "utf8"),
+  );
+}
+
+function loadGlobal() {
+  return JSON.parse(
+    fs.readFileSync(path.join(root, "opencode", "opencode.json"), "utf8"),
   );
 }
 
@@ -80,7 +109,7 @@ function ruleIndex(config, action, resource) {
   return idx;
 }
 
-function assertNeverList(config, label) {
+function assertSecretDenies(config, label) {
   for (const resource of SECRET_READ) {
     assert.ok(
       hasRule(config, "read", resource, "deny"),
@@ -93,7 +122,19 @@ function assertNeverList(config, label) {
       `${label}: external_directory deny missing for ${resource}`,
     );
   }
+}
+
+function assertShellBaseDenies(config, label) {
   for (const resource of SHELL_DENY) {
+    assert.ok(
+      hasRule(config, "shell", resource, "deny"),
+      `${label}: shell deny missing for ${resource}`,
+    );
+  }
+}
+
+function assertPushTargetedDenies(config, label) {
+  for (const resource of PUSH_DENY) {
     assert.ok(
       hasRule(config, "shell", resource, "deny"),
       `${label}: shell deny missing for ${resource}`,
@@ -115,10 +156,27 @@ test("profiles parse and every rule is well-formed", () => {
   }
 });
 
-test("every profile carries the full never-list", () => {
+test("every profile carries the secret denies and the base shell denies", () => {
   for (const name of ["explore", "feature", "infra"]) {
-    assertNeverList(loadProfile(name), name);
+    const profile = loadProfile(name);
+    assertSecretDenies(profile, name);
+    assertShellBaseDenies(profile, name);
   }
+});
+
+test("feature and infra allow branch pushes but deny the dangerous shapes", () => {
+  for (const name of ["feature", "infra"]) {
+    const profile = loadProfile(name);
+    assertPushTargetedDenies(profile, name);
+    assert.ok(
+      !hasRule(profile, "shell", "git push *", "deny"),
+      `${name}: blanket git push deny would block the factory flow`,
+    );
+  }
+});
+
+test("explore denies every push", () => {
+  assert.ok(hasRule(loadProfile("explore"), "shell", "git push *", "deny"));
 });
 
 test("no profile allows shell broadly", () => {
@@ -131,25 +189,76 @@ test("no profile allows shell broadly", () => {
   }
 });
 
+test("global config carries the secret denies, the targeted push denies, and the policies hard-deny", () => {
+  const global = loadGlobal();
+  assertSecretDenies(global, "global");
+  assertShellBaseDenies(global, "global");
+  assertPushTargetedDenies(global, "global");
+  assert.ok(
+    !hasRule(global, "shell", "git push *", "deny"),
+    "global: blanket git push deny would block the factory flow",
+  );
+  assert.ok(Array.isArray(global.policies));
+  assert.ok(global.policies.length > 0);
+  for (const resource of [...SHELL_DENY, ...PUSH_DENY]) {
+    assert.ok(
+      global.policies.some(
+        (p) =>
+          p.action === "tool.use" &&
+          p.resource === `shell:${resource}` &&
+          p.effect === "deny",
+      ),
+      `global: policy hard-deny missing for shell:${resource}`,
+    );
+  }
+  assert.ok(
+    !global.policies.some(
+      (p) => p.action === "tool.use" && p.resource === "shell:git push *",
+    ),
+    "global: blanket git push policy would block the factory flow",
+  );
+});
+
 test("never-list denies come after the broad rules they override", () => {
-  for (const name of ["explore", "feature", "infra"]) {
-    const profile = loadProfile(name);
-    const broadShell = ruleIndex(profile, "shell", "*");
-    assert.ok(broadShell >= 0, `${name}: no broad shell rule`);
-    for (const resource of SHELL_DENY) {
+  const cases = [
+    {
+      config: loadProfile("explore"),
+      label: "explore",
+      denies: [...SHELL_DENY, "git push *"],
+    },
+    {
+      config: loadProfile("feature"),
+      label: "feature",
+      denies: [...SHELL_DENY, ...PUSH_DENY],
+    },
+    {
+      config: loadProfile("infra"),
+      label: "infra",
+      denies: [...SHELL_DENY, ...PUSH_DENY],
+    },
+    {
+      config: loadGlobal(),
+      label: "global",
+      denies: [...SHELL_DENY, ...PUSH_DENY],
+    },
+  ];
+  for (const { config, label, denies } of cases) {
+    const broadShell = ruleIndex(config, "shell", "*");
+    assert.ok(broadShell >= 0, `${label}: no broad shell rule`);
+    for (const resource of denies) {
       assert.ok(
-        ruleIndex(profile, "shell", resource) > broadShell,
-        `${name}: shell deny for ${resource} must come after the broad rule`,
+        ruleIndex(config, "shell", resource) > broadShell,
+        `${label}: shell deny for ${resource} must come after the broad rule`,
       );
     }
-    const broadEdit = ruleIndex(profile, "edit", "*");
+    const broadEdit = ruleIndex(config, "edit", "*");
     if (broadEdit >= 0) {
       for (const resource of SECRET_READ) {
-        const idx = ruleIndex(profile, "edit", resource);
+        const idx = ruleIndex(config, "edit", resource);
         if (idx >= 0) {
           assert.ok(
             idx > broadEdit,
-            `${name}: edit deny for ${resource} must come after the broad rule`,
+            `${label}: edit deny for ${resource} must come after the broad rule`,
           );
         }
       }
@@ -219,29 +328,11 @@ test("only infra has a sudo allowlist, and it is narrow", () => {
   );
 });
 
-test("global config carries the secret denies and the policies hard-deny", () => {
-  const global = JSON.parse(
-    fs.readFileSync(path.join(root, "opencode", "opencode.json"), "utf8"),
-  );
-  assertNeverList(global, "global");
-  assert.ok(Array.isArray(global.policies));
-  assert.ok(global.policies.length > 0);
-  for (const resource of SHELL_DENY) {
-    assert.ok(
-      global.policies.some(
-        (p) =>
-          p.action === "tool.use" &&
-          p.resource === `shell:${resource}` &&
-          p.effect === "deny",
-      ),
-      `global: policy hard-deny missing for shell:${resource}`,
-    );
-  }
-});
-
 test("eval runner config carries the never-list", () => {
   const config = evalConfig("ollama/qwen3:4b");
-  assertNeverList(config, "eval");
+  assertSecretDenies(config, "eval");
+  assertShellBaseDenies(config, "eval");
+  assert.ok(hasRule(config, "shell", "git push *", "deny"));
 });
 
 test("workflow skill points at the profiles", () => {
