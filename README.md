@@ -61,7 +61,11 @@ custom agents, and prerequisites.
 
 ### Homebrew
 
-Prerequisite: Ruby with Bundler (run `bundle --version` to check).
+`setup.sh` runs `brew bundle` on the Brewfile as its packages step on
+macOS (Homebrew itself is the only prerequisite; if it is missing,
+`setup.sh` warns and continues). The Rake flow below stays as a manual
+alternative — it needs Ruby with Bundler (`brew install ruby &&
+gem install bundler`).
 
 Install the packages listed in the Brewfile:
 

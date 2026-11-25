@@ -12,8 +12,8 @@ set -euo pipefail
 #                              SKIP_OPENCODE=1; FORCE_OPENCODE=1 reinstalls)
 #   3. config symlink          (opencode/install.sh, then `opencode reload`)
 #   4. Director + wiring        (opencode/setup-director.sh; SKIP_DIRECTOR=1)
-#   5. packages                (apt/ on Debian/Ubuntu, homebrew/ hint on macOS;
-#                              SKIP_PACKAGES=1)
+#   5. packages                (apt/ on Debian/Ubuntu, homebrew/ via
+#                              `brew bundle` on macOS; SKIP_PACKAGES=1)
 #   6. ollama gateway + models (opencode/setup-ollama.sh; needs the packages
 #                              step's python3; SKIP_OLLAMA=1)
 #
@@ -117,9 +117,17 @@ elif [ "${OS}" = "Linux" ] && command -v apt-get >/dev/null 2>&1; then
   echo "[packages] installing apt packages..."
   "${DIR}/apt/install.sh"
 elif [ "${OS}" = "Darwin" ]; then
-  echo "[packages] macOS detected — Homebrew flow is manual:"
-  echo "  brew bundle --file=${DIR}/homebrew/Brewfile"
-  echo "  (or: cd ${DIR} && bundle install && rake)"
+  if command -v brew >/dev/null 2>&1; then
+    echo "[packages] installing Homebrew packages..."
+    if brew bundle --file="${DIR}/homebrew/Brewfile"; then
+      echo "[packages] done: Homebrew bundle installed"
+    else
+      echo "[packages] WARN brew bundle failed — install the remaining packages manually, then re-run setup.sh" >&2
+    fi
+  else
+    echo "[packages] WARN Homebrew not found — install it first, then re-run setup.sh:" >&2
+    echo '  /bin/bash -c "$(curl -fsSL https://raw.githubusercontent.com/Homebrew/install/HEAD/install.sh)"' >&2
+  fi
 else
   echo "[packages] no supported package manager (apt/homebrew) — skipping"
 fi

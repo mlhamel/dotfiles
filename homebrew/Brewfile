@@ -3,8 +3,15 @@ tap "homebrew/cask"
 tap "homebrew/core"
 brew "curl"
 brew "git"
+# Bootstrap dependencies: python3 reads the model list in
+# opencode/setup-ollama.sh, jq trims `opencode api` output for /progress.
+brew "jq"
+brew "ollama"
 brew "pyenv"
-cask "docker"
+brew "python"
+# docker-desktop: the `docker` cask was renamed; the bare `docker` token is
+# now a deprecated alias.
+cask "docker-desktop"
 cask "firefox"
 cask "iterm2"
 cask "spotify"

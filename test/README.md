@@ -53,7 +53,7 @@ Not covered, on purpose:
 
 Each case runs the real script with a scratch HOME and stub binaries on
 PATH: no sudo, no apt, no network, no model downloads. Stubs log every
-invocation to `$STUB_LOG`. Cases (17):
+invocation to `$STUB_LOG`. Cases (24):
 
 - `setup-ollama.sh`: happy path (local pull + cloud manifest), local
   pull failure aborts, cloud failure is a warning with the `ollama signin`
@@ -77,6 +77,16 @@ invocation to `$STUB_LOG`. Cases (17):
 - `setup-director.sh`: skip when healthy on v1.23.0, drift note for
   v1.20.0, fresh install (the fake installer creates a stub binary and
   the script wires opencode), `SKIP_DIRECTOR=1`.
+- Darwin (simulated with a stub `uname`, since the CI runners are Linux):
+  `setup.sh` runs `brew bundle` on the repo Brewfile, warns and continues
+  when Homebrew is missing or when the bundle fails, and honors
+  `SKIP_PACKAGES=1`; `setup-ollama.sh` installs ollama via Homebrew and
+  starts the gateway with `brew services start ollama`, or exits 0 with
+  the manual hint when Homebrew is absent; `setup-director.sh` runs the
+  installer with `Darwin`/`arm64` visible to it (upstream v1.23.0 ships
+  `darwin_arm64` and `darwin_amd64` tarballs, verified against the release
+  download URLs). A run on a real Mac is still untested — see the macOS
+  item in `TODOs.md`.
 
 Scripts are invoked via `bash` on purpose: it keeps the harness working
 regardless of file modes, and `setup.sh` itself invokes the other two

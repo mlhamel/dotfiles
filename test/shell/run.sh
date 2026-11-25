@@ -110,6 +110,7 @@ INSTALLER_EOF
     cat <<'INSTALLER_EOF'
 #!/bin/sh
 echo "fake-director-installer args: $*" >> "$STUB_LOG"
+echo "fake-director-installer os=$(uname -s) arch=$(uname -m)" >> "$STUB_LOG"
 mkdir -p "$HOME/.local/bin"
 cat > "$HOME/.local/bin/director" <<'DIRECTOR_EOF'
 #!/bin/sh
@@ -133,8 +134,8 @@ CURL_EOF
   chmod +x "${CASE_BIN}/curl"
 }
 
-stub_ollama() {
-  cat > "${CASE_BIN}/ollama" <<'OLLAMA_EOF'
+write_ollama_stub_template() {
+  cat > "${CASE_BIN}/.ollama-stub-template" <<'OLLAMA_EOF'
 #!/bin/sh
 echo "ollama $*" >> "$STUB_LOG"
 if [ "${1:-}" = "pull" ] && [ "${2:-}" = "${STUB_OLLAMA_FAIL:-}" ]; then
@@ -143,7 +144,60 @@ if [ "${1:-}" = "pull" ] && [ "${2:-}" = "${STUB_OLLAMA_FAIL:-}" ]; then
 fi
 exit 0
 OLLAMA_EOF
+}
+
+stub_ollama() {
+  write_ollama_stub_template
+  cp "${CASE_BIN}/.ollama-stub-template" "${CASE_BIN}/ollama"
   chmod +x "${CASE_BIN}/ollama"
+}
+
+stub_uname() {
+  cat > "${CASE_BIN}/uname" <<'UNAME_EOF'
+#!/bin/sh
+# Reports the stubbed OS/arch when set, delegates to the real uname
+# otherwise. Lets the harness simulate Darwin on a Linux box.
+case "${1:-}" in
+  -s)
+    if [ -n "${STUB_UNAME_S:-}" ]; then echo "${STUB_UNAME_S}"; exit 0; fi
+    ;;
+  -m)
+    if [ -n "${STUB_UNAME_M:-}" ]; then echo "${STUB_UNAME_M}"; exit 0; fi
+    ;;
+esac
+exec /usr/bin/uname "$@"
+UNAME_EOF
+  chmod +x "${CASE_BIN}/uname"
+}
+
+stub_brew() {
+  write_ollama_stub_template
+  cat > "${CASE_BIN}/brew" <<'BREW_EOF'
+#!/bin/sh
+echo "brew $*" >> "$STUB_LOG"
+case "$*" in
+  "install ollama")
+    # The install makes the binary appear, like the real formula does.
+    cp "$(dirname "$0")/.ollama-stub-template" "$(dirname "$0")/ollama"
+    chmod +x "$(dirname "$0")/ollama"
+    exit 0
+    ;;
+  "services start ollama")
+    exit "${STUB_BREW_SERVICES_RC:-0}"
+    ;;
+  bundle*)
+    exit "${STUB_BREW_BUNDLE_RC:-0}"
+    ;;
+  list*)
+    # Nothing installed via brew in the sandbox: empty output.
+    exit 0
+    ;;
+  *)
+    exit 0
+    ;;
+esac
+BREW_EOF
+  chmod +x "${CASE_BIN}/brew"
 }
 
 stub_opencode() {
@@ -276,6 +330,41 @@ case_ollama_gateway_down() {
   check_rc_nonzero "${rc}" "dead gateway aborts the script"
   check_contains "${CASE_HOME}/out.log" "not answering on localhost:11434" "gateway error message"
   check_not_contains "${STUB_LOG}" "ollama pull" "no pull attempted without a gateway"
+  finish_case
+}
+
+# --- setup-ollama.sh on Darwin ----------------------------------------------
+# The VM is Linux, so Darwin is simulated with a stub uname. The brew stub
+# makes `ollama` appear on PATH only after `brew install ollama`, like the
+# real formula does.
+
+case_ollama_darwin_install() {
+  new_case
+  stub_curl
+  stub_uname
+  stub_brew
+  write_ollama_config
+  STUB_UNAME_S=Darwin bash "${ROOT}/opencode/setup-ollama.sh" > "${CASE_HOME}/out.log" 2>&1
+  local rc=$?
+  check_rc 0 "${rc}" "darwin install exits 0"
+  check_contains "${STUB_LOG}" "brew install ollama" "ollama installed via Homebrew"
+  check_contains "${STUB_LOG}" "brew services start ollama" "gateway started as a brew service"
+  check_contains "${STUB_LOG}" "ollama pull qwen3:4b" "local model pulled after install"
+  check_contains "${STUB_LOG}" "ollama pull glm-5.3-flash:cloud" "cloud model registered after install"
+  check_contains "${CASE_HOME}/out.log" "Ollama gateway ready" "ready message"
+  finish_case
+}
+
+case_ollama_darwin_no_brew() {
+  new_case
+  stub_curl
+  stub_uname
+  write_ollama_config
+  STUB_UNAME_S=Darwin bash "${ROOT}/opencode/setup-ollama.sh" > "${CASE_HOME}/out.log" 2>&1
+  local rc=$?
+  check_rc 0 "${rc}" "darwin without brew exits 0 (manual hint)"
+  check_contains "${CASE_HOME}/out.log" "install manually with: brew install ollama" "manual hint"
+  check_not_contains "${STUB_LOG}" "ollama pull" "no pull attempted without ollama"
   finish_case
 }
 
@@ -435,6 +524,74 @@ case_setup_skip_director_only() {
   finish_case
 }
 
+# --- setup.sh packages step on Darwin ---------------------------------------
+# Darwin is simulated with a stub uname; the brew stub records every call.
+
+case_setup_packages_darwin() {
+  new_case
+  stub_curl
+  stub_dpkg
+  stub_sudo
+  stub_opencode
+  stub_uname
+  stub_brew
+  STUB_UNAME_S=Darwin SKIP_DIRECTOR=1 SKIP_OLLAMA=1 bash "${ROOT}/setup.sh" > "${CASE_HOME}/out.log" 2>&1
+  local rc=$?
+  check_rc 0 "${rc}" "darwin packages path exits 0"
+  check_contains "${STUB_LOG}" "brew bundle --file=${ROOT}/homebrew/Brewfile" "brew bundle called with the repo Brewfile"
+  check_contains "${CASE_HOME}/out.log" "[inotify] SKIP Darwin — Linux-only" "inotify skipped on Darwin"
+  check_contains "${CASE_HOME}/out.log" "bootstrap complete" "bootstrap completes"
+  finish_case
+}
+
+case_setup_packages_darwin_no_brew() {
+  new_case
+  stub_curl
+  stub_dpkg
+  stub_sudo
+  stub_opencode
+  stub_uname
+  STUB_UNAME_S=Darwin SKIP_DIRECTOR=1 SKIP_OLLAMA=1 bash "${ROOT}/setup.sh" > "${CASE_HOME}/out.log" 2>&1
+  local rc=$?
+  check_rc 0 "${rc}" "darwin without brew exits 0"
+  check_contains "${CASE_HOME}/out.log" "WARN Homebrew not found" "warns Homebrew is missing"
+  check_contains "${CASE_HOME}/out.log" "bootstrap complete" "bootstrap continues without brew"
+  check_not_contains "${STUB_LOG}" "brew bundle" "no bundle attempted without brew"
+  finish_case
+}
+
+case_setup_packages_darwin_bundle_fail() {
+  new_case
+  stub_curl
+  stub_dpkg
+  stub_sudo
+  stub_opencode
+  stub_uname
+  stub_brew
+  STUB_UNAME_S=Darwin STUB_BREW_BUNDLE_RC=1 SKIP_DIRECTOR=1 SKIP_OLLAMA=1 bash "${ROOT}/setup.sh" > "${CASE_HOME}/out.log" 2>&1
+  local rc=$?
+  check_rc 0 "${rc}" "failed bundle does not abort the bootstrap"
+  check_contains "${CASE_HOME}/out.log" "WARN brew bundle failed" "warns the bundle failed"
+  check_contains "${CASE_HOME}/out.log" "bootstrap complete" "bootstrap completes despite the failure"
+  finish_case
+}
+
+case_setup_packages_darwin_skip() {
+  new_case
+  stub_curl
+  stub_dpkg
+  stub_sudo
+  stub_opencode
+  stub_uname
+  stub_brew
+  STUB_UNAME_S=Darwin SKIP_PACKAGES=1 SKIP_DIRECTOR=1 SKIP_OLLAMA=1 bash "${ROOT}/setup.sh" > "${CASE_HOME}/out.log" 2>&1
+  local rc=$?
+  check_rc 0 "${rc}" "SKIP_PACKAGES=1 exits 0 on Darwin"
+  check_contains "${CASE_HOME}/out.log" "SKIP_PACKAGES=1" "skip message"
+  check_not_contains "${STUB_LOG}" "brew bundle" "no bundle attempted when skipped"
+  finish_case
+}
+
 # --- setup-director.sh ------------------------------------------------------
 
 case_director_skip_pinned() {
@@ -480,6 +637,26 @@ case_director_skip() {
   finish_case
 }
 
+# --- setup-director.sh on Darwin --------------------------------------------
+# setup-director.sh itself is OS-agnostic; the OS-specific part is the
+# fork installer, which maps uname to the upstream asset name. The fake
+# installer logs the os/arch it sees, so this case proves the Darwin
+# values reach it. Upstream v1.23.0 ships darwin_arm64 and darwin_amd64
+# tarballs (verified against the release download URLs).
+
+case_director_darwin() {
+  new_case
+  stub_curl
+  stub_uname
+  STUB_UNAME_S=Darwin STUB_UNAME_M=arm64 bash "${ROOT}/opencode/setup-director.sh" > "${CASE_HOME}/out.log" 2>&1
+  local rc=$?
+  check_rc 0 "${rc}" "darwin fresh install exits 0"
+  check_contains "${STUB_LOG}" "fake-director-installer os=Darwin arch=arm64" "installer sees Darwin/arm64"
+  check_contains "${STUB_LOG}" "fake-director-installer args: --version v1.23.0" "installer receives the pinned version"
+  check_contains "${CASE_HOME}/out.log" "Director is set up" "setup message"
+  finish_case
+}
+
 # --- runner -----------------------------------------------------------------
 
 run_case() {
@@ -503,6 +680,8 @@ run_case "ollama-local-fail" case_ollama_local_fail
 run_case "ollama-cloud-fail" case_ollama_cloud_fail
 run_case "ollama-skip" case_ollama_skip
 run_case "ollama-gateway-down" case_ollama_gateway_down
+run_case "ollama-darwin-install" case_ollama_darwin_install
+run_case "ollama-darwin-no-brew" case_ollama_darwin_no_brew
 run_case "setup-skip-pinned" case_setup_skip_pinned
 run_case "setup-drift" case_setup_drift
 run_case "setup-force" case_setup_force
@@ -511,10 +690,15 @@ run_case "setup-skip-opencode" case_setup_skip_opencode
 run_case "setup-skip-both" case_setup_skip_both
 run_case "setup-no-skip-calls-director" case_setup_no_skip_calls_director
 run_case "setup-skip-director-only" case_setup_skip_director_only
+run_case "setup-packages-darwin" case_setup_packages_darwin
+run_case "setup-packages-darwin-no-brew" case_setup_packages_darwin_no_brew
+run_case "setup-packages-darwin-bundle-fail" case_setup_packages_darwin_bundle_fail
+run_case "setup-packages-darwin-skip" case_setup_packages_darwin_skip
 run_case "director-skip-pinned" case_director_skip_pinned
 run_case "director-drift" case_director_drift
 run_case "director-fresh" case_director_fresh
 run_case "director-skip" case_director_skip
+run_case "director-darwin" case_director_darwin
 
 echo "shell tests: ${PASS_COUNT} passed, ${FAIL_COUNT} failed"
 if [ "${FAIL_COUNT}" -gt 0 ]; then
