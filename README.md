@@ -5,6 +5,7 @@ Configuration files of Mathieu Leduc-Hamel.
 ## List of configurations
 
 - [opencode](opencode/) — AI agent toolkit: rules, commands, skills, plugins
+- [docs](docs/) — threat model + security docs for the factory
 - [homebrew](homebrew/) — Brewfile + lockfile (macOS-only; see [homebrew/README.md](homebrew/README.md))
 - [apt](apt/) — Aptfile + generate/install scripts (Debian/Ubuntu; see [apt/README.md](apt/README.md))
 

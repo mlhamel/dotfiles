@@ -319,7 +319,12 @@ export async function runChecks(checks, workdir, baseline) {
   return results;
 }
 
-function evalConfig(model) {
+export function evalConfig(model) {
+  // Same never-list as docs/threat-model.md and opencode/profiles/:
+  // evals launch real agents with --auto, so `ask` is no protection and
+  // the dangerous shapes must be `deny`. Shell stays broadly allowed
+  // (eval tasks run arbitrary test commands); containment comes from the
+  // scratch workdir + scratch HOME, which hold no secrets to leak.
   return {
     $schema: "https://opencode.ai/config.json",
     model,
@@ -328,7 +333,42 @@ function evalConfig(model) {
       { action: "shell", resource: "rm *", effect: "deny" },
       { action: "shell", resource: "sudo *", effect: "deny" },
       { action: "shell", resource: "curl * | bash", effect: "deny" },
+      { action: "shell", resource: "curl * | sh", effect: "deny" },
       { action: "shell", resource: "wget * | bash", effect: "deny" },
+      { action: "shell", resource: "wget * | sh", effect: "deny" },
+      { action: "shell", resource: "git push *", effect: "deny" },
+      { action: "shell", resource: "eval *", effect: "deny" },
+      { action: "read", resource: "~/.ssh/*", effect: "deny" },
+      { action: "read", resource: "~/.gnupg/*", effect: "deny" },
+      { action: "read", resource: "~/.aws/*", effect: "deny" },
+      { action: "read", resource: "~/.config/gh/*", effect: "deny" },
+      { action: "read", resource: "~/.config/gcloud/*", effect: "deny" },
+      { action: "read", resource: "~/.azure/*", effect: "deny" },
+      { action: "read", resource: "~/.kube/*", effect: "deny" },
+      { action: "read", resource: "~/.docker/*", effect: "deny" },
+      { action: "read", resource: "~/.npmrc", effect: "deny" },
+      { action: "read", resource: "~/.netrc", effect: "deny" },
+      { action: "read", resource: "*.pem", effect: "deny" },
+      { action: "read", resource: "*.key", effect: "deny" },
+      { action: "read", resource: "*.env", effect: "deny" },
+      { action: "read", resource: "*.env.*", effect: "deny" },
+      { action: "read", resource: "*.env.example", effect: "allow" },
+      { action: "external_directory", resource: "~/.ssh/*", effect: "deny" },
+      { action: "external_directory", resource: "~/.gnupg/*", effect: "deny" },
+      { action: "external_directory", resource: "~/.aws/*", effect: "deny" },
+      {
+        action: "external_directory",
+        resource: "~/.config/gh/*",
+        effect: "deny",
+      },
+      {
+        action: "external_directory",
+        resource: "~/.config/gcloud/*",
+        effect: "deny",
+      },
+      { action: "external_directory", resource: "~/.azure/*", effect: "deny" },
+      { action: "external_directory", resource: "~/.kube/*", effect: "deny" },
+      { action: "external_directory", resource: "~/.docker/*", effect: "deny" },
     ],
   };
 }

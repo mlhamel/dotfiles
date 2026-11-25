@@ -8,6 +8,7 @@ job `test`) and locally with no extra dependencies.
 ```bash
 node --test test/plugins/*.test.js   # plugin suites (node 18+)
 node --test test/eval/*.test.js      # eval harness suites (stub opencode)
+node --test test/profiles/*.test.js  # permission profiles + threat-model never-list
 bash test/shell/run.sh               # bootstrap scripts (scratch HOME + stubs)
 bash test/shell/run.sh ollama        # only cases matching "ollama"
 ```
@@ -64,6 +65,24 @@ check kinds (`cmd`, `contains`, `count-gt`, `unchanged`), end-to-end
 pass and fail runs, results-file shape, and the `main()` exit code.
 Synthetic tasks live in `test/eval/fixtures/tasks/`; they are test-only
 and never run against a real model.
+
+## Profile tests (`test/profiles/`, node:test + node:assert)
+
+`profiles.test.js` (10) guards the threat model (`docs/threat-model.md`)
+against drift: it loads the three profiles in `opencode/profiles/`,
+the global `opencode.json`, and the eval runner's generated config,
+and asserts the never-list is present in each (secret `read` /
+`external_directory` denies, shell denies for `sudo`, `rm`,
+pipe-to-shell, `git push`, `eval`), that the denies come after the
+broad rules they override (last-match-wins), that `*.env.example`
+stays allowed after the `*.env` denies, that no profile allows shell
+broadly, that `explore` is read-only, that only `infra` has a sudo
+allowlist (and that it is exactly the five listed commands, after the
+`sudo *` deny), and that the global config carries the `policies`
+hard-deny for the shell half of the never-list. The never-list is
+encoded in the test independently of the profiles, so editing a profile
+without updating the test fails the suite. The workflow skill must
+reference the profiles (checked too).
 
 ## Shell tests (`test/shell/run.sh`, plain bash)
 

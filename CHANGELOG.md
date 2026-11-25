@@ -6,6 +6,28 @@ use today's date and the hash of the change once committed.
 
 ## 2026-11-24
 
+- `(hash)` — Sandbox / threat model (PR
+  `fix/sandbox-threat-model-2026-11-24`): `docs/threat-model.md`
+  (assets, adversaries, the seven-rule never-list, enforcement layers,
+  known holes, v2 OS sandbox) and three per-project profiles in
+  `opencode/profiles/` (`explore` read-only, `feature` default, `infra`
+  with a narrow sudo allowlist), all carrying the never-list and guarded
+  by `test/profiles/profiles.test.js` (10 cases). The global
+  `opencode.json` gains the secret `read` / `external_directory`
+  denies, the `git push *` deny, and a `policies` hard-deny for the
+  shell half of the never-list (documented in the official V2
+  permissions doc and valid against the live config schema; verify with
+  `opencode debug config` on 2.3.0 before relying on it). The eval
+  runner's generated config carries the never-list too. Verified
+  against the current official docs: a shell pattern ending in a space
+  plus `*` also matches the bare command (the PR #2 note that said
+  otherwise was wrong), and the default `external_directory` policy is
+  allow, not ask. opencode 2.3.0 core has no native OS sandbox — that
+  is v2 (`opencode-sandbox` / `universal-opencode-sandbox` plugins,
+  bubblewrap / sandbox-exec). CI needs one line from a real clone
+  (`node --test test/profiles/*.test.js` in the `test` job): the API
+  refuses workflow files (403).
+
 - `(hash)` — Evals v1 — reference tasks harness (PR `fix/evals-v1-2026-11-24`):
   `eval/run.mjs` (node ESM, no deps) runs each reference task in a scratch
   copy through
