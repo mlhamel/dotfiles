@@ -32,11 +32,12 @@ eval/
 
 The fixture preserves the repo-relative layout because the plugin tests import
 via relative paths (`../../opencode/plugins/...`). The runner writes a minimal
-`opencode.json` into the scratch dir (model + the repo's shell permission
-posture) and runs with a scratch `HOME`, so the eval never touches the user's
-real opencode config. A `plugins/` directory beside a project-root
-`opencode.json` is not auto-discovered by opencode, so a plugin fixture is
-never loaded as a plugin during its own eval — it is only a file to edit.
+`opencode.json` into the scratch dir (model + the never-list from
+`docs/threat-model.md` as `deny` rules — see "Sandbox posture" below) and runs
+with a scratch `HOME`, so the eval never touches the user's real opencode
+config. A `plugins/` directory beside a project-root `opencode.json` is not
+auto-discovered by opencode, so a plugin fixture is never loaded as a plugin
+during its own eval — it is only a file to edit.
 
 Check kinds in `checks.json`:
 
@@ -46,6 +47,20 @@ Check kinds in `checks.json`:
 | `contains`  | a fixture file must contain the given text                              |
 | `count-gt`  | a regex match count in a fixture file must grow vs the fixture baseline |
 | `unchanged` | listed fixture files must be byte-identical after the run               |
+
+## Sandbox posture
+
+Eval runs launch real agents with `--auto`, so `ask` is no protection:
+the runner's generated `opencode.json` carries the never-list from
+`docs/threat-model.md` as `deny` rules (no `sudo`, `rm`, pipe-to-shell,
+`git push`, or `eval`; no reads of secrets or secret directories). Shell
+stays broadly allowed — eval tasks run arbitrary test commands — so the
+containment comes from the scratch workdir and scratch `HOME`, which
+hold no secrets to leak. Eval tasks never need sudo, pushes, secrets,
+or pipe-to-shell, so the restrictions cost nothing. The one gap this
+leaves open is network egress to arbitrary hosts (shell `curl` is
+allowed); a v2 OS sandbox would close it, but there is nothing
+valuable to exfiltrate from a scratch dir with an empty HOME.
 
 ## Running a real eval
 
