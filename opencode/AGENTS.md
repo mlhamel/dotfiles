@@ -6,6 +6,9 @@ These rules apply to every session, on every project. Keep this file lean.
 
 - Plan first, then build. For anything non-trivial, propose a plan and wait for approval.
 - Show me diffs before committing. Never commit unless I explicitly ask.
+- Ship via PRs: put work on a dated topic branch (`<type>/<slug>-<YYYY-MM-DD>`); pushing
+  the branch and opening the PR (`gh pr create`) is part of shipping when I ask to ship.
+  Pushing or merging `master` directly is always the human's action.
 - Always run the project's tests and linter after changes. Never claim done without verifying.
 - Prefer the ecosystem's official tooling over hand-rolled equivalents.
 - No comments in code unless I ask.

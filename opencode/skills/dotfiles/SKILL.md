@@ -27,7 +27,8 @@ itself.
 4. Add a `CHANGELOG.md` entry under today's date (`## YYYY-MM-DD`), hash
    filled in after the commit (amend or a pin commit is fine).
 5. Check off / update the relevant `TODOs.md` item if one existed.
-6. Push is the user's action — never push (global permission denies it).
+6. PR flow: push the dated topic branch and open the PR with `gh pr create` when the
+   human asks to ship; pushing/merging `master` directly is always the user's action.
 
 ## Tests
 
