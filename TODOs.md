@@ -46,10 +46,27 @@ not a fix for a broken config.
       only if they ran). Harness grows 14 → 17 cases (both-SKIP, no-SKIP
       control, `SKIP_DIRECTOR` only), with marker sub-scripts that fail
       if invoked; the guard cases fail on the old `setup.sh`.
-- [ ] **P1 · Fallback provider** — everything (default, plan, title,
-      review) goes through `localhost:11434` / Ollama Cloud. Add a second
-      provider (e.g. Z.ai direct) and a documented offline fallback
-      (`build-local` / `qwen3:4b`) so a cloud outage does not stop all work.
+- [x] **P1 · Fallback provider** — done 2026-11-24 (PR
+      `fix/cloud-fallback-2026-11-24`): opencode core has no native
+      fallback chain — only a catalog default ("falls back to the newest
+      available supported model", opencode.ai/docs/models) — so the
+      fallback is a new plugin `opencode/plugins/cloud-fallback.js` on
+      the V2 `retry` hook + `switchModel` (opencode.ai/docs/build/
+      plugins/server, same pattern as the community failover plugins).
+      A failed call on an ollama `:cloud` model whose error reads as
+      cloud-unavailable (gateway down, model not registered / not signed
+      in; 401/402/403/404/502/503/504 or network/not-found/auth text)
+      switches the session to local `ollama/qwen3:4b` and retries the
+      same step, with a one-shot notice prompt; 429 and other errors are
+      left to OpenCode's built-in retry. On the next user message the
+      plugin probes `GET /api/tags` (2s timeout) and switches back to
+      the primary cloud model when it is listed again; a manual model
+      change while fallen back clears the state. Opt out with
+      `CLOUD_FALLBACK=0`; tune with `CLOUD_FALLBACK_MODEL`,
+      `CLOUD_FALLBACK_GATEWAY`, `CLOUD_FALLBACK_TIMEOUT_MS`.
+      `cloud-fallback.test.js` adds 19 cases (44 → 63 plugin cases);
+      mock gains a `switchModel` recorder. The "second provider (Z.ai
+      direct)" half of this item is NOT done — it stays a follow-up.
 - [x] **P1 · director.js portability + overwrite detection** — done 2026-11-24 (PR
       `fix/director-portability-2026-11-24`): the fallback tier is no longer
       the hardcoded `/home/mlhamel/.claude/director/bin/director` — it

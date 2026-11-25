@@ -55,6 +55,7 @@ export function createMockContext({
   const ctx = {
     location: { directory },
     prompts: [],
+    switches: [],
     hooks: { session: new Map(), tool: new Map() },
     get subscribeCalls() {
       return subscribeCalls;
@@ -94,6 +95,9 @@ export function createMockContext({
       async hook(name, fn) {
         ctx.hooks.session.set(name, fn);
         return { dispose() {} };
+      },
+      async switchModel({ sessionID, model }) {
+        ctx.switches.push({ sessionID, model });
       },
       // Test-only helpers: inspect and mutate the fake session registry.
       _set(id, info) {
