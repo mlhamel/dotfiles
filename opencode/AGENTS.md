@@ -16,6 +16,18 @@ These rules apply to every session, on every project. Keep this file lean.
   verdict (APPROVE / REQUEST CHANGES) — or say why review is waived. The
   review-enforcer plugin will remind you; don't make it.
 
+## File ownership
+
+- If you run as a different uid than the workspace owner (sandbox/canvas
+  agents), anything you create — files, directories, and paths git writes
+  under `.git/` — inherits your uid and later breaks host-side tools
+  (pre-commit hooks, git writes). Hand ownership back at creation time, not
+  at commit time: capture the workspace owner once (`stat` on the repo root),
+  then `sudo chown -hR <u>:<g> <new path>` right after creating it; in the
+  canvas sudo is passwordless, and on the host you are already the owner so
+  skip the chown quietly. `opencode/bin/oh-fix` is the manual host-side
+  repair for sessions that leaked ownership.
+
 ## Context
 
 - If the project has its own AGENTS.md, its rules take precedence over these.

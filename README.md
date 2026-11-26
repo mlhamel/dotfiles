@@ -8,6 +8,7 @@ Configuration files of Mathieu Leduc-Hamel.
 - [docs](docs/) — threat model + security docs for the factory
 - [homebrew](homebrew/) — Brewfile + lockfile (macOS-only; see [homebrew/README.md](homebrew/README.md))
 - [apt](apt/) — Aptfile + generate/install scripts (Debian/Ubuntu; see [apt/README.md](apt/README.md))
+- [specs](specs/) — OKF-format spec documents (see [specs/README.md](specs/README.md))
 
 ## Quick start
 
