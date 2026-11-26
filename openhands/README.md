@@ -14,12 +14,18 @@ sans intervention manuelle à chaque démarrage.
    contexte 65536).
 3. **Conteneur** — démarre `ghcr.io/openhands/agent-canvas:1.43.0` (détaché,
    nommé `openhands-canvas`), avec : projets montés, volume d'état
-   `openhands-state`, dossier opencode persistant
+   `openhands-state` et dossier opencode persistant
    (`~/.local/share/openhands/opencode` → `/home/openhands/.opencode`, le
-   binaire survit aux redémarrages) et la config montée en lecture seule.
-4. **Binaire** — installe opencode dans le conteneur si absent (l'install
+   binaire survit aux redémarrages).
+4. **Config install** — copie la config dans le conteneur (`docker cp` +
+   `chown`). Ce n'est deliberately pas un montage : monter le fichier
+   dans `.config` rend ce dossier non inscriptible pour uid 10001 et
+   agent-canvas refuse de démarrer (« Browser config directory is not
+   writable »). La copie est refaite à chaque `up`, donc un conteneur
+   recréé reçoit toujours la config courante.
+5. **Binaire** — installe opencode dans le conteneur si absent (l'install
    atterrit dans le dossier persistant : coût unique).
-5. **Santé** — attend que l'interface réponde, puis affiche un résumé.
+6. **Santé** — attend que l'interface réponde, puis affiche un résumé.
 
 ## Usage
 
@@ -52,12 +58,12 @@ opencode --version; …; what model are you running on…`).
 
 ## Ce qui persiste où
 
-| Élément                          | Emplacement                                         | Survit à un redémarrage ? |
-| -------------------------------- | --------------------------------------------------- | ------------------------- |
-| État Canvas (dont le preset ACP) | volume Docker `openhands-state`                     | oui                       |
-| Binaire opencode                 | `~/.local/share/openhands/opencode/bin/`            | oui (monté)               |
-| Config opencode conteneur        | `~/.local/share/openhands/opencode-container.jsonc` | oui (monté)               |
-| Projets                          | `~/src/github.com/mlhamel`                          | oui (monté, ACL)          |
+| Élément                          | Emplacement                                         | Survit à un redémarrage ?    |
+| -------------------------------- | --------------------------------------------------- | ---------------------------- |
+| État Canvas (dont le preset ACP) | volume Docker `openhands-state`                     | oui                          |
+| Binaire opencode                 | `~/.local/share/openhands/opencode/bin/`            | oui (monté)                  |
+| Config opencode conteneur        | `~/.local/share/openhands/opencode-container.jsonc` | oui (recopiée à chaque `up`) |
+| Projets                          | `~/src/github.com/mlhamel`                          | oui (monté, ACL)             |
 
 Pour forcer une réinstallation d'opencode : supprime
 `~/.local/share/openhands/opencode` puis relance `openhands.sh up`.
