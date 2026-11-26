@@ -37,6 +37,7 @@ opencode/
 │   ├── grill-me/SKILL.md      #   opt-in, stateless interview entry point
 │   ├── grilling/SKILL.md      #   round-based interview workflow
 │   ├── token-optimization/SKILL.md  #   token-efficiency: ingestion, routing, oc-tokens loop
+│   ├── packaging/SKILL.md     #   end-of-task shipping block: push + PR command recipe
 │   └── dotfiles/SKILL.md      #   maintenance playbook for this repo itself
 ├── lib/                       # Shared plugin helpers (not plugins — never scanned)
 │   └── session-classify.js    #   session classification + server-wide event loop
