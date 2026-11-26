@@ -4,6 +4,22 @@ All notable changes to this repo. Dates are YYYY-MM-DD (local commit date);
 entries reference the committing hash. Newest first. When adding an entry,
 use today's date and the hash of the change once committed.
 
+## 2026-11-25
+
+- `(hash)` — `bin/oh-fix` (PR `feat/oh-fix-2026-11-25`): the OpenHands
+  post-task ownership fix, versioned and installed by the bootstrap —
+  `opencode/bin/oh-fix` retakes files the Canvas agent (uid 10001) left
+  behind in a mounted workspace (`OH_FIX_ROOT`, default
+  `~/src/github.com/mlhamel`) and repairs executable bits the way the
+  `check-executables-have-shebangs` hook expects (text without a shebang
+  loses `+x`, a script with one gains it); `opencode/install.sh` symlinks
+  it into `~/.local/bin` (with a `chmod +x` that repairs the mode when the
+  file landed 644 from an API push, and a guard so a missing tool never
+  fails the bootstrap) and `opencode/README.md` lists it in the `bin/`
+  tree. Tests: 4 new `oh-fix-*` shell cases (happy path, dry-run, refusal
+  outside the root, no-args repo detection) plus a symlink assertion in
+  the `setup-*` cases; shell harness 36 → 40.
+
 ## 2026-11-24
 
 - `(hash)` — TODOs: new "Agent cloud/async — OpenHands" section (PR
