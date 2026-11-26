@@ -89,6 +89,15 @@ check_symlink_to() {
   CASE_FAILED=1
 }
 
+check_mode() {
+  local want="$1" file="$2" desc="$3" got
+  got="$(stat -c %a -- "${file}" 2>/dev/null || echo missing)"
+  if [ "${want}" != "${got}" ]; then
+    echo "  FAIL: ${desc} (want mode ${want}, got ${got})" >&2
+    CASE_FAILED=1
+  fi
+}
+
 # --- per-case sandbox -------------------------------------------------------
 
 new_case() {
@@ -404,6 +413,7 @@ case_setup_skip_pinned() {
   check_contains "${CASE_HOME}/out.log" "bootstrap complete" "bootstrap completes"
   check_not_contains "${STUB_LOG}" "opencode.ai" "no installer download when pinned version is present"
   check_symlink_to "${CASE_HOME}/.config/opencode" "${ROOT}/opencode" "config symlink deployed"
+  check_symlink_to "${CASE_HOME}/.local/bin/oh-fix" "${ROOT}/opencode/bin/oh-fix" "oh-fix installed to ~/.local/bin"
   finish_case
 }
 
@@ -448,6 +458,7 @@ case_setup_fresh() {
   check_contains "${CASE_HOME}/out.log" "not on PATH" "warns the binary is not on PATH yet"
   check_contains "${CASE_HOME}/out.log" "bootstrap complete" "bootstrap completes"
   check_symlink_to "${CASE_HOME}/.config/opencode" "${ROOT}/opencode" "config symlink deployed"
+  check_symlink_to "${CASE_HOME}/.local/bin/oh-fix" "${ROOT}/opencode/bin/oh-fix" "oh-fix installed to ~/.local/bin"
   finish_case
 }
 
@@ -942,6 +953,91 @@ SQL_EOF
   finish_case
 }
 
+# --- bin/oh-fix ------------------------------------------------------------
+# oh-fix retakes ownership of files the OpenHands agent (uid 10001) created
+# or rewrote in a mounted workspace. Cases call it via `bash` (the file is
+# mode 644 in git, like oc-tokens) with OH_CANVAS_UID set to the current
+# uid, so the fixture files count as the agent's without needing root or a
+# second uid; sudo is stubbed to pass through to the real command.
+
+stub_sudo_passthrough() {
+  cat > "${CASE_BIN}/sudo" <<'SUDO_EOF'
+#!/bin/sh
+echo "sudo $*" >> "$STUB_LOG"
+exec "$@"
+SUDO_EOF
+  chmod +x "${CASE_BIN}/sudo"
+}
+
+oh_fix_fixture() {
+  local root="$1"
+  mkdir -p "${root}/sub"
+  printf '# README\n' > "${root}/README.md"; chmod 755 "${root}/README.md"
+  printf '#!/usr/bin/env bash\necho hi\n' > "${root}/run.sh"; chmod 644 "${root}/run.sh"
+  printf 'node_modules\n' > "${root}/.gitignore"; chmod 654 "${root}/.gitignore"
+  cp /bin/true "${root}/data.bin"; chmod 755 "${root}/data.bin"
+  printf 'inner\n' > "${root}/sub/inner.md"; chmod 700 "${root}/sub"
+  chmod 644 "${root}/sub/inner.md"
+}
+
+case_oh_fix_happy() {
+  new_case
+  stub_sudo_passthrough
+  local root="${CASE_HOME}/org/repo"
+  oh_fix_fixture "${root}"
+  OH_FIX_ROOT="${CASE_HOME}/org" OH_CANVAS_UID="$(id -u)" bash "${ROOT}/opencode/bin/oh-fix" "${root}" > "${CASE_HOME}/out.log" 2> "${CASE_HOME}/err.log"
+  local rc=$?
+  check_rc 0 "${rc}" "happy path exits 0"
+  check_mode 644 "${root}/README.md" "stray +x removed from text file"
+  check_mode 755 "${root}/run.sh" "shebang script gains +x"
+  check_mode 644 "${root}/.gitignore" "group-only +x removed"
+  check_mode 755 "${root}/data.bin" "binary keeps its mode"
+  check_mode 644 "${root}/sub/inner.md" "file inside a 700 dir is fixed"
+  check_contains "${CASE_HOME}/out.log" "rendue(s)" "summary reports the retaken entries"
+  finish_case
+}
+
+case_oh_fix_dry_run() {
+  new_case
+  stub_sudo_passthrough
+  local root="${CASE_HOME}/org/repo"
+  oh_fix_fixture "${root}"
+  OH_FIX_ROOT="${CASE_HOME}/org" OH_CANVAS_UID="$(id -u)" bash "${ROOT}/opencode/bin/oh-fix" -n "${root}" > "${CASE_HOME}/out.log" 2> "${CASE_HOME}/err.log"
+  local rc=$?
+  check_rc 0 "${rc}" "dry-run exits 0"
+  check_mode 755 "${root}/README.md" "dry-run leaves the stray +x alone"
+  check_mode 644 "${root}/run.sh" "dry-run leaves the script without +x"
+  check_mode 654 "${root}/.gitignore" "dry-run leaves the group-only +x alone"
+  check_contains "${CASE_HOME}/out.log" "dry-run" "dry-run says so"
+  check_contains "${CASE_HOME}/out.log" "serait +x" "dry-run previews the mode fixes"
+  finish_case
+}
+
+case_oh_fix_refuse() {
+  new_case
+  stub_sudo_passthrough
+  mkdir -p "${CASE_HOME}/org" "${CASE_HOME}/outside"
+  OH_FIX_ROOT="${CASE_HOME}/org" OH_CANVAS_UID="$(id -u)" bash "${ROOT}/opencode/bin/oh-fix" "${CASE_HOME}/outside" > "${CASE_HOME}/out.log" 2> "${CASE_HOME}/err.log"
+  local rc=$?
+  check_rc_nonzero "${rc}" "target outside the allowed root fails"
+  check_contains "${CASE_HOME}/err.log" "hors de" "refusal names the allowed root"
+  finish_case
+}
+
+case_oh_fix_no_args() {
+  new_case
+  stub_sudo_passthrough
+  local root="${CASE_HOME}/org/repo"
+  oh_fix_fixture "${root}"
+  git init -q "${root}" 2>/dev/null
+  ( cd "${root}" && OH_FIX_ROOT="${CASE_HOME}/org" OH_CANVAS_UID="$(id -u)" bash "${ROOT}/opencode/bin/oh-fix" > "${CASE_HOME}/out.log" 2> "${CASE_HOME}/err.log" )
+  local rc=$?
+  check_rc 0 "${rc}" "no-args run exits 0"
+  check_mode 644 "${root}/README.md" "no-args run fixes the current repo"
+  check_contains "${CASE_HOME}/out.log" "${root}" "no-args run reports the repo root"
+  finish_case
+}
+
 # --- runner -----------------------------------------------------------------
 
 run_case() {
@@ -997,6 +1093,11 @@ run_case "oc-tokens-malformed" case_oc_tokens_malformed
 run_case "oc-tokens-bad-args" case_oc_tokens_bad_args
 run_case "oc-tokens-env-db" case_oc_tokens_env_db
 run_case "oc-tokens-days-zero-pin" case_oc_tokens_days_zero_pin
+
+run_case "oh-fix-happy" case_oh_fix_happy
+run_case "oh-fix-dry-run" case_oh_fix_dry_run
+run_case "oh-fix-refuse" case_oh_fix_refuse
+run_case "oh-fix-no-args" case_oh_fix_no_args
 
 echo "shell tests: ${PASS_COUNT} passed, ${FAIL_COUNT} failed"
 if [ "${FAIL_COUNT}" -gt 0 ]; then

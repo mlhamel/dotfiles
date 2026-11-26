@@ -1,0 +1,144 @@
+#!/usr/bin/env bash
+# oh-fix — Reprend la propriété des fichiers touchés par l'agent OpenHands.
+#
+# L'agent Canvas tourne en conteneur sous l'uid 10001 : chaque fichier qu'il
+# crée ou réécrit dans les workspaces montés appartient à 10001:10001, ce qui
+# casse ensuite les hooks pre-commit (Permission denied) et le commit.
+# Ce script remet ces fichiers à ton utilisateur et corrige les bits
+# exécutables parasites (un fichier texte sans shebang ne doit pas être +x,
+# un script avec shebang doit l'être — c'est la règle du hook
+# check-executables-have-shebangs).
+#
+# Usage :
+#   oh-fix               # le repo git courant (ou le répertoire courant)
+#   oh-fix <chemin>...   # un ou plusieurs repos / dossiers
+#   oh-fix --all         # tout ~/src/github.com/mlhamel
+#   oh-fix -n ...        # dry-run : montre ce qui serait fait, sans rien faire
+#
+# Sécurité : refuse toute cible hors de OH_FIX_ROOT (défaut :
+# $HOME/src/github.com/mlhamel), ne suit pas les liens symboliques (chown -h).
+# Le chown passe par sudo (mot de passe demandé une fois) ; les chmod se font
+# après, en tant que toi, puisque tu es redevenu propriétaire.
+#
+# Variables :
+#   OH_CANVAS_UID  uid de l'agent dans le conteneur (défaut : 10001)
+#   OH_FIX_ROOT    racine autorisée (défaut : $HOME/src/github.com/mlhamel)
+
+set -euo pipefail
+
+CANVAS_UID="${OH_CANVAS_UID:-10001}"
+ME="$(id -un)"
+ALLOWED_ROOT="${OH_FIX_ROOT:-$HOME/src/github.com/mlhamel}"
+DRY_RUN=0
+TMP=""
+
+die() { printf 'oh-fix: erreur : %s\n' "$*" >&2; exit 1; }
+
+run_priv() {
+  if [[ "$(id -u)" -eq 0 ]]; then "$@"; else sudo "$@"; fi
+}
+
+usage() {
+  cat <<'EOF'
+Usage : oh-fix [options] [chemin...] | oh-fix --all
+  sans argument : le repo git courant (ou le répertoire courant)
+  --all         : tout ~/src/github.com/mlhamel
+  -n, --dry-run : montre ce qui serait fait, sans rien modifier
+  -h, --help    : cette aide
+EOF
+}
+
+resolve_target() {
+  local target="$1" real
+  [[ -e "$target" ]] || die "cible introuvable : $target"
+  real="$(realpath -e "$target")"
+  case "$real" in
+    "$ALLOWED_ROOT"|"$ALLOWED_ROOT"/*) printf '%s' "$real" ;;
+    *) die "refusé : $real est hors de $ALLOWED_ROOT" ;;
+  esac
+}
+
+fix_one() {
+  local root="$1"
+  local count=0 mode_fixes=0
+  : > "$TMP"
+  # Découverte sous sudo : root descend partout, même dans les dossiers
+  # à 700 créés par l'agent.
+  run_priv find "$root" -xdev -user "$CANVAS_UID" -print0 > "$TMP" 2>/dev/null || true
+  count="$(tr -cd '\0' < "$TMP" | wc -c)"
+  count="${count//[[:space:]]/}"
+  if [[ "$count" -eq 0 ]]; then
+    printf '%s : rien à faire\n' "$root"
+    return 0
+  fi
+  printf '%s : %s entrée(s) appartenant à uid %s\n' "$root" "$count" "$CANVAS_UID"
+  if [[ "$DRY_RUN" -eq 1 ]]; then
+    while IFS= read -r -d '' f; do printf '  serait repris : %s\n' "$f"; done < "$TMP"
+  else
+    run_priv xargs -0 -r -a "$TMP" chown -h "$ME:$ME"
+  fi
+  # Bits exécutables : uniquement les fichiers texte (via `file`).
+  # `a+x` / `a-x` explicites : contrairement à `+x` seul, ils ne sont pas
+  # rognés par l'umask (un `chmod +x` sous umask 027 donne 754, pas 755).
+  if ! command -v file >/dev/null 2>&1; then
+    printf '  (commande file absente : correction des modes ignorée)\n'
+  else
+    while IFS= read -r -d '' f; do
+      [[ -f "$f" && ! -L "$f" ]] || continue
+      local mime mode
+      mime="$(file -b --mime-type "$f" 2>/dev/null || true)"
+      [[ "$mime" == text/* ]] || continue
+      mode="$(stat -c %a -- "$f" 2>/dev/null || echo 0)"
+      if [[ "$(head -c 2 -- "$f" 2>/dev/null)" == '#!' ]]; then
+        if (( (8#$mode & 0100) == 0 )); then
+          if [[ "$DRY_RUN" -eq 1 ]]; then printf '  serait +x %s\n' "$f";
+          else chmod a+x -- "$f"; printf '  +x %s\n' "$f"; fi
+          mode_fixes=$((mode_fixes + 1))
+        fi
+      else
+        if (( (8#$mode & 0111) != 0 )); then
+          if [[ "$DRY_RUN" -eq 1 ]]; then printf '  serait -x %s\n' "$f";
+          else chmod a-x -- "$f"; printf '  -x %s\n' "$f"; fi
+          mode_fixes=$((mode_fixes + 1))
+        fi
+      fi
+    done < "$TMP"
+  fi
+  if [[ "$DRY_RUN" -eq 1 ]]; then
+    printf '%s : %s entrée(s) à reprendre, %s mode(s) à corriger (dry-run)\n' "$root" "$count" "$mode_fixes"
+  else
+    printf '%s : %s entrée(s) rendue(s) à %s, %s mode(s) corrigé(s)\n' "$root" "$count" "$ME" "$mode_fixes"
+  fi
+}
+
+main() {
+  local targets=()
+  local arg top real
+  if [[ $# -eq 0 ]]; then
+    if top="$(git rev-parse --show-toplevel 2>/dev/null)"; then
+      targets+=("$top")
+    else
+      targets+=("$PWD")
+    fi
+  else
+    for arg in "$@"; do
+      case "$arg" in
+        -h|--help) usage; exit 0 ;;
+        -n|--dry-run) DRY_RUN=1 ;;
+        --all) targets+=("$ALLOWED_ROOT") ;;
+        *) targets+=("$arg") ;;
+      esac
+    done
+  fi
+  [[ -d "$ALLOWED_ROOT" ]] || die "racine autorisée introuvable : $ALLOWED_ROOT (voir OH_FIX_ROOT)"
+  [[ "${#targets[@]}" -gt 0 ]] || die "aucune cible"
+  TMP="$(mktemp)"
+  trap 'rm -f "$TMP"' EXIT
+  for t in "${targets[@]}"; do
+    real="$(resolve_target "$t")"
+    fix_one "$real"
+  done
+  printf 'Vérifie avec git status / git diff avant de committer.\n'
+}
+
+main "$@"
