@@ -25,7 +25,12 @@ sans intervention manuelle à chaque démarrage.
    directory is not writable »). La copie est refaite à chaque `up`,
    donc un conteneur recréé reçoit toujours la config courante. Le
    `mkdir -p` est nécessaire : un conteneur frais n'a pas encore de
-   `.config/opencode/` (opencode le crée au premier lancement).
+   `.config/opencode/` (opencode le crée au premier lancement). Si le
+   dépôt est adjacent au script (checkout normal), les règles globales
+   (`AGENTS.md`, dont « plan d'abord ») et les skills sont copiées dans
+   le même dossier : l'agent ACP les lit comme un agent hôte. L'arbre
+   des skills est effacé puis recopié, pour que les suppressions de
+   skills côté dépôt se propagent.
 5. **Binaire** — installe opencode dans le conteneur si absent (l'install
    atterrit dans le dossier persistant : coût unique).
 6. **Santé** — attend que l'interface réponde, puis affiche un résumé.
@@ -38,7 +43,7 @@ le PATH) :
 ```sh
 openhands/openhands.sh            # up (défaut)
 openhands/openhands.sh up         # idem — sûr à relancer, ne refait que ce qui manque
-openhands/openhands.sh status     # conteneur + interface + binaire + config
+openhands/openhands.sh status     # conteneur + interface + binaire + config + règles
 openhands/openhands.sh down       # stoppe + supprime le conteneur (état et fichiers conservés)
 openhands/openhands.sh restart    # down + up
 openhands/openhands.sh help
@@ -66,6 +71,7 @@ opencode --version; …; what model are you running on…`).
 | État Canvas (dont le preset ACP) | volume Docker `openhands-state`                     | oui                          |
 | Binaire opencode                 | `~/.local/share/openhands/opencode/bin/`            | oui (monté)                  |
 | Config opencode conteneur        | `~/.local/share/openhands/opencode-container.jsonc` | oui (recopiée à chaque `up`) |
+| Règles globales + skills         | `opencode/` du dépôt (`AGENTS.md`, `skills/`)       | oui (recopiés à chaque `up`) |
 | Projets                          | `~/src/github.com/mlhamel`                          | oui (monté, ACL)             |
 
 Pour forcer une réinstallation d'opencode : supprime
@@ -75,9 +81,12 @@ Pour forcer une réinstallation d'opencode : supprime
 
 - Le preset ACP reste un réglage manuel unique dans l'interface (pas d'API
   stable pour le pré-remplir) ; tout le reste est automatique.
-- L'agent ACP n'a pas accès à la config hôte (plugins, Director,
-  permissions) — seulement au provider Ollama + GLM. C'est volontaire :
-  les plugins ne sont pas installés dans le conteneur.
+- L'agent ACP n'a pas accès aux mécaniques hôte (plugins, Director,
+  permissions) — seulement au provider Ollama + GLM. Les instructions,
+  elles, sont recopiées dans le conteneur à chaque `up` (`AGENTS.md` +
+  skills, dont `planning`) : le comportement « plan d'abord » s'applique
+  aussi côté canvas. C'est volontaire : les plugins ne sont pas installés
+  dans le conteneur.
 - La config embarquée utilise le schéma opencode **v1** (`provider` /
   `npm` / `options`) parce que le script d'install fournit opencode
   1.19.6. Si le binaire du conteneur passe un jour en 2.x, elle doit
