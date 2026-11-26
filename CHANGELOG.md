@@ -6,6 +6,19 @@ use today's date and the hash of the change once committed.
 
 ## 2026-11-26
 
+- `(hash)` — OpenHands setup: config dir + output limit (PR
+  `fix/openhands-config-output-2026-11-26`, follow-up to PR #21, which
+  merged before these two fixes landed on its branch): `install_config`
+  now creates the destination directory (`mkdir -p`) before `docker cp`
+  — a fresh container has no `.config/opencode/` yet (opencode creates
+  it on first run) and the copy fails without it — and the embedded
+  config pins `limit.output` (65536) on every model. Opencode 1.19.6
+  rejects a config with only `limit.context` ("Configuration is
+  invalid … Missing key …limit.output") and exits before the ACP
+  handshake, which surfaced as "Failed to start ACP server: Connection
+  closed". The `openhands-up` shell case now asserts the `mkdir -p` +
+  `docker cp` + `chown` and the `output` limit.
+
 - `(hash)` — OpenHands setup: config copied, not mounted (PR
   `fix/openhands-config-copy-2026-11-26`): the first live run of
   `openhands.sh` failed — agent-canvas refused to start, "Browser config

@@ -1129,11 +1129,13 @@ case_openhands_up() {
   check_contains "${cfg}" "glm-5.3-flash:cloud" "config pins the GLM model"
   check_contains "${cfg}" "http://host.docker.internal:11434/v1" "config uses the OpenAI-compatible base URL"
   check_contains "${cfg}" "\"context\": 65536" "config pins a 64k context limit"
+  check_contains "${cfg}" "\"output\": 65536" "config pins a 64k output limit (required by opencode 1.19.6)"
   if ! python3 -m json.tool "${cfg}" > "${CASE_HOME}/cfg.json" 2> "${CASE_HOME}/cfg.err"; then
     echo "  FAIL: config is not valid JSON" >&2
     CASE_FAILED=1
   fi
   check_contains "${STUB_LOG}" "ghcr.io/openhands/agent-canvas:1.43.0" "docker run uses the pinned image"
+  check_contains "${STUB_LOG}" "mkdir -p /home/openhands/.config/opencode" "config dir is created in the container"
   check_contains "${STUB_LOG}" "/home/openhands/.config/opencode/opencode.jsonc" "config is copied to the container path"
   check_contains "${STUB_LOG}" "chown 10001:10001" "config is chowned to the container user"
   check_not_contains "${STUB_LOG}" "opencode.jsonc:ro" "no read-only file mount for the config"

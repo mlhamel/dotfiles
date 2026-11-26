@@ -11,18 +11,21 @@ sans intervention manuelle à chaque démarrage.
 2. **Config** — écrit `~/.local/share/openhands/opencode-container.jsonc`
    si absent : provider Ollama → `http://host.docker.internal:11434/v1`,
    les 9 modèles de la passerelle épinglés (dont `glm-5.3-flash:cloud`,
-   contexte 65536).
+   contexte et sortie limités à 65536 tokens — opencode 1.19.6 exige les
+   deux clés `limit.context` et `limit.output`).
 3. **Conteneur** — démarre `ghcr.io/openhands/agent-canvas:1.43.0` (détaché,
    nommé `openhands-canvas`), avec : projets montés, volume d'état
    `openhands-state` et dossier opencode persistant
    (`~/.local/share/openhands/opencode` → `/home/openhands/.opencode`, le
    binaire survit aux redémarrages).
-4. **Config install** — copie la config dans le conteneur (`docker cp` +
-   `chown`). Ce n'est deliberately pas un montage : monter le fichier
-   dans `.config` rend ce dossier non inscriptible pour uid 10001 et
-   agent-canvas refuse de démarrer (« Browser config directory is not
-   writable »). La copie est refaite à chaque `up`, donc un conteneur
-   recréé reçoit toujours la config courante.
+4. **Config install** — copie la config dans le conteneur (`mkdir -p` +
+   `docker cp` + `chown`). Ce n'est volontairement pas un montage :
+   monter le fichier dans `.config` rend ce dossier non inscriptible
+   pour uid 10001 et agent-canvas refuse de démarrer (« Browser config
+   directory is not writable »). La copie est refaite à chaque `up`,
+   donc un conteneur recréé reçoit toujours la config courante. Le
+   `mkdir -p` est nécessaire : un conteneur frais n'a pas encore de
+   `.config/opencode/` (opencode le crée au premier lancement).
 5. **Binaire** — installe opencode dans le conteneur si absent (l'install
    atterrit dans le dossier persistant : coût unique).
 6. **Santé** — attend que l'interface réponde, puis affiche un résumé.

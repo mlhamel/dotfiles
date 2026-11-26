@@ -13,10 +13,10 @@
 #   3. Container: starts ghcr.io/openhands/agent-canvas:1.43.0 (detached),
 #      with the projects dir, the state volume and a persistent opencode
 #      dir (the binary survives restarts).
-#   4. Config install: copies the config into the container (`docker cp`
-#      + `chown`; a bind-mount of the file into `.config` makes that
-#      directory non-writable for uid 10001 and agent-canvas refuses
-#      to start).
+#   4. Config install: copies the config into the container (`mkdir -p`
+#      + `docker cp` + `chown`; a bind-mount of the file into `.config`
+#      makes that directory non-writable for uid 10001 and agent-canvas
+#      refuses to start).
 #   5. Binary: installs opencode inside the container if missing. The
 #      install lands in the persistent dir, so it is a one-time cost.
 #   6. Health: waits for the Canvas UI to answer, then prints a summary.
@@ -88,7 +88,10 @@ ensure_acl() {
 # The embedded config uses the opencode v1 schema (`provider` / `npm` /
 # `options`): the install script provides opencode 1.19.6. If the container
 # binary is ever upgraded to a 2.x runtime, this must move to the v2 schema
-# (`providers` / `package` / `settings`).
+# (`providers` / `package` / `settings`). Note: 1.19.6 requires BOTH
+# `limit.context` AND `limit.output` on every model — a config with only
+# `context` is rejected ("Configuration is invalid … Missing key
+# …limit.output") and opencode exits before the ACP handshake.
 write_config() {
   cat > "$CONFIG_FILE" <<'EOF'
 {
@@ -101,15 +104,15 @@ write_config() {
         "baseURL": "http://host.docker.internal:11434/v1"
       },
       "models": {
-        "glm-5.3-flash:cloud": { "name": "GLM 5.3 Flash (cloud)", "limit": { "context": 65536 } },
-        "glm-5.3:cloud": { "limit": { "context": 65536 } },
-        "glm-5.2:cloud": { "limit": { "context": 65536 } },
-        "inkling-2-small:cloud": { "limit": { "context": 65536 } },
-        "gemma4:cloud": { "limit": { "context": 65536 } },
-        "kimi-k2.7-code:cloud": { "limit": { "context": 65536 } },
-        "qwen3:4b": { "limit": { "context": 65536 } },
-        "gemma4:26b": { "limit": { "context": 65536 } },
-        "llama3:latest": { "limit": { "context": 65536 } }
+        "glm-5.3-flash:cloud": { "name": "GLM 5.3 Flash (cloud)", "limit": { "context": 65536, "output": 65536 } },
+        "glm-5.3:cloud": { "limit": { "context": 65536, "output": 65536 } },
+        "glm-5.2:cloud": { "limit": { "context": 65536, "output": 65536 } },
+        "inkling-2-small:cloud": { "limit": { "context": 65536, "output": 65536 } },
+        "gemma4:cloud": { "limit": { "context": 65536, "output": 65536 } },
+        "kimi-k2.7-code:cloud": { "limit": { "context": 65536, "output": 65536 } },
+        "qwen3:4b": { "limit": { "context": 65536, "output": 65536 } },
+        "gemma4:26b": { "limit": { "context": 65536, "output": 65536 } },
+        "llama3:latest": { "limit": { "context": 65536, "output": 65536 } }
       }
     }
   }
@@ -157,9 +160,12 @@ start_container() {
 # refuses to start ("Browser config directory is not writable"). The copy
 # is re-applied on every `up`, so a recreated container always gets the
 # current config, and the image's `.config/opencode/` (node_modules and
-# friends) stays intact.
+# friends) stays intact. `mkdir -p` first: a fresh container has no
+# `.config/opencode/` yet (opencode creates it on first run), and `docker
+# cp` fails when the destination directory does not exist.
 install_config() {
   log "Config: copie dans le conteneur…"
+  docker exec "$CONTAINER_NAME" mkdir -p /home/openhands/.config/opencode
   docker cp "${CONFIG_FILE}" "${CONTAINER_NAME}:/home/openhands/.config/opencode/opencode.jsonc"
   docker exec --user root "${CONTAINER_NAME}" chown "${CANVAS_USER}:${CANVAS_USER}" /home/openhands/.config/opencode/opencode.jsonc
   log "Config installée dans le conteneur."
