@@ -152,8 +152,9 @@ invocation to `$STUB_LOG`. Cases (43):
   the script and the ACP model), stubbed `up` (exit 0, Canvas URL and
   opencode version in the summary, config written with the Ollama gateway
   base URL, the GLM model and a 64k context limit, valid JSON, `docker
-run` logged with the pinned image, config copied in with `docker cp` +
-  `chown` and no read-only file mount), and stubbed `status` (container
+run` logged with the pinned image, config copied in with `mkdir -p` +
+  `docker cp` + `chown` and no read-only file mount), and stubbed
+  `status` (container
   running, UI reachable, version reported). The Docker steps themselves
   are not covered here — the first live run on the Framework is the real
   test.
