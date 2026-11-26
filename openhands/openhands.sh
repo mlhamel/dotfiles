@@ -13,10 +13,10 @@
 #   3. Container: starts ghcr.io/openhands/agent-canvas:1.43.0 (detached),
 #      with the projects dir, the state volume and a persistent opencode
 #      dir (the binary survives restarts).
-#   4. Config install: copies the config into the container (`docker cp`
-#      + `chown`; a bind-mount of the file into `.config` makes that
-#      directory non-writable for uid 10001 and agent-canvas refuses
-#      to start).
+#   4. Config install: copies the config into the container (`mkdir -p`
+#      + `docker cp` + `chown`; a bind-mount of the file into `.config`
+#      makes that directory non-writable for uid 10001 and agent-canvas
+#      refuses to start).
 #   5. Binary: installs opencode inside the container if missing. The
 #      install lands in the persistent dir, so it is a one-time cost.
 #   6. Health: waits for the Canvas UI to answer, then prints a summary.
@@ -157,9 +157,12 @@ start_container() {
 # refuses to start ("Browser config directory is not writable"). The copy
 # is re-applied on every `up`, so a recreated container always gets the
 # current config, and the image's `.config/opencode/` (node_modules and
-# friends) stays intact.
+# friends) stays intact. `mkdir -p` first: a fresh container has no
+# `.config/opencode/` yet (opencode creates it on first run), and `docker
+# cp` fails when the destination directory does not exist.
 install_config() {
   log "Config: copie dans le conteneur…"
+  docker exec "$CONTAINER_NAME" mkdir -p /home/openhands/.config/opencode
   docker cp "${CONFIG_FILE}" "${CONTAINER_NAME}:/home/openhands/.config/opencode/opencode.jsonc"
   docker exec --user root "${CONTAINER_NAME}" chown "${CANVAS_USER}:${CANVAS_USER}" /home/openhands/.config/opencode/opencode.jsonc
   log "Config installée dans le conteneur."

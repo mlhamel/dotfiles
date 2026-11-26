@@ -11,12 +11,15 @@ use today's date and the hash of the change once committed.
   `openhands.sh` failed — agent-canvas refused to start, "Browser config
   directory is not writable: /home/openhands/.config". The bind-mount of
   the config file into `.config` made that directory non-writable for
-  uid 10001. The config is now copied into the container (`docker cp` +
-  `chown 10001:10001`) on every `up` instead of mounted, so a recreated
-  container always gets the current config and the image's
-  `.config/opencode/` (node_modules and friends) stays intact. The
-  `openhands-up` shell case now asserts the `docker cp` + `chown`
-  instead of the read-only mount.
+  uid 10001. The config is now copied into the container (`mkdir -p` +
+  `docker cp` + `chown 10001:10001`) on every `up` instead of mounted,
+  so a recreated container always gets the current config and the
+  image's `.config/opencode/` (node_modules and friends) stays intact.
+  The `mkdir -p` is needed because a fresh container has no
+  `.config/opencode/` yet (opencode creates it on first run) and
+  `docker cp` fails when the destination directory does not exist. The
+  `openhands-up` shell case now asserts the `mkdir -p` + `docker cp` +
+  `chown` instead of the read-only mount.
 
 - `(hash)` — OpenHands one-command setup (PR
   `feat/openhands-setup-2026-11-26`): `openhands/openhands.sh` brings up

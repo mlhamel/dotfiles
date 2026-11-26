@@ -17,12 +17,14 @@ sans intervention manuelle à chaque démarrage.
    `openhands-state` et dossier opencode persistant
    (`~/.local/share/openhands/opencode` → `/home/openhands/.opencode`, le
    binaire survit aux redémarrages).
-4. **Config install** — copie la config dans le conteneur (`docker cp` +
-   `chown`). Ce n'est deliberately pas un montage : monter le fichier
-   dans `.config` rend ce dossier non inscriptible pour uid 10001 et
-   agent-canvas refuse de démarrer (« Browser config directory is not
-   writable »). La copie est refaite à chaque `up`, donc un conteneur
-   recréé reçoit toujours la config courante.
+4. **Config install** — copie la config dans le conteneur (`mkdir -p` +
+   `docker cp` + `chown`). Ce n'est volontairement pas un montage :
+   monter le fichier dans `.config` rend ce dossier non inscriptible
+   pour uid 10001 et agent-canvas refuse de démarrer (« Browser config
+   directory is not writable »). La copie est refaite à chaque `up`,
+   donc un conteneur recréé reçoit toujours la config courante. Le
+   `mkdir -p` est nécessaire : un conteneur frais n'a pas encore de
+   `.config/opencode/` (opencode le crée au premier lancement).
 5. **Binaire** — installe opencode dans le conteneur si absent (l'install
    atterrit dans le dossier persistant : coût unique).
 6. **Santé** — attend que l'interface réponde, puis affiche un résumé.

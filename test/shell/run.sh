@@ -1134,6 +1134,7 @@ case_openhands_up() {
     CASE_FAILED=1
   fi
   check_contains "${STUB_LOG}" "ghcr.io/openhands/agent-canvas:1.43.0" "docker run uses the pinned image"
+  check_contains "${STUB_LOG}" "mkdir -p /home/openhands/.config/opencode" "config dir is created in the container"
   check_contains "${STUB_LOG}" "/home/openhands/.config/opencode/opencode.jsonc" "config is copied to the container path"
   check_contains "${STUB_LOG}" "chown 10001:10001" "config is chowned to the container user"
   check_not_contains "${STUB_LOG}" "opencode.jsonc:ro" "no read-only file mount for the config"
