@@ -1129,6 +1129,7 @@ case_openhands_up() {
   check_contains "${cfg}" "glm-5.3-flash:cloud" "config pins the GLM model"
   check_contains "${cfg}" "http://host.docker.internal:11434/v1" "config uses the OpenAI-compatible base URL"
   check_contains "${cfg}" "\"context\": 65536" "config pins a 64k context limit"
+  check_contains "${cfg}" "\"output\": 65536" "config pins a 64k output limit (required by opencode 1.19.6)"
   if ! python3 -m json.tool "${cfg}" > "${CASE_HOME}/cfg.json" 2> "${CASE_HOME}/cfg.err"; then
     echo "  FAIL: config is not valid JSON" >&2
     CASE_FAILED=1

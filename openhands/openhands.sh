@@ -88,7 +88,10 @@ ensure_acl() {
 # The embedded config uses the opencode v1 schema (`provider` / `npm` /
 # `options`): the install script provides opencode 1.19.6. If the container
 # binary is ever upgraded to a 2.x runtime, this must move to the v2 schema
-# (`providers` / `package` / `settings`).
+# (`providers` / `package` / `settings`). Note: 1.19.6 requires BOTH
+# `limit.context` AND `limit.output` on every model — a config with only
+# `context` is rejected ("Configuration is invalid … Missing key
+# …limit.output") and opencode exits before the ACP handshake.
 write_config() {
   cat > "$CONFIG_FILE" <<'EOF'
 {
@@ -101,15 +104,15 @@ write_config() {
         "baseURL": "http://host.docker.internal:11434/v1"
       },
       "models": {
-        "glm-5.3-flash:cloud": { "name": "GLM 5.3 Flash (cloud)", "limit": { "context": 65536 } },
-        "glm-5.3:cloud": { "limit": { "context": 65536 } },
-        "glm-5.2:cloud": { "limit": { "context": 65536 } },
-        "inkling-2-small:cloud": { "limit": { "context": 65536 } },
-        "gemma4:cloud": { "limit": { "context": 65536 } },
-        "kimi-k2.7-code:cloud": { "limit": { "context": 65536 } },
-        "qwen3:4b": { "limit": { "context": 65536 } },
-        "gemma4:26b": { "limit": { "context": 65536 } },
-        "llama3:latest": { "limit": { "context": 65536 } }
+        "glm-5.3-flash:cloud": { "name": "GLM 5.3 Flash (cloud)", "limit": { "context": 65536, "output": 65536 } },
+        "glm-5.3:cloud": { "limit": { "context": 65536, "output": 65536 } },
+        "glm-5.2:cloud": { "limit": { "context": 65536, "output": 65536 } },
+        "inkling-2-small:cloud": { "limit": { "context": 65536, "output": 65536 } },
+        "gemma4:cloud": { "limit": { "context": 65536, "output": 65536 } },
+        "kimi-k2.7-code:cloud": { "limit": { "context": 65536, "output": 65536 } },
+        "qwen3:4b": { "limit": { "context": 65536, "output": 65536 } },
+        "gemma4:26b": { "limit": { "context": 65536, "output": 65536 } },
+        "llama3:latest": { "limit": { "context": 65536, "output": 65536 } }
       }
     }
   }

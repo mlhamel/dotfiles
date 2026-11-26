@@ -11,7 +11,8 @@ sans intervention manuelle à chaque démarrage.
 2. **Config** — écrit `~/.local/share/openhands/opencode-container.jsonc`
    si absent : provider Ollama → `http://host.docker.internal:11434/v1`,
    les 9 modèles de la passerelle épinglés (dont `glm-5.3-flash:cloud`,
-   contexte 65536).
+   contexte et sortie limités à 65536 tokens — opencode 1.19.6 exige les
+   deux clés `limit.context` et `limit.output`).
 3. **Conteneur** — démarre `ghcr.io/openhands/agent-canvas:1.43.0` (détaché,
    nommé `openhands-canvas`), avec : projets montés, volume d'état
    `openhands-state` et dossier opencode persistant
