@@ -105,7 +105,11 @@ new_case() {
   CASE_BIN="$(mktemp -d "${TMPDIR:-/tmp}/dotfiles-test-bin.XXXXXX")"
   STUB_LOG="${CASE_HOME}/stub.log"
   export HOME="${CASE_HOME}" STUB_LOG
-  PATH="${CASE_BIN}:/usr/bin:/bin"
+  # Stubs win (CASE_BIN is first); the rest is inherited so real tools
+  # resolve wherever they happen to live — python3 is /usr/local/bin here
+  # (python3.13), and the oc-tokens fixtures plus the openhands config
+  # validity check need it.
+  PATH="${CASE_BIN}:${PATH}"
   export PATH
   touch "${STUB_LOG}"
   trap 'rm -rf "${CASE_HOME}" "${CASE_BIN}"' EXIT
@@ -1138,7 +1142,33 @@ case_openhands_up() {
   check_contains "${STUB_LOG}" "mkdir -p /home/openhands/.config/opencode" "config dir is created in the container"
   check_contains "${STUB_LOG}" "/home/openhands/.config/opencode/opencode.jsonc" "config is copied to the container path"
   check_contains "${STUB_LOG}" "chown 10001:10001" "config is chowned to the container user"
+  check_contains "${STUB_LOG}" "/home/openhands/.config/opencode/AGENTS.md" "global rules are copied to the container"
+  check_contains "${STUB_LOG}" "/home/openhands/.config/opencode/skills" "skills are copied to the container"
   check_not_contains "${STUB_LOG}" "opencode.jsonc:ro" "no read-only file mount for the config"
+  finish_case
+}
+
+case_openhands_up_standalone() {
+  new_case
+  stub_curl
+  stub_docker
+  stub_setfacl
+  stub_getfacl
+  # Standalone copy: the script lives alone in a bin dir, with no repo
+  # tree adjacent. The AGENTS.md + skills sync must be skipped with a
+  # warning, not break the setup.
+  local solo="${CASE_HOME}/bin/openhands.sh"
+  mkdir -p "${CASE_HOME}/bin"
+  # The script requires the projects dir to exist (dies otherwise); the up
+  # case pre-creates it too.
+  mkdir -p "${CASE_HOME}/src/github.com/mlhamel"
+  cp "${ROOT}/openhands/openhands.sh" "${solo}"
+  bash "${solo}" up > "${CASE_HOME}/out.log" 2>&1
+  local rc=$?
+  check_rc 0 "${rc}" "standalone copy exits 0 without the repo tree"
+  check_contains "${CASE_HOME}/out.log" "copie standalone du script" "standalone copy warns that rules are skipped"
+  check_not_contains "${STUB_LOG}" "/home/openhands/.config/opencode/AGENTS.md" "standalone copy does not sync AGENTS.md"
+  check_not_contains "${STUB_LOG}" "/home/openhands/.config/opencode/skills" "standalone copy does not sync skills"
   finish_case
 }
 
@@ -1220,6 +1250,7 @@ run_case "oh-fix-no-args" case_oh_fix_no_args
 
 run_case "openhands-help" case_openhands_help
 run_case "openhands-up" case_openhands_up
+run_case "openhands-up-standalone" case_openhands_up_standalone
 run_case "openhands-status" case_openhands_status
 
 echo "shell tests: ${PASS_COUNT} passed, ${FAIL_COUNT} failed"
