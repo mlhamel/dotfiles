@@ -7,8 +7,9 @@ These rules apply to every session, on every project. Keep this file lean.
 - Plan first, then build. For anything non-trivial, load the `planning` skill and follow it: plan in the task tracker, then wait for my approval before building.
 - Show me diffs before committing. Never commit unless I explicitly ask.
 - Ship via PRs: put work on a dated topic branch (`<type>/<slug>-<YYYY-MM-DD>`); pushing
-  the branch and opening the PR (`gh pr create`) is part of shipping when I ask to ship.
-  Pushing or merging `master` directly is always the human's action.
+  the branch and opening the PR (`gh pr create`) is part of shipping when I ask to ship —
+  load the `packaging` skill for the exact end-of-task command block. Pushing or merging
+  `master` directly is always the human's action.
 - Always run the project's tests and linter after changes. Never claim done without verifying.
 - Prefer the ecosystem's official tooling over hand-rolled equivalents.
 - No comments in code unless I ask.
@@ -46,7 +47,8 @@ Global commands available anywhere:
 
 Skills: `planning` (plan-first protocol with the task tracker — load it
 before any non-trivial work), `workflow`, `scaffolding`,
-`token-optimization` (token-efficiency playbook), `dotfiles` (maintenance
-playbook for the dotfiles repo itself). Load via the skill tool when
-relevant; `grill-me` and `grilling` are opt-in interview skills, not an
-automatic planning step.
+`token-optimization` (token-efficiency playbook), `packaging`
+(end-of-task push + PR-creation block — load it when shipping), `dotfiles`
+(maintenance playbook for the dotfiles repo itself). Load via the skill
+tool when relevant; `grill-me` and `grilling` are opt-in interview skills,
+not an automatic planning step.
