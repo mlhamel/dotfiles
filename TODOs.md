@@ -144,6 +144,13 @@ not a fix for a broken config.
       its `ollama/` prefix. Unit tests 26 → 29 cases (incl. the
       hermetic-history fix below); the re-run after the fix is the real
       end-to-end proof.
+      2026-11-26 lint: the harness wrote the results JSON without a
+      trailing newline, so every bot commit re-broke prettier (Mathieu
+      hand-fixed two files in `39b4df4`, the next run broke it again on
+      the new file). Fix (PR `fix/measure-results-newline-2026-11-26`):
+      `runAll` writes the JSON with a trailing newline, the committed
+      `2026-11-26-ollama-glm-5-3-flash.json` is fixed the same way, and
+      the results-file test asserts the file ends with `\n`.
 - [x] **P1 · Sandbox / threat model** — done 2026-11-24 (PR
       `fix/sandbox-threat-model-2026-11-24`): `docs/threat-model.md`
       (assets, adversaries, the seven-rule never-list, enforcement
