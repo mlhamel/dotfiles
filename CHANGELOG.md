@@ -6,6 +6,19 @@ use today's date and the hash of the change once committed.
 
 ## 2026-11-26
 
+- `(hash)` — Measure ollama cloud models with a secret (PR
+  `feat/measure-ollama-cloud-key-2026-11-26`, implements
+  `specs/measure-ollama-cloud.md`): the `measure.yml` Measure step forwards
+  the `OLLAMA_API_KEY` repository secret into the job environment and
+  `evalConfig` (eval/run.mjs) points the pinned ollama provider at
+  `https://ollama.com/v1` with an `apiKey: "{env:OLLAMA_API_KEY}"`
+  reference whenever that env var is set — without it the written config
+  stays byte-identical and keeps pointing at the local gateway, and the
+  literal key never lands on disk. `{env:…}` expansion was verified against
+  the pinned 2.3.0 binary with a local capture server; two unit tests cover
+  the with-key and without-key config shapes (eval cases 24 → 26).
+  README and TODOs note the pending real-token end-to-end run.
+
 - `(hash)` — Scheduled CI measurement (PR
   `feat/measure-gh-actions-2026-11-26`, implements
   `specs/measure-github-actions.md`): `.github/workflows/measure.yml` runs

@@ -117,6 +117,19 @@ not a fix for a broken config.
       workflow installs opencode via the `opencode.ai/v2/install` script
       `--version 2.3.0` — the plain `opencode.ai/install` URL is V1-only and
       rejects the harness's V2 flags.
+      2026-11-26 cloud key (PR `feat/measure-ollama-cloud-key-2026-11-26`,
+      implements `specs/measure-ollama-cloud.md`): the `measure.yml` Measure
+      step forwards the `OLLAMA_API_KEY` secret into the job environment and
+      `evalConfig` rewrites the pinned ollama provider to
+      `https://ollama.com/v1` with an `apiKey: "{env:OLLAMA_API_KEY}"`
+      reference — only when the env var is set, so the local-gateway config
+      is byte-identical without it and the literal key never lands in the
+      config file. Unit tests 24 → 26 cases; verified against the pinned
+      2.3.0 binary with a local capture server that `{env:…}` expands to the
+      `Authorization` header and that the harness-written config carries the
+      reference, not the key. A real-token end-to-end run against
+      `ollama.com/v1` is still pending — first data point is the first
+      scheduled or dispatched run with the secret in place.
 - [x] **P1 · Sandbox / threat model** — done 2026-11-24 (PR
       `fix/sandbox-threat-model-2026-11-24`): `docs/threat-model.md`
       (assets, adversaries, the seven-rule never-list, enforcement

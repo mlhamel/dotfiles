@@ -392,12 +392,22 @@ export async function runChecks(checks, workdir, baseline) {
   return results;
 }
 
-export function evalConfig(model) {
+export function evalConfig(model, env = process.env) {
   // Same never-list as docs/threat-model.md and opencode/profiles/:
   // evals launch real agents with --auto, so `ask` is no protection and
   // the dangerous shapes must be `deny`. Shell stays broadly allowed
   // (eval tasks run arbitrary test commands); containment comes from the
   // scratch workdir + scratch HOME, which hold no secrets to leak.
+  // Cloud endpoint: with OLLAMA_API_KEY set (scheduled CI runs), the
+  // provider resolves against https://ollama.com/v1 instead of the
+  // local gateway. The `{env:...}` reference keeps the literal key out
+  // of the config — opencode reads it from the subprocess environment.
+  const cloudOptions = env.OLLAMA_API_KEY
+    ? {
+        baseURL: "https://ollama.com/v1",
+        apiKey: "{env:OLLAMA_API_KEY}",
+      }
+    : null;
   return {
     $schema: "https://opencode.ai/config.json",
     model,
@@ -408,6 +418,7 @@ export function evalConfig(model) {
     // add new models here when the inventory grows.
     providers: {
       ollama: {
+        ...(cloudOptions ? { options: cloudOptions } : {}),
         models: {
           "glm-5.3-flash:cloud": { limit: { context: 65536 } },
           "glm-5.3:cloud": { limit: { context: 65536 } },
