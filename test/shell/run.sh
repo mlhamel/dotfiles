@@ -119,6 +119,28 @@ finish_case() {
   exit "${CASE_FAILED}"
 }
 
+# --- PATH surgery ------------------------------------------------------------
+
+# path_without TOOL... — print PATH with every directory that can resolve one
+# of the listed tools removed. Fresh-install scenarios need those tools to be
+# genuinely absent on the host; an exit-127 shadow in CASE_BIN cannot fake
+# absence because `command -v` resolves any executable found on PATH.
+path_without() {
+  local out="" d tool skip
+  local IFS=':'
+  for d in ${PATH}; do
+    skip=""
+    for tool in "$@"; do
+      if [ -x "${d}/${tool}" ]; then
+        skip=1
+        break
+      fi
+    done
+    [ -n "${skip}" ] || out="${out:+${out}:}${d}"
+  done
+  printf '%s' "${out}"
+}
+
 # --- stubs (written into $CASE_BIN, first on PATH) --------------------------
 
 stub_curl() {
@@ -428,6 +450,8 @@ case_ollama_gateway_down() {
 
 case_ollama_darwin_install() {
   new_case
+  PATH="$(path_without ollama)"
+  export PATH
   stub_curl
   stub_uname
   stub_brew
@@ -445,6 +469,8 @@ case_ollama_darwin_install() {
 
 case_ollama_darwin_no_brew() {
   new_case
+  PATH="$(path_without ollama brew)"
+  export PATH
   stub_curl
   stub_uname
   write_ollama_config
@@ -510,6 +536,8 @@ case_setup_force() {
 
 case_setup_fresh() {
   new_case
+  PATH="$(path_without opencode)"
+  export PATH
   stub_curl
   stub_dpkg
   stub_sudo
@@ -636,6 +664,8 @@ case_setup_packages_darwin() {
 
 case_setup_packages_darwin_no_brew() {
   new_case
+  PATH="$(path_without brew)"
+  export PATH
   stub_curl
   stub_dpkg
   stub_sudo
@@ -707,6 +737,8 @@ case_director_drift() {
 
 case_director_fresh() {
   new_case
+  PATH="$(path_without director)"
+  export PATH
   stub_curl
   bash "${ROOT}/opencode/setup-director.sh" > "${CASE_HOME}/out.log" 2>&1
   local rc=$?
@@ -736,6 +768,8 @@ case_director_skip() {
 
 case_director_darwin() {
   new_case
+  PATH="$(path_without director)"
+  export PATH
   stub_curl
   stub_uname
   STUB_UNAME_S=Darwin STUB_UNAME_M=arm64 bash "${ROOT}/opencode/setup-director.sh" > "${CASE_HOME}/out.log" 2>&1
