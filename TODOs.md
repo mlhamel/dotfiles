@@ -144,6 +144,16 @@ not a fix for a broken config.
       its `ollama/` prefix. Unit tests 26 → 29 cases (incl. the
       hermetic-history fix below); the re-run after the fix is the real
       end-to-end proof.
+      2026-11-26 re-run after the name fix STILL failed 0/5 (tokens 0,
+      ~2 s, sessions created, model `ollama/glm-5.3-flash` recorded) —
+      so the name was not the (only) cause; the API call itself fails and
+      the harness recorded no error message. Fix (PR
+      `fix/measure-record-stderr-2026-11-26`): each task's `run` entry
+      now carries `errorEvents` and, when non-empty, `stderr` (last 2000
+      chars), so the next failure shows the actual API error. Suspects
+      for the API failure: the key itself (invalid / expired / no credits
+      for this model) or the request shape; a direct `curl` against
+      `https://ollama.com/v1` with the key isolates auth from the harness.
 - [x] **P1 · Sandbox / threat model** — done 2026-11-24 (PR
       `fix/sandbox-threat-model-2026-11-24`): `docs/threat-model.md`
       (assets, adversaries, the seven-rule never-list, enforcement

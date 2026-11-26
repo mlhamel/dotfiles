@@ -6,6 +6,16 @@ use today's date and the hash of the change once committed.
 
 ## 2026-11-26
 
+- `(hash)` — Record stderr on failed eval runs (PR
+  `fix/measure-record-stderr-2026-11-26`): the cloud runs kept failing
+  0/5 with tokens 0 and no message — `runAgent` captured opencode's
+  stderr but `runTask` dropped it from the results. Each task's `run`
+  entry now carries `errorEvents` and, when non-empty, `stderr` (last
+  2000 chars), so the next failure shows the actual API error instead of
+  just exit 1. The key never appears there (the config carries only the
+  `{env:...}` reference). Unit tests 29 → 30 cases in
+  `test/eval/run.test.js`.
+
 - `(hash)` — Cloud model names for the scheduled measurement (PR
   `fix/measure-cloud-model-names-2026-11-26`): the first dispatched cloud
   runs failed 0/5 (tokens 0, ~2 s) because the harness sent the local
