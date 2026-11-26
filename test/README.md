@@ -57,15 +57,20 @@ Not covered, on purpose:
 
 ## Eval harness tests (`test/eval/`, node:test + node:assert)
 
-`run.test.js` (14) covers `eval/run.mjs` without ever calling a real
+`run.test.js` (24) covers `eval/run.mjs` without ever calling a real
 model: a stub `opencode` binary is written to a temp dir by the tests
 themselves (so no committed executable is needed) and answers `--version`
 plus the JSONL events a real `opencode run --format json` emits. Cases:
-task loading and validation, model slug + default-model resolution,
-JSONL parsing (tokens, cost, session id), the exact `run` argv
+task loading and validation, model slug + default-model resolution, the
+generated config (pinned gateway models with a context limit), JSONL
+parsing (tokens, cost, session id — from `event.part`, with a top-level
+fallback), the exact `run` argv
 (`--standalone --auto --archived --format json -m <model> -- <prompt>`)
-and scratch cwd/HOME, failure / timeout / empty-output runs, the four
-check kinds (`cmd`, `contains`, `count-gt`, `unchanged`), end-to-end
+and scratch cwd/HOME, the agent environment (`OLDPWD` purged, `PWD` set
+to the workdir), failure / timeout / empty-output runs, the four
+check kinds (`cmd`, `contains`, `count-gt`, `unchanged`), the live-repo
+guard (snapshot/diff helpers, pass, trip on a live-repo edit,
+transcripts excluded), end-to-end
 pass and fail runs, results-file shape, and the `main()` exit code.
 Synthetic tasks live in `test/eval/fixtures/tasks/`; they are test-only
 and never run against a real model.

@@ -98,12 +98,15 @@ not a fix for a broken config.
       (planted one-line bugs, missing test cases, docs tree sync, Darwin
       services fail case); discrimination validated without a model
       (checks fail on the fixture as-shipped, pass on a manually-fixed
-      copy). Self-tests `test/eval/run.test.js` (15 cases, stub opencode);
+      copy). Self-tests `test/eval/run.test.js` (24 cases, stub opencode);
       CI runs the mocked mechanics only, real evals are manual.
       `modelDigest` is null in v1 (no reliable digest for ollama `:cloud`
       models — see Run reproducibility). The `opencode run` flags were
       verified against current docs, not the pinned 2.3.0 binary —
       re-check with `opencode run --help` before a real eval.
+      2026-11-26 fix (PR `feat/eval-harness-fix-2026-11-26`): tokens and
+      cost from `event.part`, pinned `providers.ollama`, `OLDPWD` purge,
+      live-repo guard; self-tests 15 → 24 cases.
 - [x] **P1 · Sandbox / threat model** — done 2026-11-24 (PR
       `fix/sandbox-threat-model-2026-11-24`): `docs/threat-model.md`
       (assets, adversaries, the seven-rule never-list, enforcement

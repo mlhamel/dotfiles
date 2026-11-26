@@ -9,7 +9,9 @@ deterministic checks, and writes one results file per run.
 
 Each task gets `pass` / `fail` plus a quality `score`: the fraction of its
 checks that passed. The run summary also records tokens and cost from the
-`step_finish` events `opencode run --format json` emits, the session id, and
+`step_finish` events `opencode run --format json` emits (read from
+`event.part` on opencode 2.4.1, with a fallback to the top-level fields
+older binaries emit — never both), the session id, and
 the run duration. There is no LLM-as-judge in v1: a task passes only when
 every check passes, and every check is a shell command, a file-content
 assertion, or a count comparison. The score is the quality signal; the
@@ -32,10 +34,14 @@ eval/
 
 The fixture preserves the repo-relative layout because the plugin tests import
 via relative paths (`../../opencode/plugins/...`). The runner writes a minimal
-`opencode.json` into the scratch dir (model + the never-list from
-`docs/threat-model.md` as `deny` rules — see "Sandbox posture" below) and runs
-with a scratch `HOME`, so the eval never touches the user's real opencode
-config. A `plugins/` directory beside a project-root `opencode.json` is not
+`opencode.json` into the scratch dir (model + a pinned `providers.ollama`
+model list — the gateway does not resolve `:cloud` models from discovery
+alone under a scratch HOME — + the never-list from
+`docs/threat-model.md` as `deny` rules — see "Sandbox posture" below) and
+runs with a scratch `HOME` and a scrubbed environment (`OLDPWD` removed,
+`PWD` set to the scratch dir, so the agent never sees a live-repo path),
+so the eval never touches the user's real opencode config. A `plugins/`
+directory beside a project-root `opencode.json` is not
 auto-discovered by opencode, so a plugin fixture is never loaded as a plugin
 during its own eval — it is only a file to edit.
 
@@ -61,6 +67,15 @@ or pipe-to-shell, so the restrictions cost nothing. The one gap this
 leaves open is network egress to arbitrary hosts (shell `curl` is
 allowed); a v2 OS sandbox would close it, but there is nothing
 valuable to exfiltrate from a scratch dir with an empty HOME.
+
+A guard snapshots the live repo (HEAD + `git status
+--untracked-files=all`) around each task run: if the live repo moved
+while the agent ran, the task fails, even if every check passed — an
+agent that edits the live repo instead of its scratch dir must never
+score a pass. The harness's own transcript writes (under
+`eval/results/`) are excluded from the snapshot. When the repo state
+cannot be read (not a git repo), the guard skips instead of failing
+the task; the result records the guard outcome either way.
 
 ## Running a real eval
 

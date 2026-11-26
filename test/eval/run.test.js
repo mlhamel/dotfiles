@@ -1,13 +1,16 @@
 import { test, before, after } from "node:test";
 import assert from "node:assert/strict";
+import { execFileSync } from "node:child_process";
 import fs from "node:fs";
 import os from "node:os";
 import path from "node:path";
 
 import {
+  agentEnv,
   loadTasks,
   slugifyModel,
   defaultModel,
+  evalConfig,
   countMatches,
   runAgent,
   runChecks,
@@ -15,6 +18,8 @@ import {
   runAll,
   main,
   hashFile,
+  snapshotRepo,
+  diffSnapshots,
 } from "../../eval/run.mjs";
 
 const STUB_SOURCE = [
@@ -22,9 +27,12 @@ const STUB_SOURCE = [
   "import fs from 'node:fs';",
   "const log = process.env.STUB_LOG;",
   "if (process.argv[2] === '--version') { console.log('opencode version 2.3.0'); process.exit(0); }",
-  "if (log) fs.appendFileSync(log, JSON.stringify({ argv: process.argv.slice(2), cwd: process.cwd(), home: process.env.HOME }) + '\\n');",
+  "if (log) fs.appendFileSync(log, JSON.stringify({ argv: process.argv.slice(2), cwd: process.cwd(), home: process.env.HOME, pwd: process.env.PWD ?? null, oldpwd: process.env.OLDPWD ?? null }) + '\\n');",
   "const mode = process.env.STUB_EVAL_MODE || 'ok';",
   "const jsonl = (obj) => console.log(JSON.stringify(obj));",
+  "if (mode === 'part-tokens') { jsonl({ type: 'step_start', sessionID: 'ses_test' }); jsonl({ type: 'text', sessionID: 'ses_test', text: 'done' }); jsonl({ type: 'step_finish', sessionID: 'ses_test', part: { tokens: { input: 200, output: 75 }, cost: 0.002 } }); process.exit(0); }",
+  "if (mode === 'both-tokens') { jsonl({ type: 'step_start', sessionID: 'ses_test' }); jsonl({ type: 'text', sessionID: 'ses_test', text: 'done' }); jsonl({ type: 'step_finish', sessionID: 'ses_test', tokens: { input: 100, output: 50 }, cost: 0.001, part: { tokens: { input: 200, output: 75 }, cost: 0.002 } }); process.exit(0); }",
+  "if (mode === 'guard-trip') { const p = 'target.txt'; fs.writeFileSync(p, fs.readFileSync(p, 'utf8').replace('before', 'after')); if (process.env.STUB_GUARD_TARGET) fs.appendFileSync(process.env.STUB_GUARD_TARGET, 'tripped\\n'); jsonl({ type: 'step_start', sessionID: 'ses_test' }); jsonl({ type: 'text', sessionID: 'ses_test', text: 'done' }); jsonl({ type: 'step_finish', sessionID: 'ses_test', tokens: { input: 100, output: 50 }, cost: 0.001 }); process.exit(0); }",
   "if (mode === 'fail') { jsonl({ type: 'error', sessionID: 'ses_test', error: 'boom' }); process.exit(1); }",
   "if (mode === 'timeout') { setTimeout(() => {}, 60000); }",
   "else if (mode === 'empty') { process.exit(0); }",
@@ -131,6 +139,24 @@ test("defaultModel reads opencode.json and falls back without one", () => {
   fs.rmSync(dir, { recursive: true, force: true });
 });
 
+test("evalConfig pins the gateway models with a context limit", () => {
+  const config = evalConfig("ollama/glm-5.3-flash:cloud");
+  assert.equal(config.model, "ollama/glm-5.3-flash:cloud");
+  assert.deepEqual(Object.keys(config.providers.ollama.models).sort(), [
+    "gemma4:26b",
+    "gemma4:cloud",
+    "glm-5.2:cloud",
+    "glm-5.3-flash:cloud",
+    "glm-5.3:cloud",
+    "inkling-2-small:cloud",
+    "kimi-k2.7-code:cloud",
+    "llama3:latest",
+    "qwen3:4b",
+  ]);
+  for (const m of Object.values(config.providers.ollama.models))
+    assert.deepEqual(m, { limit: { context: 65536 } });
+});
+
 test("countMatches counts non-overlapping regex matches", () => {
   assert.equal(countMatches("test( a test( b", "test\\("), 2);
   assert.equal(countMatches("nothing here", "test\\("), 0);
@@ -174,6 +200,87 @@ test("runAgent ok parses tokens, cost and session id and passes the eval flags",
     "--",
   ]);
   assert.equal(call.argv[9], "do the thing");
+  fs.rmSync(workdir, { recursive: true, force: true });
+  fs.rmSync(home, { recursive: true, force: true });
+});
+
+test("runAgent reads tokens and cost from event.part, preferring it over top-level", async () => {
+  const workdir = fs.mkdtempSync(path.join(os.tmpdir(), "eval-work-"));
+  const home = fs.mkdtempSync(path.join(os.tmpdir(), "eval-home-"));
+  const prev = process.env.STUB_EVAL_MODE;
+  process.env.STUB_EVAL_MODE = "part-tokens";
+  const part = await runAgent({
+    bin: stub,
+    model: "x/y",
+    prompt: "p",
+    cwd: workdir,
+    home,
+    timeoutMs: 10000,
+    transcriptPath: null,
+  });
+  assert.equal(part.ok, true);
+  assert.deepEqual(part.tokens, { input: 200, output: 75 });
+  assert.equal(part.cost, 0.002);
+  process.env.STUB_EVAL_MODE = "both-tokens";
+  const both = await runAgent({
+    bin: stub,
+    model: "x/y",
+    prompt: "p",
+    cwd: workdir,
+    home,
+    timeoutMs: 10000,
+    transcriptPath: null,
+  });
+  assert.deepEqual(both.tokens, { input: 200, output: 75 });
+  assert.equal(both.cost, 0.002);
+  if (prev === undefined) delete process.env.STUB_EVAL_MODE;
+  else process.env.STUB_EVAL_MODE = prev;
+  fs.rmSync(workdir, { recursive: true, force: true });
+  fs.rmSync(home, { recursive: true, force: true });
+});
+
+test("agentEnv purges OLDPWD and points PWD at the workdir", () => {
+  const env = agentEnv("/tmp/home", "/tmp/work", {
+    HOME: "/real/home",
+    PWD: "/live/repo",
+    OLDPWD: "/live/old",
+    FOO: "bar",
+  });
+  assert.equal(env.HOME, "/tmp/home");
+  assert.equal(env.PWD, "/tmp/work");
+  assert.equal(env.FOO, "bar");
+  assert.equal("OLDPWD" in env, false);
+});
+
+test("runAgent runs the agent without OLDPWD and with PWD set to the workdir", async () => {
+  const workdir = fs.mkdtempSync(path.join(os.tmpdir(), "eval-work-"));
+  const home = fs.mkdtempSync(path.join(os.tmpdir(), "eval-home-"));
+  fs.writeFileSync(logFile, "");
+  const prevLog = process.env.STUB_LOG;
+  const prevPwd = process.env.PWD;
+  const prevOld = process.env.OLDPWD;
+  process.env.STUB_LOG = logFile;
+  process.env.PWD = "/live/repo";
+  process.env.OLDPWD = "/live/old";
+  const res = await runAgent({
+    bin: stub,
+    model: "x/y",
+    prompt: "p",
+    cwd: workdir,
+    home,
+    timeoutMs: 10000,
+    transcriptPath: null,
+  });
+  if (prevLog === undefined) delete process.env.STUB_LOG;
+  else process.env.STUB_LOG = prevLog;
+  if (prevPwd === undefined) delete process.env.PWD;
+  else process.env.PWD = prevPwd;
+  if (prevOld === undefined) delete process.env.OLDPWD;
+  else process.env.OLDPWD = prevOld;
+  assert.equal(res.ok, true);
+  const call = JSON.parse(fs.readFileSync(logFile, "utf8").trim());
+  assert.equal(call.pwd, workdir);
+  assert.equal(call.oldpwd, null);
   fs.rmSync(workdir, { recursive: true, force: true });
   fs.rmSync(home, { recursive: true, force: true });
 });
@@ -319,6 +426,115 @@ test("runTask fails when the stub does nothing", async () => {
   assert.equal(res.pass, false);
   assert.equal(res.score, 0);
   assert.equal(res.checks[0].pass, false);
+});
+
+function makeGitRepo() {
+  const dir = fs.mkdtempSync(path.join(os.tmpdir(), "eval-guard-"));
+  execFileSync("git", ["init", "-q"], { cwd: dir });
+  execFileSync("git", ["-C", dir, "config", "user.email", "test@example.com"]);
+  execFileSync("git", ["-C", dir, "config", "user.name", "Test"]);
+  fs.writeFileSync(path.join(dir, "README.md"), "hello\n");
+  execFileSync("git", ["-C", dir, "add", "."]);
+  execFileSync("git", ["-C", dir, "commit", "-qm", "initial"]);
+  return dir;
+}
+
+test("snapshotRepo returns null outside a git repo", async () => {
+  const dir = fs.mkdtempSync(path.join(os.tmpdir(), "eval-nogit-"));
+  assert.equal(await snapshotRepo(dir), null);
+  assert.equal(await snapshotRepo(null), null);
+  fs.rmSync(dir, { recursive: true, force: true });
+});
+
+test("diffSnapshots reports head moves and added or removed status lines", () => {
+  const changed = diffSnapshots(
+    { head: "aaa", entries: [" M a.txt", "?? b.txt"] },
+    { head: "bbb", entries: [" M a.txt", "?? c.txt"] },
+  );
+  assert.ok(changed.some((c) => c.startsWith("HEAD aaa -> bbb")));
+  assert.ok(changed.includes("?? c.txt"));
+  assert.ok(
+    changed.some((c) => c.startsWith("removed:") && c.includes("b.txt")),
+  );
+  assert.deepEqual(
+    diffSnapshots({ head: "aaa", entries: [] }, { head: "aaa", entries: [] }),
+    [],
+  );
+});
+
+test("runTask guard passes when the agent stays in the scratch dir", async () => {
+  const repo = makeGitRepo();
+  const prev = process.env.STUB_EVAL_MODE;
+  process.env.STUB_EVAL_MODE = "mutate";
+  const task = loadTasks(syntheticTasksDir()).find((t) => t.id === "task-ok");
+  const res = await runTask(task, {
+    root: repo,
+    bin: stub,
+    model: "x/y",
+    timeoutMs: 10000,
+    keep: false,
+    keepTranscripts: false,
+    transcriptsDir: path.join(tmp, "t"),
+  });
+  if (prev === undefined) delete process.env.STUB_EVAL_MODE;
+  else process.env.STUB_EVAL_MODE = prev;
+  assert.equal(res.pass, true);
+  assert.equal(res.guard.tripped, false);
+  assert.deepEqual(res.guard.changed, []);
+  fs.rmSync(repo, { recursive: true, force: true });
+});
+
+test("runTask guard trips when the agent edits the live repo", async () => {
+  const repo = makeGitRepo();
+  const prevMode = process.env.STUB_EVAL_MODE;
+  const prevTarget = process.env.STUB_GUARD_TARGET;
+  process.env.STUB_EVAL_MODE = "guard-trip";
+  process.env.STUB_GUARD_TARGET = path.join(repo, "README.md");
+  const task = loadTasks(syntheticTasksDir()).find((t) => t.id === "task-ok");
+  const res = await runTask(task, {
+    root: repo,
+    bin: stub,
+    model: "x/y",
+    timeoutMs: 10000,
+    keep: false,
+    keepTranscripts: false,
+    transcriptsDir: path.join(tmp, "t"),
+  });
+  if (prevMode === undefined) delete process.env.STUB_EVAL_MODE;
+  else process.env.STUB_EVAL_MODE = prevMode;
+  if (prevTarget === undefined) delete process.env.STUB_GUARD_TARGET;
+  else process.env.STUB_GUARD_TARGET = prevTarget;
+  assert.equal(res.score, 1);
+  assert.equal(res.pass, false);
+  assert.equal(res.guard.tripped, true);
+  assert.ok(res.guard.changed.some((c) => c.includes("README.md")));
+  fs.rmSync(repo, { recursive: true, force: true });
+});
+
+test("runTask guard ignores the harness's own transcripts", async () => {
+  const repo = makeGitRepo();
+  const prev = process.env.STUB_EVAL_MODE;
+  process.env.STUB_EVAL_MODE = "mutate";
+  const task = loadTasks(syntheticTasksDir()).find((t) => t.id === "task-ok");
+  const res = await runTask(task, {
+    root: repo,
+    bin: stub,
+    model: "x/y",
+    timeoutMs: 10000,
+    keep: false,
+    keepTranscripts: true,
+    transcriptsDir: path.join(repo, "eval", "results", "x.transcripts"),
+  });
+  if (prev === undefined) delete process.env.STUB_EVAL_MODE;
+  else process.env.STUB_EVAL_MODE = prev;
+  assert.equal(res.pass, true);
+  assert.equal(res.guard.tripped, false);
+  assert.ok(
+    fs.existsSync(
+      path.join(repo, "eval", "results", "x.transcripts", "task-ok.jsonl"),
+    ),
+  );
+  fs.rmSync(repo, { recursive: true, force: true });
 });
 
 test("runAll writes a results file with the expected shape", async () => {
