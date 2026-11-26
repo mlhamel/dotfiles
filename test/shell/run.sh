@@ -30,6 +30,7 @@ ROOT="$(cd "$(dirname "${BASH_SOURCE[0]}")/../.." && pwd)"
 FILTER="${1:-}"
 PASS_COUNT=0
 FAIL_COUNT=0
+SKIP_COUNT=0
 FAILED=()
 CASE_FAILED=0
 
@@ -139,6 +140,18 @@ path_without() {
     [ -n "${skip}" ] || out="${out:+${out}:}${d}"
   done
   printf '%s' "${out}"
+}
+
+# require_file — guard for cases exercising oh-fix's text/binary
+# classification, which leans on file(1) for mimetypes. Hosts without
+# file(1) cannot run those cases meaningfully; bail out as skipped
+# (rc 125, caught by run_case) instead of failing spuriously.
+require_file() {
+  if command -v file >/dev/null 2>&1; then
+    return 0
+  fi
+  echo "SKIP: file(1) not installed; oh-fix mode classification requires it"
+  return 125
 }
 
 # --- stubs (written into $CASE_BIN, first on PATH) --------------------------
@@ -1077,6 +1090,7 @@ oh_fix_fixture() {
 }
 
 case_oh_fix_happy() {
+  require_file || return 125
   new_case
   stub_sudo_passthrough
   local root="${CASE_HOME}/org/repo"
@@ -1094,6 +1108,7 @@ case_oh_fix_happy() {
 }
 
 case_oh_fix_dry_run() {
+  require_file || return 125
   new_case
   stub_sudo_passthrough
   local root="${CASE_HOME}/org/repo"
@@ -1121,6 +1136,7 @@ case_oh_fix_refuse() {
 }
 
 case_oh_fix_no_args() {
+  require_file || return 125
   new_case
   stub_sudo_passthrough
   local root="${CASE_HOME}/org/repo"
@@ -1224,12 +1240,18 @@ case_openhands_status() {
 # --- runner -----------------------------------------------------------------
 
 run_case() {
-  local name="$1" fn="$2"
+  local name="$1" fn="$2" rc
   if [ -n "${FILTER}" ] && [[ "${name}" != *"${FILTER}"* ]]; then
     return 0
   fi
   CASE_FAILED=0
-  if ( "${fn}" ); then
+  ( "${fn}" ); rc=$?
+  if [ "${rc}" -eq 125 ]; then
+    SKIP_COUNT=$((SKIP_COUNT + 1))
+    echo "SKIP: ${name}"
+    return 0
+  fi
+  if [ "${rc}" -eq 0 ]; then
     PASS_COUNT=$((PASS_COUNT + 1))
     echo "PASS: ${name}"
   else
@@ -1287,7 +1309,7 @@ run_case "openhands-up" case_openhands_up
 run_case "openhands-up-standalone" case_openhands_up_standalone
 run_case "openhands-status" case_openhands_status
 
-echo "shell tests: ${PASS_COUNT} passed, ${FAIL_COUNT} failed"
+echo "shell tests: ${PASS_COUNT} passed, ${FAIL_COUNT} failed, ${SKIP_COUNT} skipped"
 if [ "${FAIL_COUNT}" -gt 0 ]; then
   printf 'failed cases: %s\n' "${FAILED[@]}" >&2
   exit 1
