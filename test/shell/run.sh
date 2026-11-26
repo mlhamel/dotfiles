@@ -286,6 +286,64 @@ write_ollama_config() {
 JSON_EOF
 }
 
+stub_docker() {
+  cat > "${CASE_BIN}/docker" <<'DOCKER_EOF'
+#!/bin/sh
+echo "docker $*" >> "$STUB_LOG"
+case "$*" in
+  "info")
+    exit 0
+    ;;
+  "ps --format {{.Names}}")
+    if [ -n "${STUB_DOCKER_PS:-}" ]; then printf '%s\n' "${STUB_DOCKER_PS}"; fi
+    exit 0
+    ;;
+  "ps -a --format {{.Names}}")
+    if [ -n "${STUB_DOCKER_PS_A:-}" ]; then printf '%s\n' "${STUB_DOCKER_PS_A}"; fi
+    exit 0
+    ;;
+  *test\ -x\ /home/openhands/.opencode/bin/opencode*)
+    exit "${STUB_DOCKER_TEST_X_RC:-0}"
+    ;;
+  *--version*)
+    echo "${STUB_DOCKER_VERSION:-1.19.6}"
+    exit 0
+    ;;
+  *inspect*)
+    echo "running"
+    exit 0
+    ;;
+  *)
+    exit 0
+    ;;
+esac
+DOCKER_EOF
+  chmod +x "${CASE_BIN}/docker"
+}
+
+stub_setfacl() {
+  cat > "${CASE_BIN}/setfacl" <<'SETFACL_EOF'
+#!/bin/sh
+echo "setfacl $*" >> "$STUB_LOG"
+exit 0
+SETFACL_EOF
+  chmod +x "${CASE_BIN}/setfacl"
+}
+
+stub_getfacl() {
+  cat > "${CASE_BIN}/getfacl" <<'GETFACL_EOF'
+#!/bin/sh
+echo "getfacl $*" >> "$STUB_LOG"
+# Pretend the container user already has rwx, so ensure_acl skips the
+# recursive walk (STUB_GETFACL_ACL=0 to report no entry instead).
+if [ "${STUB_GETFACL_ACL:-1}" = "1" ]; then
+  echo "user:10001:rwx"
+fi
+exit 0
+GETFACL_EOF
+  chmod +x "${CASE_BIN}/getfacl"
+}
+
 # --- setup-ollama.sh --------------------------------------------------------
 
 case_ollama_happy() {
@@ -1038,6 +1096,63 @@ case_oh_fix_no_args() {
   finish_case
 }
 
+# --- openhands/openhands.sh -------------------------------------------------
+# One-command Canvas setup. Cases run it via `bash` with a stub `docker`
+# (plus stub setfacl/getfacl/curl), so no container ever starts: the stub
+# logs every docker invocation and pretends the UI answers.
+
+case_openhands_help() {
+  new_case
+  bash "${ROOT}/openhands/openhands.sh" help > "${CASE_HOME}/out.log" 2>&1
+  local rc=$?
+  check_rc 0 "${rc}" "help exits 0"
+  check_contains "${CASE_HOME}/out.log" "openhands.sh" "help names the script"
+  check_contains "${CASE_HOME}/out.log" "Canvas" "help mentions Canvas"
+  check_contains "${CASE_HOME}/out.log" "ollama/glm-5.3-flash:cloud" "help shows the ACP model"
+  finish_case
+}
+
+case_openhands_up() {
+  new_case
+  stub_curl
+  stub_docker
+  stub_setfacl
+  stub_getfacl
+  mkdir -p "${CASE_HOME}/src/github.com/mlhamel"
+  bash "${ROOT}/openhands/openhands.sh" up > "${CASE_HOME}/out.log" 2>&1
+  local rc=$?
+  check_rc 0 "${rc}" "up exits 0"
+  check_contains "${CASE_HOME}/out.log" "http://localhost:8000/canvas" "summary prints the Canvas URL"
+  check_contains "${CASE_HOME}/out.log" "1.19.6" "summary reports the opencode version"
+  local cfg="${CASE_HOME}/.local/share/openhands/opencode-container.jsonc"
+  check_contains "${cfg}" "host.docker.internal:11434" "config points Ollama at the host gateway"
+  check_contains "${cfg}" "glm-5.3-flash:cloud" "config pins the GLM model"
+  check_contains "${cfg}" "http://host.docker.internal:11434/v1" "config uses the OpenAI-compatible base URL"
+  check_contains "${cfg}" "\"context\": 65536" "config pins a 64k context limit"
+  if ! python3 -m json.tool "${cfg}" > "${CASE_HOME}/cfg.json" 2> "${CASE_HOME}/cfg.err"; then
+    echo "  FAIL: config is not valid JSON" >&2
+    CASE_FAILED=1
+  fi
+  check_contains "${STUB_LOG}" "ghcr.io/openhands/agent-canvas:1.43.0" "docker run uses the pinned image"
+  check_contains "${STUB_LOG}" "opencode.jsonc:ro" "config is mounted read-only"
+  finish_case
+}
+
+case_openhands_status() {
+  new_case
+  stub_curl
+  stub_docker
+  stub_setfacl
+  stub_getfacl
+  STUB_DOCKER_PS="openhands-canvas" STUB_DOCKER_PS_A="openhands-canvas" bash "${ROOT}/openhands/openhands.sh" status > "${CASE_HOME}/out.log" 2>&1
+  local rc=$?
+  check_rc 0 "${rc}" "status exits 0"
+  check_contains "${CASE_HOME}/out.log" "en cours" "status reports the container running"
+  check_contains "${CASE_HOME}/out.log" "joignable" "status reports the UI reachable"
+  check_contains "${CASE_HOME}/out.log" "1.19.6" "status reports the opencode version"
+  finish_case
+}
+
 # --- runner -----------------------------------------------------------------
 
 run_case() {
@@ -1098,6 +1213,10 @@ run_case "oh-fix-happy" case_oh_fix_happy
 run_case "oh-fix-dry-run" case_oh_fix_dry_run
 run_case "oh-fix-refuse" case_oh_fix_refuse
 run_case "oh-fix-no-args" case_oh_fix_no_args
+
+run_case "openhands-help" case_openhands_help
+run_case "openhands-up" case_openhands_up
+run_case "openhands-status" case_openhands_status
 
 echo "shell tests: ${PASS_COUNT} passed, ${FAIL_COUNT} failed"
 if [ "${FAIL_COUNT}" -gt 0 ]; then
