@@ -392,6 +392,33 @@ export async function runChecks(checks, workdir, baseline) {
   return results;
 }
 
+// Local gateway name -> direct cloud API name (https://ollama.com/v1/models).
+// The direct API names models WITHOUT the `:cloud` suffix the local
+// gateway uses; `gemma4:cloud` is the exception — the cloud name is
+// `gemma4:31b`, not `gemma4`. Verified against the live list 2026-11-26.
+const CLOUD_MODEL_NAMES = {
+  "glm-5.3-flash:cloud": "glm-5.3-flash",
+  "glm-5.3:cloud": "glm-5.3",
+  "glm-5.2:cloud": "glm-5.2",
+  "inkling-2-small:cloud": "inkling-2-small",
+  "gemma4:cloud": "gemma4:31b",
+  "kimi-k2.7-code:cloud": "kimi-k2.7-code",
+};
+
+// Map a `provider/model` id to the id the endpoint in use expects. With
+// OLLAMA_API_KEY set the run goes through the direct cloud API, so a
+// `:cloud` model name is translated to its cloud name; without the key
+// the id is returned unchanged (local gateway). Idempotent: resolving an
+// already-resolved id returns it unchanged.
+export function resolveModel(model, env = process.env) {
+  if (!env.OLLAMA_API_KEY) return model;
+  const slash = model.indexOf("/");
+  const provider = slash === -1 ? "" : model.slice(0, slash);
+  const name = slash === -1 ? model : model.slice(slash + 1);
+  const cloudName = CLOUD_MODEL_NAMES[name] ?? name.replace(/:cloud$/, "");
+  return provider ? `${provider}/${cloudName}` : cloudName;
+}
+
 export function evalConfig(model, env = process.env) {
   // Same never-list as docs/threat-model.md and opencode/profiles/:
   // evals launch real agents with --auto, so `ask` is no protection and
@@ -402,34 +429,53 @@ export function evalConfig(model, env = process.env) {
   // provider resolves against https://ollama.com/v1 instead of the
   // local gateway. The `{env:...}` reference keeps the literal key out
   // of the config — opencode reads it from the subprocess environment.
-  const cloudOptions = env.OLLAMA_API_KEY
+  // Cloud model names: the direct API names models WITHOUT the `:cloud`
+  // suffix the local gateway uses (verified against the live
+  // https://ollama.com/v1/models list, 2026-11-26: 25 models, zero
+  // `:cloud` ids). `gemma4:cloud` is the exception — the cloud name is
+  // `gemma4:31b`, not `gemma4`. Local-only models (qwen3:4b, gemma4:26b,
+  // llama3:latest) are not on the cloud API, so they are not pinned
+  // in cloud mode.
+  const cloud = Boolean(env.OLLAMA_API_KEY);
+  const cloudOptions = cloud
     ? {
         baseURL: "https://ollama.com/v1",
         apiKey: "{env:OLLAMA_API_KEY}",
       }
     : null;
+  const resolvedModel = resolveModel(model, env);
+  const models = cloud
+    ? Object.fromEntries(
+        Object.values(CLOUD_MODEL_NAMES).map((name) => [
+          name,
+          { limit: { context: 65536 } },
+        ]),
+      )
+    : {
+        "glm-5.3-flash:cloud": { limit: { context: 65536 } },
+        "glm-5.3:cloud": { limit: { context: 65536 } },
+        "glm-5.2:cloud": { limit: { context: 65536 } },
+        "inkling-2-small:cloud": { limit: { context: 65536 } },
+        "gemma4:cloud": { limit: { context: 65536 } },
+        "kimi-k2.7-code:cloud": { limit: { context: 65536 } },
+        "qwen3:4b": { limit: { context: 65536 } },
+        "gemma4:26b": { limit: { context: 65536 } },
+        "llama3:latest": { limit: { context: 65536 } },
+      };
   return {
     $schema: "https://opencode.ai/config.json",
-    model,
+    model: resolvedModel,
     // Pinned model list: under a scratch HOME the gateway does not resolve
     // `ollama/<model>:cloud` from discovery alone (provider.no-route), so
     // the eval config names every model explicitly, each with a context
-    // limit. Mirrors the gateway inventory (ollama list) as of 2026-11-25;
-    // add new models here when the inventory grows.
+    // limit. Mirrors the gateway inventory (ollama list) as of 2026-11-25
+    // in local mode, and the live cloud catalogue
+    // (https://ollama.com/v1/models) in cloud mode; add new models here
+    // when the inventory grows.
     providers: {
       ollama: {
         ...(cloudOptions ? { options: cloudOptions } : {}),
-        models: {
-          "glm-5.3-flash:cloud": { limit: { context: 65536 } },
-          "glm-5.3:cloud": { limit: { context: 65536 } },
-          "glm-5.2:cloud": { limit: { context: 65536 } },
-          "inkling-2-small:cloud": { limit: { context: 65536 } },
-          "gemma4:cloud": { limit: { context: 65536 } },
-          "kimi-k2.7-code:cloud": { limit: { context: 65536 } },
-          "qwen3:4b": { limit: { context: 65536 } },
-          "gemma4:26b": { limit: { context: 65536 } },
-          "llama3:latest": { limit: { context: 65536 } },
-        },
+        models,
       },
     },
     permissions: [
@@ -499,9 +545,15 @@ export async function runTask(task, opts) {
     }
   }
   fs.cpSync(task.fixtureDir, workdir, { recursive: true });
+  // Resolve once so the config and the `-m` flag agree: in cloud mode the
+  // model id is the cloud name (no `:cloud` suffix), in local mode it is
+  // the gateway name. resolveModel is idempotent, so evalConfig resolving
+  // it again below is a no-op.
+  const env = opts.env ?? process.env;
+  const model = resolveModel(opts.model, env);
   fs.writeFileSync(
     path.join(workdir, "opencode.json"),
-    JSON.stringify(evalConfig(opts.model), null, 2),
+    JSON.stringify(evalConfig(model, env), null, 2),
   );
   const transcriptPath = opts.keepTranscripts
     ? path.join(opts.transcriptsDir, `${task.id}.jsonl`)
@@ -517,7 +569,7 @@ export async function runTask(task, opts) {
   const before = await snapshotRepo(opts.root, ignorePrefix);
   const run = await runAgent({
     bin: opts.bin,
-    model: opts.model,
+    model,
     prompt: task.prompt,
     cwd: workdir,
     home: agentHome,
@@ -601,11 +653,16 @@ export async function runAll({
   bin = "opencode",
   keep = false,
   keepTranscripts = false,
+  env = process.env,
 }) {
   const tasks = loadTasks(tasksDir).filter((t) => !only || only.includes(t.id));
   if (tasks.length === 0) throw new Error("no eval tasks selected");
   const date = new Date().toISOString().slice(0, 10);
-  const stem = `${date}-${slugifyModel(model)}`;
+  // The recorded model is the one that actually ran: in cloud mode the
+  // `:cloud` suffix is stripped, so the results file and history carry
+  // the cloud name (e.g. ollama/glm-5.3-flash).
+  const resolvedModel = resolveModel(model, env);
+  const stem = `${date}-${slugifyModel(resolvedModel)}`;
   const transcriptsDir = path.join(resultsDir, `${stem}.transcripts`);
   const taskResults = [];
   for (const task of tasks) {
@@ -613,11 +670,12 @@ export async function runAll({
       await runTask(task, {
         root,
         bin,
-        model,
+        model: resolvedModel,
         timeoutMs,
         keep,
         keepTranscripts,
         transcriptsDir,
+        env,
       }),
     );
   }
@@ -625,7 +683,7 @@ export async function runAll({
   const result = {
     version: 1,
     date,
-    model,
+    model: resolvedModel,
     modelDigest: null,
     opencode: await opencodeVersion(bin),
     repoHead: await repoHead(root),
@@ -676,6 +734,7 @@ export async function main(argv, env = process.env) {
     bin: flags.bin ?? env.EVAL_OPENCODE_BIN ?? "opencode",
     keep: flags.keep ?? env.EVAL_KEEP === "1",
     keepTranscripts: flags.keepTranscripts ?? env.EVAL_KEEP_TRANSCRIPTS === "1",
+    env,
   });
   for (const t of result.tasks) {
     console.log(

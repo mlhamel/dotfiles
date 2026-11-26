@@ -76,14 +76,19 @@ function goodEntry(overrides = {}) {
   };
 }
 
-test("the committed history log is exactly the two seed entries", () => {
-  assert.deepEqual(readLog(COMMITTED_HISTORY), seedEntries());
+test("the committed history log starts with the two seed entries", () => {
+  // Append-only: real runs are appended by the bot, so the log grows
+  // past the seeds — but the seeds stay first and are never rewritten.
+  const log = readLog(COMMITTED_HISTORY);
+  const seeds = seedEntries();
+  assert.deepEqual(log.slice(0, seeds.length), seeds);
+  assert.ok(log.length >= seeds.length);
 });
 
-test("the committed SUMMARY.md is reproducible from the seeds", () => {
+test("the committed SUMMARY.md is reproducible from the log", () => {
   assert.equal(
     fs.readFileSync(COMMITTED_SUMMARY, "utf8"),
-    summarize(seedEntries()),
+    summarize(readLog(COMMITTED_HISTORY)),
   );
 });
 

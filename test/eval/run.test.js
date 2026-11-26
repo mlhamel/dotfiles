@@ -11,6 +11,7 @@ import {
   slugifyModel,
   defaultModel,
   evalConfig,
+  resolveModel,
   countMatches,
   runAgent,
   runChecks,
@@ -157,6 +158,36 @@ test("evalConfig pins the gateway models with a context limit", () => {
     assert.deepEqual(m, { limit: { context: 65536 } });
 });
 
+test("resolveModel strips :cloud and maps gemma4 in cloud mode, unchanged otherwise", () => {
+  const key = { OLLAMA_API_KEY: "secret-value" };
+  assert.equal(
+    resolveModel("ollama/glm-5.3-flash:cloud", key),
+    "ollama/glm-5.3-flash",
+  );
+  assert.equal(resolveModel("ollama/gemma4:cloud", key), "ollama/gemma4:31b");
+  assert.equal(
+    resolveModel("ollama/kimi-k2.7-code:cloud", key),
+    "ollama/kimi-k2.7-code",
+  );
+  // Idempotent: an already-resolved id is returned unchanged.
+  assert.equal(
+    resolveModel("ollama/glm-5.3-flash", key),
+    "ollama/glm-5.3-flash",
+  );
+  assert.equal(resolveModel("ollama/gemma4:31b", key), "ollama/gemma4:31b");
+  // Local-only models are untouched (the cloud API will reject them).
+  assert.equal(resolveModel("ollama/qwen3:4b", key), "ollama/qwen3:4b");
+  // Without the key nothing is resolved.
+  assert.equal(
+    resolveModel("ollama/glm-5.3-flash:cloud", {}),
+    "ollama/glm-5.3-flash:cloud",
+  );
+  assert.equal(
+    resolveModel("ollama/glm-5.3-flash:cloud"),
+    "ollama/glm-5.3-flash:cloud",
+  );
+});
+
 test("evalConfig points the ollama provider at the cloud endpoint when the key is set", () => {
   const config = evalConfig("ollama/glm-5.3-flash:cloud", {
     OLLAMA_API_KEY: "secret-value",
@@ -166,6 +197,18 @@ test("evalConfig points the ollama provider at the cloud endpoint when the key i
     apiKey: "{env:OLLAMA_API_KEY}",
   });
   assert.ok(!JSON.stringify(config).includes("secret-value"));
+  // The cloud API names models without the `:cloud` suffix.
+  assert.equal(config.model, "ollama/glm-5.3-flash");
+  assert.deepEqual(Object.keys(config.providers.ollama.models).sort(), [
+    "gemma4:31b",
+    "glm-5.2",
+    "glm-5.3",
+    "glm-5.3-flash",
+    "inkling-2-small",
+    "kimi-k2.7-code",
+  ]);
+  for (const m of Object.values(config.providers.ollama.models))
+    assert.deepEqual(m, { limit: { context: 65536 } });
 });
 
 test("evalConfig keeps the local gateway config when the key is absent or empty", () => {
@@ -429,6 +472,37 @@ test("runTask passes end to end when the stub does the work", async () => {
   assert.equal(res.checks.length, 3);
 });
 
+test("runTask passes the resolved cloud model to the agent", async () => {
+  const prevLog = process.env.STUB_LOG;
+  fs.writeFileSync(logFile, "");
+  process.env.STUB_LOG = logFile;
+  const task = loadTasks(syntheticTasksDir()).find((t) => t.id === "task-ok");
+  const res = await runTask(task, {
+    bin: stub,
+    model: "ollama/glm-5.3-flash:cloud",
+    timeoutMs: 10000,
+    keep: false,
+    keepTranscripts: false,
+    transcriptsDir: path.join(tmp, "t"),
+    env: { OLLAMA_API_KEY: "secret-value" },
+  });
+  if (prevLog === undefined) delete process.env.STUB_LOG;
+  else process.env.STUB_LOG = prevLog;
+  assert.equal(res.run.ok, true);
+  const call = JSON.parse(fs.readFileSync(logFile, "utf8").trim());
+  assert.deepEqual(call.argv.slice(0, 9), [
+    "run",
+    "--standalone",
+    "--auto",
+    "--archived",
+    "--format",
+    "json",
+    "-m",
+    "ollama/glm-5.3-flash",
+    "--",
+  ]);
+});
+
 test("runTask fails when the stub does nothing", async () => {
   const task = loadTasks(syntheticTasksDir()).find(
     (t) => t.id === "task-broken",
@@ -566,6 +640,7 @@ test("runAll writes a results file with the expected shape", async () => {
     model: "ollama/glm-5.3-flash:cloud",
     timeoutMs: 10000,
     bin: stub,
+    env: {},
   });
   if (prev === undefined) delete process.env.STUB_EVAL_MODE;
   else process.env.STUB_EVAL_MODE = prev;
@@ -580,6 +655,29 @@ test("runAll writes a results file with the expected shape", async () => {
     path.join(resultsDir, `${result.date}-ollama-glm-5-3-flash-cloud.json`),
   );
   assert.deepEqual(JSON.parse(fs.readFileSync(outPath, "utf8")), result);
+  fs.rmSync(resultsDir, { recursive: true, force: true });
+});
+
+test("runAll records the resolved cloud model name when the key is set", async () => {
+  const prev = process.env.STUB_EVAL_MODE;
+  process.env.STUB_EVAL_MODE = "mutate";
+  const resultsDir = fs.mkdtempSync(path.join(os.tmpdir(), "eval-results-"));
+  const { result, outPath } = await runAll({
+    root: tmp,
+    tasksDir: syntheticTasksDir(),
+    resultsDir,
+    model: "ollama/glm-5.3-flash:cloud",
+    timeoutMs: 10000,
+    bin: stub,
+    env: { OLLAMA_API_KEY: "secret-value" },
+  });
+  if (prev === undefined) delete process.env.STUB_EVAL_MODE;
+  else process.env.STUB_EVAL_MODE = prev;
+  assert.equal(result.model, "ollama/glm-5.3-flash");
+  assert.equal(
+    outPath,
+    path.join(resultsDir, `${result.date}-ollama-glm-5-3-flash.json`),
+  );
   fs.rmSync(resultsDir, { recursive: true, force: true });
 });
 
