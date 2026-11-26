@@ -26,6 +26,7 @@ opencode/
 │   ├── director-*.md          #   /director-* → Director state workflow
 │   └── session-handoff.md     #   /session-handoff → Obsidian checkpoint
 ├── bin/                       # CLI utilities (on-demand, not in every session)
+│   ├── oh-fix                 #   retake ownership of OpenHands agent files (uid 10001)
 │   └── oc-tokens              #   token-efficiency report from opencode.db
 ├── skills/                    # Deep docs, loaded ON DEMAND via the skill tool
 │   ├── workflow/SKILL.md      #   bless/new playbooks, per-project permission profiles

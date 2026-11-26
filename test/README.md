@@ -2,7 +2,7 @@
 
 Committed tests for the things that used to be covered only by lint and
 by uncommitted shadow harnesses: the opencode plugins and the shell
-scripts under `opencode/` (the bootstrap scripts and `bin/oc-tokens`).
+scripts under `opencode/` (the bootstrap scripts, `bin/oc-tokens` and `bin/oh-fix`).
 Both suites run in CI (`.github/workflows/lint.yml`,
 job `test`) and locally with no extra dependencies.
 
@@ -13,6 +13,7 @@ node --test test/profiles/*.test.js  # permission profiles + threat-model never-
 bash test/shell/run.sh               # shell scripts (scratch HOME + stubs)
 bash test/shell/run.sh ollama        # only cases matching "ollama"
 bash test/shell/run.sh oc-tokens     # only oc-tokens cases (real SQLite fixture)
+bash test/shell/run.sh oh-fix        # only oh-fix cases (ownership fixtures)
 ```
 
 Use the explicit `test/plugins/*.test.js` glob: `node --test test/plugins`
@@ -91,7 +92,7 @@ reference the profiles (checked too).
 
 Each case runs the real script with a scratch HOME and stub binaries on
 PATH: no sudo, no apt, no network, no model downloads. Stubs log every
-invocation to `$STUB_LOG`. Cases (36):
+invocation to `$STUB_LOG`. Cases (40):
 
 - `setup-ollama.sh`: happy path (local pull + cloud manifest), local
   pull failure aborts, cloud failure is a warning with the `ollama signin`
@@ -134,6 +135,12 @@ invocation to `$STUB_LOG`. Cases (36):
   tokens that a builder rewrites to the current epoch millis, so the
   `--days` cases never rot; `--days 0` is pinned as a real cutoff because
   the parser accepts `0` but must not treat it as "no filter".
+- `opencode/bin/oh-fix`: ownership cases with fixtures owned by the current
+  uid (`OH_CANVAS_UID` set to it, so they count as the agent's without root)
+  and a pass-through `sudo` stub: happy path (stray `+x` removed from text,
+  shebang script gains `+x`, binary untouched, file inside a 700 dir),
+  dry-run (nothing changes), refusal outside the allowed root, and no-args
+  (current git repo detected).
 
 Scripts are invoked via `bash` on purpose: it keeps the harness working
 regardless of file modes, and `setup.sh` itself invokes the other two
@@ -142,5 +149,5 @@ directly. The harness surfaced a missing `+x` on these three scripts (mode
 was fixed on this branch by the mode-only commit `4a1eec9d` — a kind of
 commit the GitHub API used for this PR cannot produce, which is also the
 probable cause of the original loss (PR #2 was pushed through the API).
-`opencode/bin/oc-tokens` is still mode 644 in git, so its cases invoke it
+`opencode/bin/oc-tokens` and `opencode/bin/oh-fix` are still mode 644 in git, so their cases invoke them
 the same way.
