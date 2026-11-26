@@ -204,18 +204,25 @@ Langfuse (self-hosted observability) and Spec Kit (spec → plan → tasks)
       decides whether OpenHands joins the factory or stays an experiment.
       Outcome: docs-tree-sync eval, 3/3 for both opencode (18.8 s) and
       OpenHands, tie, task too simple to discriminate.
-- [ ] **Setup automatique** — `openhands/openhands.sh` (one command: ACL,
+- [x] **Setup automatique** — `openhands/openhands.sh` (one command: ACL,
       container config, container, opencode binary, health check) so the
       local trial is reproducible without manual steps; the ACP preset
       (Custom, `opencode acp`, `ollama/glm-5.3-flash:cloud`) is still a
       one-time UI setting. First live run failed: the config file
       bind-mount made `.config` non-writable and agent-canvas refused to
       start — fixed by copying the config in (`docker cp` + `chown`) on
-      every `up`. Re-run on the Framework still to do.
-- [ ] **Option ACP** — drive opencode itself as the agent inside Canvas
+      every `up`. Outcome: re-run on the Framework succeeded — `up` brings
+      up the container, copies the config in, and the ACP agent runs on
+      GLM 5.3 Flash via Ollama (confirmed in a conversation, 2026-11-26).
+      PRs #20, #21, #22 merged.
+- [x] **Option ACP** — drive opencode itself as the agent inside Canvas
       (already configured, with cloud fallback and permissions). Test in
       a conversation first: automations + ACP + Ollama are known to fall
-      back to direct litellm instead of routing through ACP.
+      back to direct litellm instead of routing through ACP. Outcome:
+      confirmed in a conversation 2026-11-26 — the ACP agent runs on
+      `ollama/glm-5.3-flash:cloud` via the Ollama gateway, config loaded,
+      provider installed. The automations fallback caveat still stands
+      for automations (untested).
 - [ ] **PC dédié** — if the trial concludes, move the same Docker setup
       to the always-on PC as a systemd service with an API key, reached
       from the Framework over Tailscale.
