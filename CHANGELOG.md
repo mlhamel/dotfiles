@@ -6,6 +6,25 @@ use today's date and the hash of the change once committed.
 
 ## 2026-11-26
 
+- `(hash)` — Cloud model names for the scheduled measurement (PR
+  `fix/measure-cloud-model-names-2026-11-26`): the first dispatched cloud
+  runs failed 0/5 (tokens 0, ~2 s) because the harness sent the local
+  `:cloud` model names to the direct API, which only knows names without
+  `:cloud` (verified against the live `https://ollama.com/v1/models`
+  list — 25 models, zero `:cloud` ids). `resolveModel`
+  (`eval/run.mjs`) now translates the id to its cloud name whenever
+  `OLLAMA_API_KEY` is set (`glm-5.3-flash:cloud` → `glm-5.3-flash`,
+  `gemma4:cloud` → `gemma4:31b`) and the harness uses the resolved name
+  for the config, the `-m` flag, the results file and the history, pinning
+  only the cloud models in cloud mode; without the key everything is
+  unchanged. A bare `glm-5.3-flash` (no `ollama/` prefix) also fails — it
+  never creates a session — so the id keeps its provider prefix. Also
+  fixed the two `history.test.js` assertions that pinned the committed
+  log to exactly the two seed entries: the bot legitimately appends real
+  runs, so they now assert the log starts with the seeds (append-only)
+  and the SUMMARY is reproducible from the current log. Unit tests
+  26 → 29 cases in `test/eval/run.test.js`.
+
 - `(hash)` — Measure ollama cloud models with a secret (PR
   `feat/measure-ollama-cloud-key-2026-11-26`, implements
   `specs/measure-ollama-cloud.md`): the `measure.yml` Measure step forwards

@@ -130,6 +130,20 @@ not a fix for a broken config.
       reference, not the key. A real-token end-to-end run against
       `ollama.com/v1` is still pending — first data point is the first
       scheduled or dispatched run with the secret in place.
+      2026-11-26 first dispatched cloud runs FAILED 0/5 (tokens 0, ~2 s,
+      recorded by the bot): the harness sent the `:cloud` model names to
+      the direct API, which only knows names without `:cloud` (verified
+      against the live `https://ollama.com/v1/models` list — 25 models,
+      zero `:cloud` ids). Fix (PR `fix/measure-cloud-model-names-2026-11-26`):
+      `resolveModel` translates the id to its cloud name when the key is
+      set (`glm-5.3-flash:cloud` → `glm-5.3-flash`, `gemma4:cloud` →
+      `gemma4:31b`) and the harness uses the resolved name for the config,
+      the `-m` flag, the results file and the history; local-only models
+      are not pinned in cloud mode. A bare `glm-5.3-flash` (no provider)
+      also fails — it never creates a session — so the model id must keep
+      its `ollama/` prefix. Unit tests 26 → 29 cases (incl. the
+      hermetic-history fix below); the re-run after the fix is the real
+      end-to-end proof.
 - [x] **P1 · Sandbox / threat model** — done 2026-11-24 (PR
       `fix/sandbox-threat-model-2026-11-24`): `docs/threat-model.md`
       (assets, adversaries, the seven-rule never-list, enforcement

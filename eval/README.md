@@ -162,6 +162,18 @@ literal key never lands in the config file; unset, the block stays
 unchanged and still points at `127.0.0.1:11434`, which only works if the
 host actually runs a gateway.
 
+Cloud model names: the direct API names models **without** the `:cloud`
+suffix the local gateway uses — `ollama/glm-5.3-flash:cloud` becomes
+`ollama/glm-5.3-flash` when the key is set (the `:cloud` name is not a
+valid cloud id; verified against the live `https://ollama.com/v1/models`
+list, 2026-11-26: 25 models, zero `:cloud` ids). The one exception is
+`gemma4:cloud`, whose cloud name is `gemma4:31b`. The harness resolves
+the id once (`resolveModel` in `eval/run.mjs`) and uses the resolved
+name everywhere — config, `-m` flag, results file, history — so a
+cloud run is recorded under the name that actually ran. Local-only
+models (`qwen3:4b`, `gemma4:26b`, `llama3:latest`) are not on the cloud
+API and are not pinned in cloud mode.
+
 Runner-vs-laptop details:
 
 - The workflow installs opencode via the **V2** installer —

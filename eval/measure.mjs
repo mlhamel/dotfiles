@@ -46,6 +46,7 @@ export async function main(argv, env = process.env) {
     bin: flags.bin ?? env.EVAL_OPENCODE_BIN ?? "opencode",
     keep: flags.keep ?? env.EVAL_KEEP === "1",
     keepTranscripts: flags.keepTranscripts ?? env.EVAL_KEEP_TRANSCRIPTS === "1",
+    env,
   });
   for (const t of result.tasks) {
     appendLog(historyPath, {
