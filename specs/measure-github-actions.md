@@ -7,9 +7,9 @@ tags:
   - measurement
   - github-actions
   - ci
-timestamp: 2026-11-26T12:33:17-05:00
+timestamp: 2026-11-26T12:47:36-05:00
 generated:
-  at: 2026-11-26T12:33:17-05:00
+  at: 2026-11-26T12:47:36-05:00
   by: human:mlhamel
 status: draft
 sources:
@@ -92,13 +92,27 @@ built-in Zen free model.
 - A GitHub runner has no Ollama gateway, so the workflow cannot use
   `ollama/glm-5.3-flash:cloud`. It runs with `opencode/big-pickle`
   (opencode's built-in Zen free model, no key, no secret).
-- Pass the model explicitly: `node eval/measure.mjs --model
-opencode/big-pickle`. Do not rely on the default (which is the Ollama
-  gateway model from `opencode/opencode.json`).
-- Make the model overridable without editing the file: a
-  `workflow_dispatch` input (e.g. `model`, default `opencode/big-pickle`)
-  that the run step uses. Document how to switch to a cloud model via a
-  GitHub secret later (do not add a secret now).
+- The model is a parameter, not hardcoded: it comes from a repository
+  variable named `EVAL_MODEL` (Settings → Secrets and variables →
+  Actions → Variables). The run step resolves it with this precedence:
+  `workflow_dispatch` input > repository variable `EVAL_MODEL` >
+  default `opencode/big-pickle`. In the workflow, that is
+  `${{ inputs.model || vars.EVAL_MODEL || 'opencode/big-pickle' }}`.
+  Do not rely on the harness default (which is the Ollama gateway
+  model from `opencode/opencode.json`).
+- Changing the model must not require editing the workflow file: set
+  or change the `EVAL_MODEL` variable in the GitHub UI. A variable is
+  the right mechanism here (not a secret) because a model name is not
+  sensitive; secrets are for the API key, if one is ever used.
+- Keep the `workflow_dispatch` input (e.g. `model`, default empty) so
+  a manual run can override the model for one run without touching
+  the variable.
+- Document how to switch to a cloud model via a GitHub secret later
+  (do not add a secret now). Note that switching to GLM via the
+  Ollama API key is not just a variable change: it also needs the
+  `OLLAMA_API_KEY` secret and a harness change to point the Ollama
+  provider at the cloud endpoint (`https://ollama.com/api` or
+  `https://ollama.com/v1`) instead of the local gateway.
 - The harness's `evalConfig` pins a `providers.ollama` block (the 9
   gateway models). Verify that the harness runs cleanly with the Zen
   model in an environment with no Ollama gateway. If the pinned Ollama
@@ -163,7 +177,10 @@ opencode/big-pickle` in a clean environment (a scratch HOME, no
 
 - Update `eval/README.md`: how the scheduled measurement works (schedule,
   model, manual trigger, how to change the model), and that the log now
-  also grows from GitHub Actions.
+  also grows from GitHub Actions. Document the model parameter: the
+  repository variable `EVAL_MODEL` (where to set it, the default
+  `opencode/big-pickle`), the precedence (manual input > variable >
+  default), and that a model name is a variable, not a secret.
 - Update `TODOs.md` (the measurement item) and `CHANGELOG.md` with a dated
   entry.
 - Add the new spec to the index in `specs/README.md`.
