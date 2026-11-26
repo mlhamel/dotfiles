@@ -47,6 +47,64 @@ export function repoHead(root) {
   });
 }
 
+export function repoStatus(root) {
+  // --untracked-files=all lists untracked files individually instead of
+  // collapsing them to their top directory: a collapsed `?? eval/` line
+  // would hide an agent-created file next to the harness's transcripts.
+  return new Promise((resolve) => {
+    const child = spawn(
+      "git",
+      ["-C", root, "status", "--porcelain", "--untracked-files=all"],
+      {
+        stdio: ["ignore", "pipe", "ignore"],
+      },
+    );
+    let out = "";
+    child.stdout.on("data", (d) => {
+      out += d;
+    });
+    child.on("error", () => resolve(null));
+    child.on("close", (code) => resolve(code === 0 ? out : null));
+  });
+}
+
+// Snapshot of the live repo (HEAD + working-tree status) used to detect an
+// eval agent that edited the live repo instead of its scratch dir. Lines
+// under ignorePrefix (the transcripts dir, inside the repo by default) are
+// the harness's own writes and are excluded. Returns null when the repo
+// state cannot be read (not a git repo, git missing): the guard then skips
+// instead of failing the task.
+export async function snapshotRepo(root, ignorePrefix = null) {
+  if (!root) return null;
+  const head = await repoHead(root);
+  const status = await repoStatus(root);
+  if (head === null || status === null) return null;
+  const entries = status
+    .split("\n")
+    .filter((line) => line.length > 0)
+    .filter((line) => {
+      if (!ignorePrefix) return true;
+      const p = line.slice(3);
+      const target = p.includes(" -> ") ? p.split(" -> ")[1] : p;
+      return !(
+        target === ignorePrefix || target.startsWith(`${ignorePrefix}/`)
+      );
+    });
+  return { head, entries };
+}
+
+export function diffSnapshots(before, after) {
+  const changed = [];
+  if (before.head !== after.head)
+    changed.push(`HEAD ${before.head} -> ${after.head}`);
+  const beforeSet = new Set(before.entries);
+  const afterSet = new Set(after.entries);
+  for (const e of after.entries) if (!beforeSet.has(e)) changed.push(e);
+  for (const e of before.entries)
+    if (!afterSet.has(e)) changed.push(`removed: ${e}`);
+  return changed;
+}
+
 function listFiles(dir, base = dir) {
   const out = [];
   for (const entry of fs.readdirSync(dir, { withFileTypes: true })) {
@@ -145,7 +203,10 @@ function summarizeEvents(events) {
       sessionId = event.sessionID;
     if (event.type === "error") errorEvents++;
     if (event.type !== "step_finish") continue;
-    const t = event.tokens;
+    // opencode 2.4.1 nests usage in event.part (top-level event.tokens
+    // reported 0 tokens on every run); older binaries emit it top-level.
+    // Prefer part, fall back to the top level, never sum both.
+    const t = event.part?.tokens ?? event.tokens;
     if (t && typeof t === "object") {
       if (Number.isFinite(t.input)) tokens.input += t.input;
       if (Number.isFinite(t.output)) tokens.output += t.output;
@@ -157,9 +218,21 @@ function summarizeEvents(events) {
         tokens.input += t.total;
       }
     }
-    if (Number.isFinite(event.cost)) cost = (cost ?? 0) + event.cost;
+    const c = event.part?.cost ?? event.cost;
+    if (Number.isFinite(c)) cost = (cost ?? 0) + c;
   }
   return { tokens, cost, sessionId, errorEvents, eventCount: events.length };
+}
+
+// The agent must not see the shell's notion of where we came from: OLDPWD
+// and PWD point at the live repo, and the eval agent once used an absolute
+// live-repo path to decide a task was "already in place" instead of doing
+// it in the scratch dir. The child gets a clean HOME, its PWD set to the
+// scratch workdir, and no OLDPWD.
+export function agentEnv(home, cwd, base = process.env) {
+  const env = { ...base, HOME: home, PWD: cwd };
+  delete env.OLDPWD;
+  return env;
 }
 
 export function runAgent({
@@ -187,7 +260,7 @@ export function runAgent({
         "--",
         prompt,
       ],
-      { cwd, detached: true, env: { ...process.env, HOME: home } },
+      { cwd, detached: true, env: agentEnv(home, cwd) },
     );
     let stdout = "";
     let stderr = "";
@@ -328,6 +401,26 @@ export function evalConfig(model) {
   return {
     $schema: "https://opencode.ai/config.json",
     model,
+    // Pinned model list: under a scratch HOME the gateway does not resolve
+    // `ollama/<model>:cloud` from discovery alone (provider.no-route), so
+    // the eval config names every model explicitly, each with a context
+    // limit. Mirrors the gateway inventory (ollama list) as of 2026-11-25;
+    // add new models here when the inventory grows.
+    providers: {
+      ollama: {
+        models: {
+          "glm-5.3-flash:cloud": { limit: { context: 65536 } },
+          "glm-5.3:cloud": { limit: { context: 65536 } },
+          "glm-5.2:cloud": { limit: { context: 65536 } },
+          "inkling-2-small:cloud": { limit: { context: 65536 } },
+          "gemma4:cloud": { limit: { context: 65536 } },
+          "kimi-k2.7-code:cloud": { limit: { context: 65536 } },
+          "qwen3:4b": { limit: { context: 65536 } },
+          "gemma4:26b": { limit: { context: 65536 } },
+          "llama3:latest": { limit: { context: 65536 } },
+        },
+      },
+    },
     permissions: [
       { action: "shell", resource: "*", effect: "allow" },
       { action: "shell", resource: "rm *", effect: "deny" },
@@ -402,6 +495,15 @@ export async function runTask(task, opts) {
   const transcriptPath = opts.keepTranscripts
     ? path.join(opts.transcriptsDir, `${task.id}.jsonl`)
     : null;
+  // Repo-relative transcripts dir, so the guard ignores the harness's own
+  // transcript writes (transcripts land inside the repo by default).
+  let ignorePrefix = null;
+  if (opts.root && opts.transcriptsDir) {
+    const rel = path.relative(opts.root, opts.transcriptsDir);
+    if (rel && !rel.startsWith("..") && !path.isAbsolute(rel))
+      ignorePrefix = rel.split(path.sep).join("/");
+  }
+  const before = await snapshotRepo(opts.root, ignorePrefix);
   const run = await runAgent({
     bin: opts.bin,
     model: opts.model,
@@ -414,15 +516,30 @@ export async function runTask(task, opts) {
   const checks = await runChecks(task.checks, workdir, baseline);
   const passedChecks = checks.filter((c) => c.pass).length;
   const score = checks.length ? passedChecks / checks.length : 0;
+  // The guard fails the task when the live repo moved during the run: an
+  // agent that edits the live repo instead of its scratch dir must never
+  // score a pass, even if every check passed.
+  let guard;
+  const after = await snapshotRepo(opts.root, ignorePrefix);
+  if (before && after) {
+    const changed = diffSnapshots(before, after);
+    guard = { tripped: changed.length > 0, changed };
+  } else {
+    guard = {
+      skipped: true,
+      reason: before ? "after-state unreadable" : "no repo baseline",
+    };
+  }
   if (!opts.keep) {
     fs.rmSync(workdir, { recursive: true, force: true });
     fs.rmSync(agentHome, { recursive: true, force: true });
   }
   return {
     id: task.id,
-    pass: run.ok && score === 1,
+    pass: run.ok && score === 1 && !guard.tripped,
     score,
     durationMs: run.durationMs,
+    guard,
     run: {
       exitCode: run.exitCode,
       timedOut: run.timedOut,
@@ -483,6 +600,7 @@ export async function runAll({
   for (const task of tasks) {
     taskResults.push(
       await runTask(task, {
+        root,
         bin,
         model,
         timeoutMs,
@@ -554,6 +672,8 @@ export async function main(argv, env = process.env) {
         `tokens=${t.run.tokens.input + t.run.tokens.output} ` +
         `cost=${t.run.cost ?? "?"} ${Math.round(t.durationMs / 1000)}s`,
     );
+    if (t.guard?.tripped)
+      console.log(`  guard tripped (${t.id}): ${t.guard.changed.join("; ")}`);
   }
   console.log(
     `${result.passed}/${

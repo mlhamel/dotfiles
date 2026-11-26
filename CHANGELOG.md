@@ -4,6 +4,23 @@ All notable changes to this repo. Dates are YYYY-MM-DD (local commit date);
 entries reference the committing hash. Newest first. When adding an entry,
 use today's date and the hash of the change once committed.
 
+## 2026-11-26
+
+- `(hash)` — eval harness fixes (PR `feat/eval-harness-fix-2026-11-26`):
+  the four bugs the November eval comparison exposed — tokens and cost
+  are now read from `event.part` on `step_finish` (opencode 2.4.1 nests
+  usage there; the top-level fields stay as a fallback, never summed),
+  the generated `opencode.json` pins the gateway model list
+  (`providers.ollama`, 9 models, `limit.context` 65536 each) so `:cloud`
+  models resolve under a scratch HOME, the agent spawn drops `OLDPWD`
+  and sets `PWD` to the scratch workdir, and a live-repo guard snapshots
+  the repo (HEAD + `git status --untracked-files=all`) around each task
+  and fails the task when the live repo moved — the harness's own
+  transcript writes are excluded, and the guard skips instead of
+  failing when the repo state cannot be read. Tests: 15 → 24 eval cases
+  (pinned config, `event.part` tokens, agent env, guard pass/trip/
+  transcripts).
+
 ## 2026-11-25
 
 - `(hash)` — `bin/oh-fix` (PR `feat/oh-fix-2026-11-25`): the OpenHands
