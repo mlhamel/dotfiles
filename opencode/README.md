@@ -17,6 +17,8 @@ opencode/
 │   ├── build-no-flash.md      #   heavy-build primary agent (glm-5.3:cloud)
 │   ├── build-local.md         #   local-build primary agent (qwen3:4b)
 │   ├── diagrams.md            #   Mermaid diagram maintainer (see below)
+│   ├── build-mini.md          #   mini-build primary agent (inkling-2-small:cloud)
+│   ├── ask-local.md           #   local read-only Q&A primary agent (qwen3:4b)
 │   └── review.md              #   cross-model code reviewer (see below)
 ├── commands/                  # Thin triggers, typed in the TUI
 │   ├── bless.md               #   /bless  → bootstrap any cloned repo
