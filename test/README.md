@@ -14,6 +14,7 @@ bash test/shell/run.sh               # shell scripts (scratch HOME + stubs)
 bash test/shell/run.sh ollama        # only cases matching "ollama"
 bash test/shell/run.sh oc-tokens     # only oc-tokens cases (real SQLite fixture)
 bash test/shell/run.sh oh-fix        # only oh-fix cases (ownership fixtures)
+bash test/shell/run.sh openhands     # only openhands cases (stub docker)
 ```
 
 Use the explicit `test/plugins/*.test.js` glob: `node --test test/plugins`
@@ -97,7 +98,7 @@ reference the profiles (checked too).
 
 Each case runs the real script with a scratch HOME and stub binaries on
 PATH: no sudo, no apt, no network, no model downloads. Stubs log every
-invocation to `$STUB_LOG`. Cases (40):
+invocation to `$STUB_LOG`. Cases (43):
 
 - `setup-ollama.sh`: happy path (local pull + cloud manifest), local
   pull failure aborts, cloud failure is a warning with the `ollama signin`
@@ -146,6 +147,15 @@ invocation to `$STUB_LOG`. Cases (40):
   shebang script gains `+x`, binary untouched, file inside a 700 dir),
   dry-run (nothing changes), refusal outside the allowed root, and no-args
   (current git repo detected).
+- `openhands/openhands.sh`: setup cases with a stub `docker` (plus stub
+  setfacl/getfacl/curl), so no container ever starts: help (exit 0, names
+  the script and the ACP model), stubbed `up` (exit 0, Canvas URL and
+  opencode version in the summary, config written with the Ollama gateway
+  base URL, the GLM model and a 64k context limit, valid JSON, `docker
+run` logged with the pinned image and the config mounted read-only),
+  and stubbed `status` (container running, UI reachable, version
+  reported). The Docker steps themselves are not covered here — the first
+  live run on the Framework is the real test.
 
 Scripts are invoked via `bash` on purpose: it keeps the harness working
 regardless of file modes, and `setup.sh` itself invokes the other two

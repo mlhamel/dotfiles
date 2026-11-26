@@ -6,6 +6,28 @@ use today's date and the hash of the change once committed.
 
 ## 2026-11-26
 
+- `(hash)` — OpenHands one-command setup (PR
+  `feat/openhands-setup-2026-11-26`): `openhands/openhands.sh` brings up
+  Agent Canvas fully configured — ACL for the container user (uid 10001,
+  recursive + default) on the projects dir and the persistent opencode
+  dir, a container opencode config (Ollama provider →
+  `host.docker.internal:11434`, the 9 gateway models pinned, GLM-5.3-Flash
+  first) mounted read-only, the container started detached
+  (`openhands-canvas`, image 1.43.0, state volume + projects + persistent
+  `~/.local/share/openhands/opencode` + config), opencode installed inside
+  when missing (the install lands in the persistent dir, so it is a
+  one-time cost), and a health check on the UI. The embedded config uses
+  the opencode v1 schema (`provider` / `npm` / `options`) because the
+  install script provides 1.19.6; a 2.x container binary would need the
+  v2 schema (`providers` / `package` / `settings`). The ACP preset
+  (Custom, `opencode acp`, `ollama/glm-5.3-flash:cloud`) stays a one-time
+  UI setting — there is no stable API to pre-seed it — but it persists in
+  the state volume. `up` is idempotent; `down` / `status` / `restart` /
+  `help` included. Tests: 3 new `openhands-*` shell cases (help, stubbed
+  `up`, stubbed `status`); shell harness 40 → 43. The Docker steps are
+  not covered by the harness (stub `docker`) — the first live run on the
+  Framework is the real test.
+
 - `(hash)` — eval harness fixes (PR `feat/eval-harness-fix-2026-11-26`):
   the four bugs the November eval comparison exposed — tokens and cost
   are now read from `event.part` on `step_finish` (opencode 2.4.1 nests

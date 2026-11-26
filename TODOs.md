@@ -204,6 +204,11 @@ Langfuse (self-hosted observability) and Spec Kit (spec → plan → tasks)
       decides whether OpenHands joins the factory or stays an experiment.
       Outcome: docs-tree-sync eval, 3/3 for both opencode (18.8 s) and
       OpenHands, tie, task too simple to discriminate.
+- [ ] **Setup automatique** — `openhands/openhands.sh` (one command: ACL,
+      container config, container, opencode binary, health check) so the
+      local trial is reproducible without manual steps; the ACP preset
+      (Custom, `opencode acp`, `ollama/glm-5.3-flash:cloud`) is still a
+      one-time UI setting. Live run on the Framework still to do.
 - [ ] **Option ACP** — drive opencode itself as the agent inside Canvas
       (already configured, with cloud fallback and permissions). Test in
       a conversation first: automations + ACP + Ollama are known to fall
