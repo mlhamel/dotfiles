@@ -107,6 +107,16 @@ not a fix for a broken config.
       2026-11-26 fix (PR `feat/eval-harness-fix-2026-11-26`): tokens and
       cost from `event.part`, pinned `providers.ollama`, `OLDPWD` purge,
       live-repo guard; self-tests 15 → 24 cases.
+      2026-11-26 scheduled measurement (PR `feat/measure-gh-actions-2026-11-26`,
+      implements `specs/measure-github-actions.md`): `.github/workflows/measure.yml`
+      runs `eval/measure.mjs` weekly (Mon 06:00 UTC cron) or on dispatch and
+      commits `eval/results/` back (`if: always()`, skips no-change runs);
+      model precedence dispatch input > repo variable `EVAL_MODEL` > free
+      `opencode/big-pickle` — no gateway, no secret needed; dry run proved it
+      (`docs-tree-sync` pass 1.00, 41 s, scratch env, 2.3.0 binary). The
+      workflow installs opencode via the `opencode.ai/v2/install` script
+      `--version 2.3.0` — the plain `opencode.ai/install` URL is V1-only and
+      rejects the harness's V2 flags.
 - [x] **P1 · Sandbox / threat model** — done 2026-11-24 (PR
       `fix/sandbox-threat-model-2026-11-24`): `docs/threat-model.md`
       (assets, adversaries, the seven-rule never-list, enforcement

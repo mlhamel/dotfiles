@@ -84,10 +84,14 @@ the task; the result records the guard outcome either way.
 
 ## Running a real eval
 
-Prerequisites: opencode 2.3.0 on `PATH`, the ollama gateway up with the models
-registered (`./opencode/setup-ollama.sh`), and the model you want to evaluate
-reachable through it. The runner never calls a model itself except through
-`opencode run`; the self-tests use a stub binary instead.
+Prerequisites: opencode 2.3.0 on `PATH` and the model you want to evaluate
+reachable. Ollama models (`ollama/<model>:cloud`) additionally need the
+gateway up with the models registered (`./opencode/setup-ollama.sh`). Models
+served by opencode's own providers — the default `opencode/big-pickle` among
+them — need no gateway and no key; `docs-tree-sync` measured pass 1.00 with
+big-pickle, no gateway, and a scratch `HOME` (2026-11-26). The runner never
+calls a model itself except through `opencode run`; the self-tests use a
+stub binary instead.
 
 ```bash
 node eval/run.mjs                                  # all tasks, repo default model
@@ -137,6 +141,39 @@ node eval/record.mjs --agent openhands --model <model> --task docs-tree-sync \
 
 Commit the updated `history.jsonl` and `SUMMARY.md` together after a run.
 
+## Scheduled measurement
+
+`.github/workflows/measure.yml` runs `measure.mjs` on a GitHub Actions runner
+every Monday 06:00 UTC (`0 6 * * 1`) and commits the results back, so the
+history gains a weekly point even when nobody runs the eval by hand. The
+runner needs no secret: the default model is opencode's free
+`opencode/big-pickle`, which reaches opencode's own provider directly.
+
+The model is picked in a fixed precedence — `workflow_dispatch` input >
+repo **variable** `EVAL_MODEL` (Settings → Variables → Actions) > the
+`opencode/big-pickle` default — so switching the scheduled model is a
+variable change, never a workflow edit. Measuring an ollama model on the
+runner needs a reachable gateway too (see `docs/OLLAMA_API_KEY.md` for the
+token note and the endpoint caveat): the pinned `providers.ollama` block the
+harness writes points at `127.0.0.1:11434`, which only works if the host
+actually runs one.
+
+Runner-vs-laptop details:
+
+- The workflow installs opencode via the **V2** installer —
+  `curl -fsSL https://opencode.ai/v2/install | bash -s -- --version 2.3.0`,
+  the same pin `setup.sh` uses. The plain `opencode.ai/install` URL is
+  V1-only and rejects v2.x, and V1 chokes on the harness's
+  `--standalone --auto --archived` flags.
+- The job logs `opencode --version` before measuring, cross-checkable
+  against the version recorded in the results file.
+
+The commit-back step runs `if: always()` so a failed measurement is still
+recorded (failures are data); it skips silently when nothing changed and
+pushes `HEAD:refs/heads/<ref>`, which works from schedule and dispatch
+alike. A `measure` concurrency group prevents two overlapping runs from
+interleaving commits.
+
 ## Adding a task
 
 1. Create `eval/tasks/<id>/` with `prompt.md`, `checks.json`, `fixture/`.
@@ -154,15 +191,16 @@ test/plugins/*.test.js`, `bash test/shell/run.sh`).
 ## Known limits
 
 - The `opencode run` flags (`--standalone --auto --archived --format json
--m`) were verified against the current OpenCode docs, not against the
-  pinned 2.3.0 binary on this machine — re-check with `opencode run --help`
-  before trusting a run on a new opencode version.
+-m`) are verified against the pinned 2.3.0 binary (2026-11-26 dry run:
+  `docs-tree-sync` pass 1.00 on `opencode/big-pickle`, 41 s); re-check with
+  `opencode run --help` before trusting a run on a new opencode version.
 - `modelDigest` is `null` in v1: there is no reliable way to get a digest for
   an ollama `:cloud` model from opencode. Pin the model string and the repo
   head in the results file; the run-reproducibility TODO item covers digests.
 - The runner kills a run that exceeds its timeout, but a run can still exit 0
   while an `ask` permission was auto-rejected — that is why a task pass
   requires all checks to pass, never the exit code alone.
-- Real evals are manual on purpose: CI runs only the mocked mechanics
-  (`test/eval/`), never a model, so it needs no credentials and spends
-  nothing.
+- Real evals are manual or scheduled, never on the lint path: CI runs the
+  mocked mechanics (`test/eval/`) on every PR — needs no credentials and
+  spends nothing — and the weekly `measure` workflow spends only the free
+  `opencode/big-pickle` quota unless someone dispatches it with a paid model.

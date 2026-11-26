@@ -6,6 +6,37 @@ use today's date and the hash of the change once committed.
 
 ## 2026-11-26
 
+- `(hash)` — Scheduled CI measurement (PR
+  `feat/measure-gh-actions-2026-11-26`, implements
+  `specs/measure-github-actions.md`): `.github/workflows/measure.yml` runs
+  `eval/measure.mjs` on the full suite every Monday 06:00 UTC (cron
+  `0 6 * * 1`) and on `workflow_dispatch`, then commits `eval/results/`
+  back from a `measure` concurrency group (`contents: write` only). The
+  model follows a fixed precedence — dispatch input > repo **variable**
+  `EVAL_MODEL` > the default `opencode/big-pickle` (free, no gateway, no
+  key; dry-run proof: `docs-tree-sync` pass 1.00, 18157 tokens, cost 0,
+  41 s, scratch `HOME`/results, with the always-on `providers.ollama`
+  block in `eval/run.mjs` evalConfig untouched — the spec's §2
+  conditional fix was not needed). The commit-back step runs
+  `if: always()` (a failed run is still recorded), skips when nothing
+  changed, commits as `github-actions[bot]` with
+  `chore(eval): record scheduled measurement $(date +%F)` and pushes
+  `HEAD:refs/heads/<ref>`, working from schedule and dispatch alike.
+  The workflow installs opencode 2.3.0 via the **V2** installer
+  (`curl -fsSL https://opencode.ai/v2/install | bash -s -- --version 2.3.0`,
+  the same pin as `setup.sh`) — the plain `opencode.ai/install` URL is
+  V1-only, rejects v2.x, and V1 lacks the harness's
+  `--standalone/--auto/--archived` flags (verified 2026-11-26: 1.19.6
+  exits 1 in ~0.3 s with an empty transcript). `eval/README.md` gains a
+  "Scheduled measurement" section, a no-gateway note for
+  opencode-provider models in the prerequisites, and two known-limit
+  updates (`opencode run` flags now verified against the pinned 2.3.0
+  binary; real evals are manual or scheduled — CI runs the mocked
+  mechanics only and the weekly job spends only the free big-pickle
+  quota unless dispatched with a paid model). `TODOs.md`'s P1 Evals
+  entry records the outcome; `specs/README.md` already indexes the spec
+  and the spec itself stays `status: draft`.
+
 - `(hash)` — Measurement v1: eval history + trend summary (PR
   `feat/measure-eval-2026-11-26`, implements
   `specs/measure-eval-v1.md`): `eval/history.mjs` defines the run entry
