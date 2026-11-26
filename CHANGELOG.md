@@ -6,6 +6,34 @@ use today's date and the hash of the change once committed.
 
 ## 2026-11-26
 
+- `(hash)` — Specs docs: OKF frontmatter + index (PR
+  `feat/measure-spec-2026-11-26`, follows up the same-day spec move/create
+  commits): `specs/measure-eval-v1.md` gets OKF v0.3 frontmatter
+  (type/title/description/tags/timestamps, `status: draft`, `generated.by`
+  set to `human:mlhamel`, three `sources` with `../` relative paths into
+  `eval/`)
+  and a `## Citations` section — H2 is a deliberate deviation from OKF's
+  `# Citations` because MD025 requires a single H1 and the doc already
+  leads with its title; the shared `.markdownlint-cli2.jsonc` sets
+  `MD025.front_matter_title: ""` so frontmatter titles don't collide
+  with the doc H1; token figures are flagged as reported-by-session with
+  no committed artifact backing them. New
+  `specs/README.md` indexes the spec and the root README links it.
+
+- `(hash)` — Agent file-ownership rule (PR
+  `feat/measure-spec-2026-11-26`): `opencode/AGENTS.md` gains a "File
+  ownership" section — when an agent runs as a different uid than the
+  workspace owner (Canvas agents, uid 10001), anything it creates inherits
+  its uid and later breaks host-side pre-commit hooks and git writes (this
+  session's `specs/README.md` + `.git/config` drifted that way and needed
+  a manual chown). The rule mandates handing ownership back at creation
+  time, not commit time: capture the workspace owner once (`stat`), then
+  `sudo chown -hR <u>:<g> <new path>` right after each creation, including
+  paths git writes under `.git/`; sudo is passwordless in the canvas and
+  a no-op on the host. `bin/oh-fix` stays the manual repair for leaked
+  sessions (its `--all` sweep must stay scoped away from
+  `.opencode/node_modules`, which stays agent-owned by design).
+
 - `(hash)` — OpenHands setup: config dir + output limit (PR
   `fix/openhands-config-output-2026-11-26`, follow-up to PR #21, which
   merged before these two fixes landed on its branch): `install_config`
