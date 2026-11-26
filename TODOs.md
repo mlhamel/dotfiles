@@ -208,7 +208,10 @@ Langfuse (self-hosted observability) and Spec Kit (spec → plan → tasks)
       container config, container, opencode binary, health check) so the
       local trial is reproducible without manual steps; the ACP preset
       (Custom, `opencode acp`, `ollama/glm-5.3-flash:cloud`) is still a
-      one-time UI setting. Live run on the Framework still to do.
+      one-time UI setting. First live run failed: the config file
+      bind-mount made `.config` non-writable and agent-canvas refused to
+      start — fixed by copying the config in (`docker cp` + `chown`) on
+      every `up`. Re-run on the Framework still to do.
 - [ ] **Option ACP** — drive opencode itself as the agent inside Canvas
       (already configured, with cloud fallback and permissions). Test in
       a conversation first: automations + ACP + Ollama are known to fall

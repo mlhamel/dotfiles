@@ -11,11 +11,15 @@
 #   2. Config: writes the container opencode config (Ollama provider ->
 #      host.docker.internal:11434, GLM cloud models pinned) if missing.
 #   3. Container: starts ghcr.io/openhands/agent-canvas:1.43.0 (detached),
-#      with the projects dir, the state volume, a persistent opencode dir
-#      (the binary survives restarts) and the config file mounted.
-#   4. Binary: installs opencode inside the container if missing. The
+#      with the projects dir, the state volume and a persistent opencode
+#      dir (the binary survives restarts).
+#   4. Config install: copies the config into the container (`docker cp`
+#      + `chown`; a bind-mount of the file into `.config` makes that
+#      directory non-writable for uid 10001 and agent-canvas refuses
+#      to start).
+#   5. Binary: installs opencode inside the container if missing. The
 #      install lands in the persistent dir, so it is a one-time cost.
-#   5. Health: waits for the Canvas UI to answer, then prints a summary.
+#   6. Health: waits for the Canvas UI to answer, then prints a summary.
 #
 # After the FIRST `up`, do this once in the Canvas UI (it persists in the
 # openhands-state volume, so it survives restarts):
@@ -144,8 +148,21 @@ start_container() {
     -v "${STATE_VOLUME}:/home/openhands/.openhands" \
     -v "${PROJECTS_PATH}:/projects" \
     -v "${OPENCODE_DIR}:/home/openhands/.opencode" \
-    -v "${CONFIG_FILE}:/home/openhands/.config/opencode/opencode.jsonc:ro" \
     "$IMAGE"
+}
+
+# Copy the opencode config into the container and give it to uid 10001.
+# Deliberately NOT a bind-mount: mounting the file into `.config` makes
+# that directory non-writable for the container user and agent-canvas
+# refuses to start ("Browser config directory is not writable"). The copy
+# is re-applied on every `up`, so a recreated container always gets the
+# current config, and the image's `.config/opencode/` (node_modules and
+# friends) stays intact.
+install_config() {
+  log "Config: copie dans le conteneur…"
+  docker cp "${CONFIG_FILE}" "${CONTAINER_NAME}:/home/openhands/.config/opencode/opencode.jsonc"
+  docker exec --user root "${CONTAINER_NAME}" chown "${CANVAS_USER}:${CANVAS_USER}" /home/openhands/.config/opencode/opencode.jsonc
+  log "Config installée dans le conteneur."
 }
 
 wait_ui() {
@@ -182,7 +199,7 @@ show_summary() {
   if docker exec "$CONTAINER_NAME" test -x /home/openhands/.opencode/bin/opencode 2>/dev/null; then
     log "opencode: $(docker exec "$CONTAINER_NAME" /home/openhands/.opencode/bin/opencode --version 2>/dev/null)"
   fi
-  log "Config: $CONFIG_FILE -> /home/openhands/.config/opencode/opencode.jsonc (Ollama -> host.docker.internal:11434, GLM épinglés)"
+  log "Config: $CONFIG_FILE -> /home/openhands/.config/opencode/opencode.jsonc (copiée à chaque up, Ollama -> host.docker.internal:11434, GLM épinglés)"
   echo
   log "Reste à faire UNE fois dans l'interface (persistant) :"
   log "  Settings -> Agent -> ACP / Custom"
@@ -200,6 +217,7 @@ cmd_up() {
   ensure_acl
   ensure_config
   start_container
+  install_config
   wait_ui
   ensure_opencode
   show_summary
@@ -243,7 +261,7 @@ cmd_status() {
 }
 
 usage() {
-  sed -n '2,30p' "$0"
+  sed -n '2,34p' "$0"
 }
 
 main() {
