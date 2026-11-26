@@ -185,17 +185,22 @@ stays in the loop. The two other recommended additions from the tour —
 Langfuse (self-hosted observability) and Spec Kit (spec → plan → tasks)
 — are not part of this section.
 
-- [ ] **Essai local** — Agent Canvas 1.43.0 in a Docker sandbox on the
+- [x] **Essai local** — Agent Canvas 1.43.0 in a Docker sandbox on the
       Framework, model `openai/glm-5.3-flash:cloud` via the Ollama gateway
       (`http://host.docker.internal:11434/v1`, never `127.0.0.1` from
       inside the container), smoke test in a scratch project plus a check
       that the sandbox boundary holds, then the first real task: add the
       `.opencode/` line to the repo `.gitignore`. Start-up checklist in
       Obsidian (OpenHands Agent Canvas — Checklist de démarrage).
-- [ ] **Comparaison eval** — run one reference task (`eval/tasks/`, e.g.
+      Outcome: Canvas 1.43.0 runs in Docker, GLM-5.3-flash:cloud via the
+      Ollama gateway, smoke test and first real task (.gitignore)
+      succeeded.
+- [x] **Comparaison eval** — run one reference task (`eval/tasks/`, e.g.
       `docs-tree-sync`) through OpenHands and compare with opencode using
       the deterministic checks as judge. This is the measurement that
       decides whether OpenHands joins the factory or stays an experiment.
+      Outcome: docs-tree-sync eval, 3/3 for both opencode (18.8 s) and
+      OpenHands, tie, task too simple to discriminate.
 - [ ] **Option ACP** — drive opencode itself as the agent inside Canvas
       (already configured, with cloud fallback and permissions). Test in
       a conversation first: automations + ACP + Ollama are known to fall
