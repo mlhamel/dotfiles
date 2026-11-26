@@ -22,9 +22,14 @@ pass/fail is the gate.
 ```text
 eval/
 ├── run.mjs              # the runner (node, no dependencies)
+├── measure.mjs          # run + record: run the tasks, append to the history
+├── record.mjs           # record a hand-run (e.g. OpenHands) into the history
+├── history.mjs          # entry schema, append-only log, SUMMARY.md renderer
 ├── README.md            # you are here
-├── results/             # one JSON file per run, committed
+├── results/             # run results + the trend log, all committed
 │   ├── .gitignore       # transcripts (opt-in) stay out of git
+│   ├── history.jsonl    # append-only: one JSON object per recorded run
+│   ├── SUMMARY.md       # rendered view of the log: runs + trends
 │   └── <date>-<model-slug>.json
 └── tasks/<id>/
     ├── prompt.md        # the prompt handed to the agent
@@ -97,6 +102,40 @@ Results land in `eval/results/<date>-<model-slug>.json` (model, opencode
 version, repo head, per-task pass/score/checks, tokens, cost). The runner
 exits 0 only when every selected task passes. A run takes up to
 `tasks × timeout` in the worst case; the default budget is 5 × 10 minutes.
+
+## Measuring over time
+
+`measure.mjs` is the runner plus bookkeeping: it runs `run.mjs`, then
+appends one entry per task to the append-only history
+(`eval/results/history.jsonl`) and regenerates `eval/results/SUMMARY.md` —
+a per-run table plus per agent × model × task trend means — from the whole
+log. It takes the same flags and env as `run.mjs` (`--tasks`, `--model`,
+`--timeout`, `--bin`, `--keep`, `--keep-transcripts`, `EVAL_*`):
+
+```bash
+node eval/measure.mjs                              # run all, record, render
+node eval/measure.mjs --tasks docs-tree-sync       # one task
+EVAL_MODEL=ollama/kimi-k2.7-code:cloud node eval/measure.mjs
+```
+
+The log is history, not state: entries are appended, never rewritten or
+deduped, so a failed run is still recorded (failures are data) and
+re-running the same task adds another row the trends average over.
+`SUMMARY.md` is a rendered view, not a data source — anything that wants
+to chart or query the history consumes `history.jsonl` directly.
+
+Runs that a human does outside the harness (OpenHands, a one-off setup)
+are recorded by hand with `record.mjs`, which validates the same schema —
+agent, model, task and score are required, tokens, duration and a note
+are optional and left null when unknown:
+
+```bash
+node eval/record.mjs --agent openhands --model <model> --task docs-tree-sync \
+  --score 3/3 [--tokens-in <n>] [--tokens-out <n>] [--duration-s <s>] \
+  [--note "<what and where>"]
+```
+
+Commit the updated `history.jsonl` and `SUMMARY.md` together after a run.
 
 ## Adding a task
 

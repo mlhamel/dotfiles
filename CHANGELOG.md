@@ -6,6 +6,28 @@ use today's date and the hash of the change once committed.
 
 ## 2026-11-26
 
+- `(hash)` — Measurement v1: eval history + trend summary (PR
+  `feat/measure-eval-2026-11-26`, implements
+  `specs/measure-eval-v1.md`): `eval/history.mjs` defines the run entry
+  schema (ts, agent, model, task, score, per-check pass map, tokens,
+  duration, source, note) and owns two artifacts — the append-only log
+  `eval/results/history.jsonl` (one JSON object per line, never
+  rewritten or deduped) and `eval/results/SUMMARY.md`, a pure
+  re-render of the log (per-run table plus mean score per agent ×
+  model × task, nulls as `—`); anything that wants to chart the
+  history consumes the log, not the summary.
+  `eval/measure.mjs` wraps the runner with the same flags/env to run
+  the tasks, then assert the score, append one entry per task, and
+  regenerate the summary — a failed run is still recorded, exit 1
+  either way. `eval/record.mjs` records runs done by hand outside the
+  harness (OpenHands) with the same schema. New test suite
+  `test/eval/history.test.js` covers the schema, the append-only log,
+  summary/trend rendering and both CLIs against a stub opencode.
+  The log is seeded with the two same-day `docs-tree-sync` baselines:
+  opencode 3/3, 18372 in / 3886 out, 18.8s; openhands 3/3, tokens
+  unknown (164128 total, mostly cached). `eval/README.md` gains the
+  new files under Layout and a "Measuring over time" section.
+
 - `(hash)` — Specs docs: OKF frontmatter + index (PR
   `feat/measure-spec-2026-11-26`, follows up the same-day spec move/create
   commits): `specs/measure-eval-v1.md` gets OKF v0.3 frontmatter
