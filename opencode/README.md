@@ -31,6 +31,7 @@ opencode/
 │   ├── oh-fix                 #   retake ownership of OpenHands agent files (uid 10001)
 │   └── oc-tokens              #   token-efficiency report from opencode.db
 ├── skills/                    # Deep docs, loaded ON DEMAND via the skill tool
+│   ├── planning/SKILL.md      #   plan-first protocol: task-tracker plan before non-trivial work
 │   ├── workflow/SKILL.md      #   bless/new playbooks, per-project permission profiles
 │   ├── scaffolding/SKILL.md   #   per-language scaffolder reference
 │   ├── grill-me/SKILL.md      #   opt-in, stateless interview entry point

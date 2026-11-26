@@ -4,7 +4,7 @@ These rules apply to every session, on every project. Keep this file lean.
 
 ## Working style
 
-- Plan first, then build. For anything non-trivial, propose a plan and wait for approval.
+- Plan first, then build. For anything non-trivial, load the `planning` skill and follow it: plan in the task tracker, then wait for my approval before building.
 - Show me diffs before committing. Never commit unless I explicitly ask.
 - Ship via PRs: put work on a dated topic branch (`<type>/<slug>-<YYYY-MM-DD>`); pushing
   the branch and opening the PR (`gh pr create`) is part of shipping when I ask to ship.
@@ -44,7 +44,9 @@ Global commands available anywhere:
 - `/session-handoff` — checkpoint the conversation into an Obsidian session note (needs the vault's `log_session.py`; set `OBSIDIAN_VAULT` if the vault isn't at `~/Dropbox/obsidian/general`)
 - `/progress` — live progress of everything running on the opencode server: background jobs (shells, subagents) + active sessions, one S4-quantified line per item; `/progress <filter>` deep-dives the matches (needs `jq`)
 
-Skills: `workflow`, `scaffolding`, `token-optimization` (token-efficiency
-playbook), `dotfiles` (maintenance playbook for the dotfiles repo itself).
-Load via the skill tool when relevant; `grill-me` and `grilling` are opt-in
-interview skills, not an automatic planning step.
+Skills: `planning` (plan-first protocol with the task tracker — load it
+before any non-trivial work), `workflow`, `scaffolding`,
+`token-optimization` (token-efficiency playbook), `dotfiles` (maintenance
+playbook for the dotfiles repo itself). Load via the skill tool when
+relevant; `grill-me` and `grilling` are opt-in interview skills, not an
+automatic planning step.
