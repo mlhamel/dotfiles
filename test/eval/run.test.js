@@ -157,6 +157,24 @@ test("evalConfig pins the gateway models with a context limit", () => {
     assert.deepEqual(m, { limit: { context: 65536 } });
 });
 
+test("evalConfig points the ollama provider at the cloud endpoint when the key is set", () => {
+  const config = evalConfig("ollama/glm-5.3-flash:cloud", {
+    OLLAMA_API_KEY: "secret-value",
+  });
+  assert.deepEqual(config.providers.ollama.options, {
+    baseURL: "https://ollama.com/v1",
+    apiKey: "{env:OLLAMA_API_KEY}",
+  });
+  assert.ok(!JSON.stringify(config).includes("secret-value"));
+});
+
+test("evalConfig keeps the local gateway config when the key is absent or empty", () => {
+  for (const env of [{}, { OLLAMA_API_KEY: "" }]) {
+    const config = evalConfig("ollama/glm-5.3-flash:cloud", env);
+    assert.equal(config.providers.ollama.options, undefined);
+  }
+});
+
 test("countMatches counts non-overlapping regex matches", () => {
   assert.equal(countMatches("test( a test( b", "test\\("), 2);
   assert.equal(countMatches("nothing here", "test\\("), 0);

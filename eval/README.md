@@ -146,17 +146,21 @@ Commit the updated `history.jsonl` and `SUMMARY.md` together after a run.
 `.github/workflows/measure.yml` runs `measure.mjs` on a GitHub Actions runner
 every Monday 06:00 UTC (`0 6 * * 1`) and commits the results back, so the
 history gains a weekly point even when nobody runs the eval by hand. The
-runner needs no secret: the default model is opencode's free
-`opencode/big-pickle`, which reaches opencode's own provider directly.
+runner needs no secret for the default model, opencode's free
+`opencode/big-pickle`, which reaches opencode's own provider directly. To
+measure ollama's cloud models instead, add the `OLLAMA_API_KEY` repository
+secret — the Measure step forwards it into the job environment.
 
 The model is picked in a fixed precedence — `workflow_dispatch` input >
 repo **variable** `EVAL_MODEL` (Settings → Variables → Actions) > the
 `opencode/big-pickle` default — so switching the scheduled model is a
-variable change, never a workflow edit. Measuring an ollama model on the
-runner needs a reachable gateway too (see `docs/OLLAMA_API_KEY.md` for the
-token note and the endpoint caveat): the pinned `providers.ollama` block the
-harness writes points at `127.0.0.1:11434`, which only works if the host
-actually runs one.
+variable change, never a workflow edit. How an ollama model resolves
+depends on that secret: set, `evalConfig` points the pinned
+`providers.ollama` block at `https://ollama.com/v1` and wires the key as a
+`{env:OLLAMA_API_KEY}` reference that opencode expands at runtime, so the
+literal key never lands in the config file; unset, the block stays
+unchanged and still points at `127.0.0.1:11434`, which only works if the
+host actually runs a gateway.
 
 Runner-vs-laptop details:
 
@@ -203,4 +207,5 @@ test/plugins/*.test.js`, `bash test/shell/run.sh`).
 - Real evals are manual or scheduled, never on the lint path: CI runs the
   mocked mechanics (`test/eval/`) on every PR — needs no credentials and
   spends nothing — and the weekly `measure` workflow spends only the free
-  `opencode/big-pickle` quota unless someone dispatches it with a paid model.
+  `opencode/big-pickle` quota unless someone dispatches it with a paid model
+  or adds the `OLLAMA_API_KEY` secret to measure ollama's cloud models.
