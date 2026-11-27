@@ -193,15 +193,24 @@ function parseEvents(stdout) {
   return events;
 }
 
-function summarizeEvents(events) {
+export function summarizeEvents(events) {
   let tokens = { input: 0, output: 0 };
   let cost = null;
   let sessionId = null;
   let errorEvents = 0;
+  let error = null;
   for (const event of events) {
     if (typeof event.sessionID === "string" && !sessionId)
       sessionId = event.sessionID;
-    if (event.type === "error") errorEvents++;
+    if (event.type === "error") {
+      errorEvents++;
+      // First error message wins: opencode emits the API failure as a
+      // top-level `error` event (`error.data.message`), and the run
+      // stream is the only place it appears when no assistant message
+      // is ever created — stderr stays empty, so without this the
+      // failure is just "exit 1, tokens 0".
+      if (!error) error = errorMessage(event);
+    }
     if (event.type !== "step_finish") continue;
     // opencode 2.4.1 nests usage in event.part (top-level event.tokens
     // reported 0 tokens on every run); older binaries emit it top-level.
@@ -221,7 +230,35 @@ function summarizeEvents(events) {
     const c = event.part?.cost ?? event.cost;
     if (Number.isFinite(c)) cost = (cost ?? 0) + c;
   }
-  return { tokens, cost, sessionId, errorEvents, eventCount: events.length };
+  return {
+    tokens,
+    cost,
+    sessionId,
+    errorEvents,
+    error,
+    eventCount: events.length,
+  };
+}
+
+// Extract a readable message from an opencode `error` event. Real shape
+// (verified against opencode's JSON output): `error.data.message`, with
+// `error.name` as the type; older / mocked shapes may carry the message
+// as a plain string or on `error.message`. Truncated: an error payload
+// must never grow the results file unboundedly.
+function errorMessage(event) {
+  const err = event.error;
+  const candidates = [
+    err?.data?.message,
+    err?.message,
+    err?.name,
+    typeof err === "string" ? err : null,
+    event.message,
+    event.part?.state?.error,
+  ];
+  for (const c of candidates) {
+    if (typeof c === "string" && c.trim()) return c.slice(0, 500);
+  }
+  return null;
 }
 
 // The agent must not see the shell's notion of where we came from: OLDPWD
@@ -317,6 +354,7 @@ export function runAgent({
         cost: summary.cost,
         sessionId: summary.sessionId,
         errorEvents: summary.errorEvents,
+        error: summary.error,
         eventCount: summary.eventCount,
         durationMs: Date.now() - started,
         stderr: stderr.slice(-2000),
@@ -611,6 +649,11 @@ export async function runTask(task, opts) {
       cost: run.cost,
       sessionId: run.sessionId,
       errorEvents: run.errorEvents,
+      // First error message from the JSONL stream, when present: the
+      // API failure lives here (stderr stays empty), so without it the
+      // run is just "exit 1, tokens 0". Never the key — an error payload
+      // carries the provider's message, not the auth header.
+      ...(run.error ? { error: run.error } : {}),
       // Last 2000 chars of opencode's stderr, when non-empty: without it
       // a failed run is opaque (exit 1, tokens 0, no message). The key
       // never appears here — the config carries only the `{env:...}`

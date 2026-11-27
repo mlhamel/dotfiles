@@ -222,7 +222,10 @@ test/plugins/*.test.js`, `bash test/shell/run.sh`).
   `opencode/big-pickle` quota unless someone dispatches it with a paid model
   or adds the `OLLAMA_API_KEY` secret to measure ollama's cloud models.
 - A failed run records why: each task's `run` entry carries `errorEvents`
-  (opencode `error` events seen) and, when non-empty, `stderr` (last 2000
-  chars of opencode's stderr). Without these a failure is opaque — exit 1,
-  tokens 0, no message — which is how the first cloud runs failed (model
-  name, then an API error) before the cause was visible.
+  (opencode `error` events seen), `error` (the first error message from
+  the JSONL stream — `error.data.message`, e.g. an API 401 — since
+  opencode writes nothing to stderr on an API failure) and, when
+  non-empty, `stderr` (last 2000 chars of opencode's stderr). Without
+  these a failure is opaque — exit 1, tokens 0, no message — which is
+  how the first cloud runs failed (model name, then an API error) before
+  the cause was visible.
