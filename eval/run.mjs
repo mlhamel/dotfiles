@@ -610,6 +610,12 @@ export async function runTask(task, opts) {
       tokens: run.tokens,
       cost: run.cost,
       sessionId: run.sessionId,
+      errorEvents: run.errorEvents,
+      // Last 2000 chars of opencode's stderr, when non-empty: without it
+      // a failed run is opaque (exit 1, tokens 0, no message). The key
+      // never appears here — the config carries only the `{env:...}`
+      // reference, and opencode does not log auth headers.
+      ...(run.stderr ? { stderr: run.stderr } : {}),
       ...(run.spawnError ? { spawnError: run.spawnError } : {}),
     },
     checks,

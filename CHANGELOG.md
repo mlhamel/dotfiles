@@ -6,6 +6,15 @@ use today's date and the hash of the change once committed.
 
 ## 2026-11-26
 
+- `(hash)` — Record stderr on failed eval runs (PR
+  `fix/measure-record-stderr-2026-11-26`): the cloud runs kept failing
+  0/5 with tokens 0 and no message — `runAgent` captured opencode's
+  stderr but `runTask` dropped it from the results. Each task's `run`
+  entry now carries `errorEvents` and, when non-empty, `stderr` (last
+  2000 chars), so the next failure shows the actual API error instead of
+  just exit 1. The key never appears there (the config carries only the
+  `{env:...}` reference). Unit tests 29 → 30 cases in
+  `test/eval/run.test.js`.
 - `(hash)` — Trailing newline on eval results JSON (PR
   `fix/measure-results-newline-2026-11-26`): the harness wrote the
   results file with `JSON.stringify` and no trailing newline, so every
@@ -15,7 +24,6 @@ use today's date and the hash of the change once committed.
   `2026-11-26-ollama-glm-5-3-flash.json` is fixed the same way, and a
   test asserts the results file ends with `\n` (assertion added to the
   existing results-file test; `run.test.js` stays at 29 cases).
-
 - `(hash)` — Cloud model names for the scheduled measurement (PR
   `fix/measure-cloud-model-names-2026-11-26`): the first dispatched cloud
   runs failed 0/5 (tokens 0, ~2 s) because the harness sent the local

@@ -503,6 +503,27 @@ test("runTask passes the resolved cloud model to the agent", async () => {
   ]);
 });
 
+test("runTask records errorEvents from a failing agent run", async () => {
+  const prev = process.env.STUB_EVAL_MODE;
+  process.env.STUB_EVAL_MODE = "fail";
+  const task = loadTasks(syntheticTasksDir()).find((t) => t.id === "task-ok");
+  const res = await runTask(task, {
+    bin: stub,
+    model: "x/y",
+    timeoutMs: 10000,
+    keep: false,
+    keepTranscripts: false,
+    transcriptsDir: path.join(tmp, "t"),
+  });
+  if (prev === undefined) delete process.env.STUB_EVAL_MODE;
+  else process.env.STUB_EVAL_MODE = prev;
+  assert.equal(res.run.ok, false);
+  assert.equal(res.run.exitCode, 1);
+  assert.equal(res.run.errorEvents, 1);
+  // No stderr from the stub, so the field is omitted, not empty.
+  assert.equal(res.run.stderr, undefined);
+});
+
 test("runTask fails when the stub does nothing", async () => {
   const task = loadTasks(syntheticTasksDir()).find(
     (t) => t.id === "task-broken",
