@@ -193,10 +193,18 @@ test("evalConfig points the ollama provider at the cloud endpoint when the key i
   const config = evalConfig("ollama/glm-5.3-flash:cloud", {
     OLLAMA_API_KEY: "secret-value",
   });
-  assert.deepEqual(config.providers.ollama.options, {
+  // v2 shape: explicit `package` (without it opencode fails with
+  // "Unsupported package for ollama/<model>: ") and `settings` — the
+  // v1 `options` key is silently ignored by v2.
+  assert.equal(
+    config.providers.ollama.package,
+    "aisdk:@ai-sdk/openai-compatible",
+  );
+  assert.deepEqual(config.providers.ollama.settings, {
     baseURL: "https://ollama.com/v1",
     apiKey: "{env:OLLAMA_API_KEY}",
   });
+  assert.equal(config.providers.ollama.options, undefined);
   assert.ok(!JSON.stringify(config).includes("secret-value"));
   // The cloud API names models without the `:cloud` suffix.
   assert.equal(config.model, "ollama/glm-5.3-flash");
@@ -215,6 +223,13 @@ test("evalConfig points the ollama provider at the cloud endpoint when the key i
 test("evalConfig keeps the local gateway config when the key is absent or empty", () => {
   for (const env of [{}, { OLLAMA_API_KEY: "" }]) {
     const config = evalConfig("ollama/glm-5.3-flash:cloud", env);
+    assert.equal(
+      config.providers.ollama.package,
+      "aisdk:@ai-sdk/openai-compatible",
+    );
+    assert.deepEqual(config.providers.ollama.settings, {
+      baseURL: "http://localhost:11434/v1",
+    });
     assert.equal(config.providers.ollama.options, undefined);
   }
 });
