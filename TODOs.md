@@ -154,6 +154,22 @@ not a fix for a broken config.
       for the API failure: the key itself (invalid / expired / no credits
       for this model) or the request shape; a direct `curl` against
       `https://ollama.com/v1` with the key isolates auth from the harness.
+      2026-11-26 lint (note restored — lost in the PR #35 merge
+      resolution): the harness wrote the results JSON without a trailing
+      newline, so every bot commit re-broke prettier (Mathieu hand-fixed
+      two files in `39b4df4`, the next run broke it again on the new
+      file). Fix (PR `fix/measure-results-newline-2026-11-26`): `runAll`
+      writes the JSON with a trailing newline, the committed
+      `2026-11-26-ollama-glm-5-3-flash.json` is fixed the same way, and
+      the results-file test asserts the file ends with `\n`.
+      2026-11-27 run STILL failed 0/5 (tokens 0, ~2 s, `errorEvents: 1`,
+      no `stderr`) — opencode writes nothing to stderr on an API
+      failure; the message lives in the JSONL `error` event
+      (`error.data.message`), which the harness only counted. Fix (PR
+      `fix/measure-record-error-2026-11-27`): `summarizeEvents` captures
+      the first error message and each task's `run` entry records it as
+      `error`, so the next failure names the API error (401, model not
+      found, …) instead of just "exit 1, tokens 0".
 - [x] **P1 · Sandbox / threat model** — done 2026-11-24 (PR
       `fix/sandbox-threat-model-2026-11-24`): `docs/threat-model.md`
       (assets, adversaries, the seven-rule never-list, enforcement

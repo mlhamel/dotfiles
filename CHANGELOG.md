@@ -15,6 +15,18 @@ use today's date and the hash of the change once committed.
   just exit 1. The key never appears there (the config carries only the
   `{env:...}` reference). Unit tests 29 → 30 cases in
   `test/eval/run.test.js`.
+- `(hash)` — Record the error message from the JSONL stream (PR
+  `fix/measure-record-error-2026-11-27`): the 2026-11-27 cloud run
+  still failed 0/5 with `errorEvents: 1` and no `stderr` — opencode
+  writes nothing to stderr, the API failure lives in the JSONL `error`
+  event (`error.data.message`), and the harness only counted those
+  events without reading the message. `summarizeEvents` now captures
+  the first error message (real shape `error.data.message`, with
+  `error.name` / string fallbacks, truncated to 500 chars) and each
+  task's `run` entry records it as `error`. The stub's `fail` mode now
+  emits the real opencode error shape. Unit tests 30 → 31 cases in
+  `test/eval/run.test.js`.
+
 - `(hash)` — Trailing newline on eval results JSON (PR
   `fix/measure-results-newline-2026-11-26`): the harness wrote the
   results file with `JSON.stringify` and no trailing newline, so every

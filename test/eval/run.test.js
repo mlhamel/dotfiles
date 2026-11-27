@@ -13,6 +13,7 @@ import {
   evalConfig,
   resolveModel,
   countMatches,
+  summarizeEvents,
   runAgent,
   runChecks,
   runTask,
@@ -34,7 +35,7 @@ const STUB_SOURCE = [
   "if (mode === 'part-tokens') { jsonl({ type: 'step_start', sessionID: 'ses_test' }); jsonl({ type: 'text', sessionID: 'ses_test', text: 'done' }); jsonl({ type: 'step_finish', sessionID: 'ses_test', part: { tokens: { input: 200, output: 75 }, cost: 0.002 } }); process.exit(0); }",
   "if (mode === 'both-tokens') { jsonl({ type: 'step_start', sessionID: 'ses_test' }); jsonl({ type: 'text', sessionID: 'ses_test', text: 'done' }); jsonl({ type: 'step_finish', sessionID: 'ses_test', tokens: { input: 100, output: 50 }, cost: 0.001, part: { tokens: { input: 200, output: 75 }, cost: 0.002 } }); process.exit(0); }",
   "if (mode === 'guard-trip') { const p = 'target.txt'; fs.writeFileSync(p, fs.readFileSync(p, 'utf8').replace('before', 'after')); if (process.env.STUB_GUARD_TARGET) fs.appendFileSync(process.env.STUB_GUARD_TARGET, 'tripped\\n'); jsonl({ type: 'step_start', sessionID: 'ses_test' }); jsonl({ type: 'text', sessionID: 'ses_test', text: 'done' }); jsonl({ type: 'step_finish', sessionID: 'ses_test', tokens: { input: 100, output: 50 }, cost: 0.001 }); process.exit(0); }",
-  "if (mode === 'fail') { jsonl({ type: 'error', sessionID: 'ses_test', error: 'boom' }); process.exit(1); }",
+  "if (mode === 'fail') { jsonl({ type: 'error', sessionID: 'ses_test', error: { name: 'APIError', data: { message: '401 Unauthorized' } } }); process.exit(1); }",
   "if (mode === 'timeout') { setTimeout(() => {}, 60000); }",
   "else if (mode === 'empty') { process.exit(0); }",
   "else {",
@@ -365,8 +366,26 @@ test("runAgent fail reports the error event and a non-zero exit", async () => {
   assert.equal(res.ok, false);
   assert.equal(res.exitCode, 1);
   assert.equal(res.errorEvents, 1);
+  assert.equal(res.error, "401 Unauthorized");
   fs.rmSync(workdir, { recursive: true, force: true });
   fs.rmSync(home, { recursive: true, force: true });
+});
+
+test("summarizeEvents extracts the error message from the real opencode shape", async () => {
+  const events = [
+    { type: "step_start", sessionID: "ses_test" },
+    {
+      type: "error",
+      sessionID: "ses_test",
+      error: {
+        name: "APIError",
+        data: { message: "Model not found: ollama/glm-5.3-flash" },
+      },
+    },
+  ];
+  const summary = summarizeEvents(events);
+  assert.equal(summary.errorEvents, 1);
+  assert.equal(summary.error, "Model not found: ollama/glm-5.3-flash");
 });
 
 test("runAgent timeout kills a stuck run", async () => {
@@ -520,6 +539,7 @@ test("runTask records errorEvents from a failing agent run", async () => {
   assert.equal(res.run.ok, false);
   assert.equal(res.run.exitCode, 1);
   assert.equal(res.run.errorEvents, 1);
+  assert.equal(res.run.error, "401 Unauthorized");
   // No stderr from the stub, so the field is omitted, not empty.
   assert.equal(res.run.stderr, undefined);
 });
