@@ -4,6 +4,11 @@
 
 | date       | agent     | model                      | task                          | score | tokens in | tokens out | duration |
 | ---------- | --------- | -------------------------- | ----------------------------- | ----- | --------- | ---------- | -------- |
+| 2026-11-27 | opencode  | ollama/glm-5.3-flash       | add-fallback-gateway-test     | 2/4   | 0         | 0          | 2.9s     |
+| 2026-11-27 | opencode  | ollama/glm-5.3-flash       | docs-tree-sync                | 1/3   | 0         | 0          | 2.9s     |
+| 2026-11-27 | opencode  | ollama/glm-5.3-flash       | fix-nudger-band               | 1/2   | 0         | 0          | 2.3s     |
+| 2026-11-27 | opencode  | ollama/glm-5.3-flash       | fix-plan-exemption            | 1/2   | 0         | 0          | 2.3s     |
+| 2026-11-27 | opencode  | ollama/glm-5.3-flash       | add-darwin-services-fail-case | 1/4   | 0         | 0          | 2.3s     |
 | 2026-11-27 | opencode  | ollama/glm-5.3-flash       | fix-plan-exemption            | 1/2   | 0         | 0          | 1.8s     |
 | 2026-11-27 | opencode  | ollama/glm-5.3-flash       | add-fallback-gateway-test     | 2/4   | 0         | 0          | 1.7s     |
 | 2026-11-27 | opencode  | ollama/glm-5.3-flash       | docs-tree-sync                | 1/3   | 0         | 0          | 1.8s     |
@@ -42,8 +47,8 @@
 | opencode  | glm-5.3-flash              | docs-tree-sync                | 1    | 33.3%      | 0              | 0               | 1.3s          |
 | opencode  | glm-5.3-flash              | fix-nudger-band               | 1    | 50.0%      | 0              | 0               | 1.3s          |
 | opencode  | glm-5.3-flash              | fix-plan-exemption            | 1    | 50.0%      | 0              | 0               | 1.7s          |
-| opencode  | ollama/glm-5.3-flash       | add-darwin-services-fail-case | 2    | 25.0%      | 0              | 0               | 1.8s          |
-| opencode  | ollama/glm-5.3-flash       | add-fallback-gateway-test     | 2    | 50.0%      | 0              | 0               | 1.9s          |
-| opencode  | ollama/glm-5.3-flash       | docs-tree-sync                | 2    | 33.3%      | 0              | 0               | 1.8s          |
-| opencode  | ollama/glm-5.3-flash       | fix-nudger-band               | 2    | 50.0%      | 0              | 0               | 1.9s          |
-| opencode  | ollama/glm-5.3-flash       | fix-plan-exemption            | 2    | 50.0%      | 0              | 0               | 2.0s          |
+| opencode  | ollama/glm-5.3-flash       | add-darwin-services-fail-case | 3    | 25.0%      | 0              | 0               | 2.0s          |
+| opencode  | ollama/glm-5.3-flash       | add-fallback-gateway-test     | 3    | 50.0%      | 0              | 0               | 2.2s          |
+| opencode  | ollama/glm-5.3-flash       | docs-tree-sync                | 3    | 33.3%      | 0              | 0               | 2.2s          |
+| opencode  | ollama/glm-5.3-flash       | fix-nudger-band               | 3    | 50.0%      | 0              | 0               | 2.0s          |
+| opencode  | ollama/glm-5.3-flash       | fix-plan-exemption            | 3    | 50.0%      | 0              | 0               | 2.1s          |

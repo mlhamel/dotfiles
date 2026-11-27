@@ -4,13 +4,13 @@
   "model": "ollama/glm-5.3-flash",
   "modelDigest": null,
   "opencode": "opencode v2.3.0",
-  "repoHead": "324e8a75cd8c1c5d5a703f5405b05d4b96323078",
+  "repoHead": "49511c455c96c41f57f245ff758e7a14179a6ba5",
   "tasks": [
     {
       "id": "add-darwin-services-fail-case",
       "pass": false,
       "score": 0.25,
-      "durationMs": 1807,
+      "durationMs": 2304,
       "guard": {
         "tripped": false,
         "changed": []
@@ -24,8 +24,9 @@
           "output": 0
         },
         "cost": null,
-        "sessionId": "ses_de28210dfffekBWdOvNGbTuS2Y",
-        "errorEvents": 1
+        "sessionId": "ses_de26454b0ffe73mb8tnyCQccOE",
+        "errorEvents": 1,
+        "error": "Unsupported package for ollama/glm-5.3-flash: "
       },
       "checks": [
         {
@@ -58,7 +59,7 @@
       "id": "add-fallback-gateway-test",
       "pass": false,
       "score": 0.5,
-      "durationMs": 1746,
+      "durationMs": 2878,
       "guard": {
         "tripped": false,
         "changed": []
@@ -72,8 +73,9 @@
           "output": 0
         },
         "cost": null,
-        "sessionId": "ses_de28209f2ffeLtChc7Z5LIBnQl",
-        "errorEvents": 1
+        "sessionId": "ses_de2644bc3ffeFsPZmyQPZQkn04",
+        "errorEvents": 1,
+        "error": "Unsupported package for ollama/glm-5.3-flash: "
       },
       "checks": [
         {
@@ -106,7 +108,7 @@
       "id": "docs-tree-sync",
       "pass": false,
       "score": 0.3333333333333333,
-      "durationMs": 1777,
+      "durationMs": 2909,
       "guard": {
         "tripped": false,
         "changed": []
@@ -120,8 +122,9 @@
           "output": 0
         },
         "cost": null,
-        "sessionId": "ses_de2820267ffeqZp9i8p6l2cI2t",
-        "errorEvents": 1
+        "sessionId": "ses_de2643f84ffels5HFsqpwZ6WpX",
+        "errorEvents": 1,
+        "error": "Unsupported package for ollama/glm-5.3-flash: "
       },
       "checks": [
         {
@@ -148,7 +151,7 @@
       "id": "fix-nudger-band",
       "pass": false,
       "score": 0.5,
-      "durationMs": 1776,
+      "durationMs": 2256,
       "guard": {
         "tripped": false,
         "changed": []
@@ -162,15 +165,16 @@
           "output": 0
         },
         "cost": null,
-        "sessionId": "ses_de281fb69ffeyyiWx5ZFLMMKvz",
-        "errorEvents": 1
+        "sessionId": "ses_de2643413ffeBlJOITduPzwlAw",
+        "errorEvents": 1,
+        "error": "Unsupported package for ollama/glm-5.3-flash: "
       },
       "checks": [
         {
           "name": "nudger suite passes",
           "kind": "cmd",
           "pass": false,
-          "detail": "exit 1: 101.011117ms)\n  AssertionError [ERR_ASSERTION]: Expected values to be strictly equal:\n  \n  2 !== 0\n  \n      at TestContext.<anonymous> (file:///tmp/opencode-eval-eOW1Lr/test/plugins/session-nudger.test.js:181:12)\n      at async Test.run (node:internal/test_runner/test:1409:7)\n      at async Suite.processPendingSubtests (node:internal/test_runner/test:974:7) {\n    generatedMessage: true,\n    code: 'ERR_ASSERTION',\n    actual: 2,\n    expected: 0,\n    operator: 'strictEqual',\n    diff: 'simple'\n  }"
+          "detail": "exit 1: 104.199337ms)\n  AssertionError [ERR_ASSERTION]: Expected values to be strictly equal:\n  \n  2 !== 0\n  \n      at TestContext.<anonymous> (file:///tmp/opencode-eval-2aaO3Z/test/plugins/session-nudger.test.js:181:12)\n      at async Test.run (node:internal/test_runner/test:1409:7)\n      at async Suite.processPendingSubtests (node:internal/test_runner/test:974:7) {\n    generatedMessage: true,\n    code: 'ERR_ASSERTION',\n    actual: 2,\n    expected: 0,\n    operator: 'strictEqual',\n    diff: 'simple'\n  }"
         },
         {
           "name": "tests untouched",
@@ -184,7 +188,7 @@
       "id": "fix-plan-exemption",
       "pass": false,
       "score": 0.5,
-      "durationMs": 1759,
+      "durationMs": 2262,
       "guard": {
         "tripped": false,
         "changed": []
@@ -198,8 +202,9 @@
           "output": 0
         },
         "cost": null,
-        "sessionId": "ses_de281f2ccffennwhYzCG6UmWLj",
-        "errorEvents": 1
+        "sessionId": "ses_de264288affeyvn6Rn7z2NpE2X",
+        "errorEvents": 1,
+        "error": "Unsupported package for ollama/glm-5.3-flash: "
       },
       "checks": [
         {
