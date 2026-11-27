@@ -703,7 +703,10 @@ export async function runAll({
   };
   fs.mkdirSync(resultsDir, { recursive: true });
   const outPath = path.join(resultsDir, `${stem}.json`);
-  fs.writeFileSync(outPath, JSON.stringify(result, null, 2));
+  // Trailing newline: prettier requires one, and the bot commits this file,
+  // so without it every scheduled run re-breaks lint (the two hand-fixed
+  // results files in 39b4df4 were the same missing newline).
+  fs.writeFileSync(outPath, JSON.stringify(result, null, 2) + "\n");
   return { result, outPath };
 }
 

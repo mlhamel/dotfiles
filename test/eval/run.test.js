@@ -676,6 +676,9 @@ test("runAll writes a results file with the expected shape", async () => {
     path.join(resultsDir, `${result.date}-ollama-glm-5-3-flash-cloud.json`),
   );
   assert.deepEqual(JSON.parse(fs.readFileSync(outPath, "utf8")), result);
+  // The results file is committed by the bot and prettier requires a
+  // trailing newline; without it every run re-breaks lint.
+  assert.equal(fs.readFileSync(outPath, "utf8").endsWith("\n"), true);
   fs.rmSync(resultsDir, { recursive: true, force: true });
 });
 

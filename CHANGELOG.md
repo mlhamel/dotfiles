@@ -15,7 +15,15 @@ use today's date and the hash of the change once committed.
   just exit 1. The key never appears there (the config carries only the
   `{env:...}` reference). Unit tests 29 → 30 cases in
   `test/eval/run.test.js`.
-
+- `(hash)` — Trailing newline on eval results JSON (PR
+  `fix/measure-results-newline-2026-11-26`): the harness wrote the
+  results file with `JSON.stringify` and no trailing newline, so every
+  bot commit re-broke prettier (Mathieu hand-fixed two files in
+  `39b4df4`, the next run broke it again on the new file). `runAll` now
+  writes the JSON with a trailing newline, the committed
+  `2026-11-26-ollama-glm-5-3-flash.json` is fixed the same way, and a
+  test asserts the results file ends with `\n` (assertion added to the
+  existing results-file test; `run.test.js` stays at 29 cases).
 - `(hash)` — Cloud model names for the scheduled measurement (PR
   `fix/measure-cloud-model-names-2026-11-26`): the first dispatched cloud
   runs failed 0/5 (tokens 0, ~2 s) because the harness sent the local
