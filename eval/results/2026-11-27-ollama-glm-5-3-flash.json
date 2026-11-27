@@ -4,48 +4,47 @@
   "model": "ollama/glm-5.3-flash",
   "modelDigest": null,
   "opencode": "opencode v2.3.0",
-  "repoHead": "49511c455c96c41f57f245ff758e7a14179a6ba5",
+  "repoHead": "1e4107b1069cbaa88505a443073429b370e3a331",
   "tasks": [
     {
       "id": "add-darwin-services-fail-case",
-      "pass": false,
-      "score": 0.25,
-      "durationMs": 2304,
+      "pass": true,
+      "score": 1,
+      "durationMs": 76747,
       "guard": {
         "tripped": false,
         "changed": []
       },
       "run": {
-        "exitCode": 1,
+        "exitCode": 0,
         "timedOut": false,
-        "ok": false,
+        "ok": true,
         "tokens": {
-          "input": 0,
-          "output": 0
+          "input": 32073,
+          "output": 2518
         },
-        "cost": null,
-        "sessionId": "ses_de26454b0ffe73mb8tnyCQccOE",
-        "errorEvents": 1,
-        "error": "Unsupported package for ollama/glm-5.3-flash: "
+        "cost": 0,
+        "sessionId": "ses_de25595c1ffejTze045Qcr1kNK",
+        "errorEvents": 0
       },
       "checks": [
         {
           "name": "new harness case passes",
           "kind": "cmd",
-          "pass": false,
-          "detail": "exit 1"
+          "pass": true,
+          "detail": ""
         },
         {
           "name": "case registered",
           "kind": "count-gt",
-          "pass": false,
-          "detail": "matches 0 -> 0"
+          "pass": true,
+          "detail": "matches 0 -> 2"
         },
         {
           "name": "services failure stubbed",
           "kind": "contains",
-          "pass": false,
-          "detail": "test/shell/run.sh does not contain STUB_BREW_SERVICES_RC=1"
+          "pass": true,
+          "detail": ""
         },
         {
           "name": "script under test untouched",
@@ -57,25 +56,24 @@
     },
     {
       "id": "add-fallback-gateway-test",
-      "pass": false,
-      "score": 0.5,
-      "durationMs": 2878,
+      "pass": true,
+      "score": 1,
+      "durationMs": 15328,
       "guard": {
         "tripped": false,
         "changed": []
       },
       "run": {
-        "exitCode": 1,
+        "exitCode": 0,
         "timedOut": false,
-        "ok": false,
+        "ok": true,
         "tokens": {
-          "input": 0,
-          "output": 0
+          "input": 18003,
+          "output": 2787
         },
-        "cost": null,
-        "sessionId": "ses_de2644bc3ffeFsPZmyQPZQkn04",
-        "errorEvents": 1,
-        "error": "Unsupported package for ollama/glm-5.3-flash: "
+        "cost": 0,
+        "sessionId": "ses_de2546afeffee2rXaTNjGjrGOL",
+        "errorEvents": 0
       },
       "checks": [
         {
@@ -87,14 +85,14 @@
         {
           "name": "one more test case",
           "kind": "count-gt",
-          "pass": false,
-          "detail": "matches 19 -> 19"
+          "pass": true,
+          "detail": "matches 19 -> 20"
         },
         {
           "name": "gateway override exercised",
           "kind": "count-gt",
-          "pass": false,
-          "detail": "matches 2 -> 2"
+          "pass": true,
+          "detail": "matches 2 -> 4"
         },
         {
           "name": "plugin and helpers untouched",
@@ -106,38 +104,37 @@
     },
     {
       "id": "docs-tree-sync",
-      "pass": false,
-      "score": 0.3333333333333333,
-      "durationMs": 2909,
+      "pass": true,
+      "score": 1,
+      "durationMs": 18655,
       "guard": {
         "tripped": false,
         "changed": []
       },
       "run": {
-        "exitCode": 1,
+        "exitCode": 0,
         "timedOut": false,
-        "ok": false,
+        "ok": true,
         "tokens": {
-          "input": 0,
-          "output": 0
+          "input": 21954,
+          "output": 3538
         },
-        "cost": null,
-        "sessionId": "ses_de2643f84ffels5HFsqpwZ6WpX",
-        "errorEvents": 1,
-        "error": "Unsupported package for ollama/glm-5.3-flash: "
+        "cost": 0,
+        "sessionId": "ses_de2542cdeffe6sfj1FGOV28q15",
+        "errorEvents": 0
       },
       "checks": [
         {
           "name": "tree lists build-mini",
           "kind": "cmd",
-          "pass": false,
-          "detail": "exit 1"
+          "pass": true,
+          "detail": ""
         },
         {
           "name": "tree lists ask-local",
           "kind": "cmd",
-          "pass": false,
-          "detail": "exit 1"
+          "pass": true,
+          "detail": ""
         },
         {
           "name": "agent files untouched",
@@ -149,32 +146,31 @@
     },
     {
       "id": "fix-nudger-band",
-      "pass": false,
-      "score": 0.5,
-      "durationMs": 2256,
+      "pass": true,
+      "score": 1,
+      "durationMs": 8534,
       "guard": {
         "tripped": false,
         "changed": []
       },
       "run": {
-        "exitCode": 1,
+        "exitCode": 0,
         "timedOut": false,
-        "ok": false,
+        "ok": true,
         "tokens": {
-          "input": 0,
-          "output": 0
+          "input": 10766,
+          "output": 835
         },
-        "cost": null,
-        "sessionId": "ses_de2643413ffeBlJOITduPzwlAw",
-        "errorEvents": 1,
-        "error": "Unsupported package for ollama/glm-5.3-flash: "
+        "cost": 0,
+        "sessionId": "ses_de253e3e5ffeHk827V4J4Z8Hqp",
+        "errorEvents": 0
       },
       "checks": [
         {
           "name": "nudger suite passes",
           "kind": "cmd",
-          "pass": false,
-          "detail": "exit 1: 104.199337ms)\n  AssertionError [ERR_ASSERTION]: Expected values to be strictly equal:\n  \n  2 !== 0\n  \n      at TestContext.<anonymous> (file:///tmp/opencode-eval-2aaO3Z/test/plugins/session-nudger.test.js:181:12)\n      at async Test.run (node:internal/test_runner/test:1409:7)\n      at async Suite.processPendingSubtests (node:internal/test_runner/test:974:7) {\n    generatedMessage: true,\n    code: 'ERR_ASSERTION',\n    actual: 2,\n    expected: 0,\n    operator: 'strictEqual',\n    diff: 'simple'\n  }"
+          "pass": true,
+          "detail": ""
         },
         {
           "name": "tests untouched",
@@ -186,32 +182,31 @@
     },
     {
       "id": "fix-plan-exemption",
-      "pass": false,
-      "score": 0.5,
-      "durationMs": 2262,
+      "pass": true,
+      "score": 1,
+      "durationMs": 13211,
       "guard": {
         "tripped": false,
         "changed": []
       },
       "run": {
-        "exitCode": 1,
+        "exitCode": 0,
         "timedOut": false,
-        "ok": false,
+        "ok": true,
         "tokens": {
-          "input": 0,
-          "output": 0
+          "input": 13834,
+          "output": 1920
         },
-        "cost": null,
-        "sessionId": "ses_de264288affeyvn6Rn7z2NpE2X",
-        "errorEvents": 1,
-        "error": "Unsupported package for ollama/glm-5.3-flash: "
+        "cost": 0,
+        "sessionId": "ses_de253c125ffeydiuc84mSve82s",
+        "errorEvents": 0
       },
       "checks": [
         {
           "name": "enforcer suite passes",
           "kind": "cmd",
-          "pass": false,
-          "detail": "exit 1: 5:12)\n      at async Test.run (node:internal/test_runner/test:1409:7)\n      at async Suite.processPendingSubtests (node:internal/test_runner/test:974:7) {\n    generatedMessage: true,\n    code: 'ERR_ASSERTION',\n    actual: 'NOTE: This session has unreviewed substantive edits from earlier. Before acting on the new request, consider running @review on the outstanding changes (or note why review is not applicable).\\n\\nhello',\n    expected: 'hello',\n    operator: 'strictEqual',\n    diff: 'simple'\n  }"
+          "pass": true,
+          "detail": ""
         },
         {
           "name": "tests untouched",
@@ -222,7 +217,7 @@
       ]
     }
   ],
-  "score": 0.41666666666666663,
-  "passed": 0,
+  "score": 1,
+  "passed": 5,
   "total": 5
 }
