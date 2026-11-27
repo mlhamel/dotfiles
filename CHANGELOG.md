@@ -15,6 +15,12 @@ use today's date and the hash of the change once committed.
   just exit 1. The key never appears there (the config carries only the
   `{env:...}` reference). Unit tests 29 → 30 cases in
   `test/eval/run.test.js`.
+- `(hash)` — First successful cloud measurement (2026-11-27 15:40
+  UTC): after the PR #38 fix, the scheduled run passed 5/5 tasks, all
+  scores 1.00, tokens 108,228 total (96,630 in / 11,598 out), cost 0,
+  ~133 s agent time (bot commit `a79debc`). The measurement loop is
+  now proven end-to-end.
+
 - `(hash)` — Provider package and settings for the cloud run (PR
   `fix/measure-provider-package-2026-11-27`): the 2026-11-27 run finally
   surfaced the real error — `Unsupported package for

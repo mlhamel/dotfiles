@@ -183,6 +183,12 @@ not a fix for a broken config.
       `http://localhost:11434/v1`). The next run will show whether the
       key reaches the provider (a 401 would mean it doesn't) or the
       model finally answers.
+      2026-11-27 15:40 UTC — it works: first successful cloud run (bot
+      commit `a79debc`, repoHead `1e4107b` = PR #38 merge): 5/5 tasks
+      passed, all scores 1.00, tokens 108,228 total (96,630 in /
+      11,598 out), cost 0, ~133 s agent time. The measurement loop is
+      now proven end-to-end — scheduled weekly runs and manual dispatch
+      produce real measurements.
 - [x] **P1 · Sandbox / threat model** — done 2026-11-24 (PR
       `fix/sandbox-threat-model-2026-11-24`): `docs/threat-model.md`
       (assets, adversaries, the seven-rule never-list, enforcement
