@@ -1,0 +1,223 @@
+{
+  "version": 1,
+  "date": "2026-11-27",
+  "model": "ollama/glm-5.3-flash",
+  "modelDigest": null,
+  "opencode": "opencode v2.3.0",
+  "repoHead": "324e8a75cd8c1c5d5a703f5405b05d4b96323078",
+  "tasks": [
+    {
+      "id": "add-darwin-services-fail-case",
+      "pass": false,
+      "score": 0.25,
+      "durationMs": 1807,
+      "guard": {
+        "tripped": false,
+        "changed": []
+      },
+      "run": {
+        "exitCode": 1,
+        "timedOut": false,
+        "ok": false,
+        "tokens": {
+          "input": 0,
+          "output": 0
+        },
+        "cost": null,
+        "sessionId": "ses_de28210dfffekBWdOvNGbTuS2Y",
+        "errorEvents": 1
+      },
+      "checks": [
+        {
+          "name": "new harness case passes",
+          "kind": "cmd",
+          "pass": false,
+          "detail": "exit 1"
+        },
+        {
+          "name": "case registered",
+          "kind": "count-gt",
+          "pass": false,
+          "detail": "matches 0 -> 0"
+        },
+        {
+          "name": "services failure stubbed",
+          "kind": "contains",
+          "pass": false,
+          "detail": "test/shell/run.sh does not contain STUB_BREW_SERVICES_RC=1"
+        },
+        {
+          "name": "script under test untouched",
+          "kind": "unchanged",
+          "pass": true,
+          "detail": ""
+        }
+      ]
+    },
+    {
+      "id": "add-fallback-gateway-test",
+      "pass": false,
+      "score": 0.5,
+      "durationMs": 1746,
+      "guard": {
+        "tripped": false,
+        "changed": []
+      },
+      "run": {
+        "exitCode": 1,
+        "timedOut": false,
+        "ok": false,
+        "tokens": {
+          "input": 0,
+          "output": 0
+        },
+        "cost": null,
+        "sessionId": "ses_de28209f2ffeLtChc7Z5LIBnQl",
+        "errorEvents": 1
+      },
+      "checks": [
+        {
+          "name": "fallback suite passes",
+          "kind": "cmd",
+          "pass": true,
+          "detail": ""
+        },
+        {
+          "name": "one more test case",
+          "kind": "count-gt",
+          "pass": false,
+          "detail": "matches 19 -> 19"
+        },
+        {
+          "name": "gateway override exercised",
+          "kind": "count-gt",
+          "pass": false,
+          "detail": "matches 2 -> 2"
+        },
+        {
+          "name": "plugin and helpers untouched",
+          "kind": "unchanged",
+          "pass": true,
+          "detail": ""
+        }
+      ]
+    },
+    {
+      "id": "docs-tree-sync",
+      "pass": false,
+      "score": 0.3333333333333333,
+      "durationMs": 1777,
+      "guard": {
+        "tripped": false,
+        "changed": []
+      },
+      "run": {
+        "exitCode": 1,
+        "timedOut": false,
+        "ok": false,
+        "tokens": {
+          "input": 0,
+          "output": 0
+        },
+        "cost": null,
+        "sessionId": "ses_de2820267ffeqZp9i8p6l2cI2t",
+        "errorEvents": 1
+      },
+      "checks": [
+        {
+          "name": "tree lists build-mini",
+          "kind": "cmd",
+          "pass": false,
+          "detail": "exit 1"
+        },
+        {
+          "name": "tree lists ask-local",
+          "kind": "cmd",
+          "pass": false,
+          "detail": "exit 1"
+        },
+        {
+          "name": "agent files untouched",
+          "kind": "unchanged",
+          "pass": true,
+          "detail": ""
+        }
+      ]
+    },
+    {
+      "id": "fix-nudger-band",
+      "pass": false,
+      "score": 0.5,
+      "durationMs": 1776,
+      "guard": {
+        "tripped": false,
+        "changed": []
+      },
+      "run": {
+        "exitCode": 1,
+        "timedOut": false,
+        "ok": false,
+        "tokens": {
+          "input": 0,
+          "output": 0
+        },
+        "cost": null,
+        "sessionId": "ses_de281fb69ffeyyiWx5ZFLMMKvz",
+        "errorEvents": 1
+      },
+      "checks": [
+        {
+          "name": "nudger suite passes",
+          "kind": "cmd",
+          "pass": false,
+          "detail": "exit 1: 101.011117ms)\n  AssertionError [ERR_ASSERTION]: Expected values to be strictly equal:\n  \n  2 !== 0\n  \n      at TestContext.<anonymous> (file:///tmp/opencode-eval-eOW1Lr/test/plugins/session-nudger.test.js:181:12)\n      at async Test.run (node:internal/test_runner/test:1409:7)\n      at async Suite.processPendingSubtests (node:internal/test_runner/test:974:7) {\n    generatedMessage: true,\n    code: 'ERR_ASSERTION',\n    actual: 2,\n    expected: 0,\n    operator: 'strictEqual',\n    diff: 'simple'\n  }"
+        },
+        {
+          "name": "tests untouched",
+          "kind": "unchanged",
+          "pass": true,
+          "detail": ""
+        }
+      ]
+    },
+    {
+      "id": "fix-plan-exemption",
+      "pass": false,
+      "score": 0.5,
+      "durationMs": 1759,
+      "guard": {
+        "tripped": false,
+        "changed": []
+      },
+      "run": {
+        "exitCode": 1,
+        "timedOut": false,
+        "ok": false,
+        "tokens": {
+          "input": 0,
+          "output": 0
+        },
+        "cost": null,
+        "sessionId": "ses_de281f2ccffennwhYzCG6UmWLj",
+        "errorEvents": 1
+      },
+      "checks": [
+        {
+          "name": "enforcer suite passes",
+          "kind": "cmd",
+          "pass": false,
+          "detail": "exit 1: 5:12)\n      at async Test.run (node:internal/test_runner/test:1409:7)\n      at async Suite.processPendingSubtests (node:internal/test_runner/test:974:7) {\n    generatedMessage: true,\n    code: 'ERR_ASSERTION',\n    actual: 'NOTE: This session has unreviewed substantive edits from earlier. Before acting on the new request, consider running @review on the outstanding changes (or note why review is not applicable).\\n\\nhello',\n    expected: 'hello',\n    operator: 'strictEqual',\n    diff: 'simple'\n  }"
+        },
+        {
+          "name": "tests untouched",
+          "kind": "unchanged",
+          "pass": true,
+          "detail": ""
+        }
+      ]
+    }
+  ],
+  "score": 0.41666666666666663,
+  "passed": 0,
+  "total": 5
+}
