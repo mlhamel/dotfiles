@@ -174,6 +174,16 @@ cloud run is recorded under the name that actually ran. Local-only
 models (`qwen3:4b`, `gemma4:26b`, `llama3:latest`) are not on the cloud
 API and are not pinned in cloud mode.
 
+Provider shape (opencode v2): the `ollama` block in the generated
+config carries `package: "aisdk:@ai-sdk/openai-compatible"` and
+`settings` — the v1 `options` key is silently ignored by v2, and
+without `package` the run fails with `Unsupported package for
+ollama/<model>:` (empty package — the message ends with a bare colon).
+Cloud mode sets `settings:
+{ baseURL: "https://ollama.com/v1", apiKey: "{env:OLLAMA_API_KEY}" }`;
+local mode sets `settings: { baseURL: "http://localhost:11434/v1" }`.
+This mirrors the repo's own `opencode/opencode.json`.
+
 Runner-vs-laptop details:
 
 - The workflow installs opencode via the **V2** installer —

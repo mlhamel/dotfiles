@@ -15,6 +15,22 @@ use today's date and the hash of the change once committed.
   just exit 1. The key never appears there (the config carries only the
   `{env:...}` reference). Unit tests 29 → 30 cases in
   `test/eval/run.test.js`.
+- `(hash)` — Provider package and settings for the cloud run (PR
+  `fix/measure-provider-package-2026-11-27`): the 2026-11-27 run finally
+  surfaced the real error — `Unsupported package for
+  ollama/glm-5.3-flash:` (empty package — the message ends with a bare
+  colon). `evalConfig` set the
+  endpoint under the v1 `options` key, which opencode v2 silently
+  ignores, and set no `package` at all. It now writes the v2 shape
+  from the repo's own `opencode/opencode.json`: `package:
+"aisdk:@ai-sdk/openai-compatible"` plus `settings` — cloud mode
+  `settings: { baseURL: "https://ollama.com/v1", apiKey:
+"{env:OLLAMA_API_KEY}" }`, local mode `settings: { baseURL:
+"http://localhost:11434/v1" }`. The next run will show whether the
+  key reaches the provider (a 401 would mean it doesn't) or the model
+  finally answers. Unit tests updated in place (`run.test.js` stays at
+  31 cases).
+
 - `(hash)` — Record the error message from the JSONL stream (PR
   `fix/measure-record-error-2026-11-27`): the 2026-11-27 cloud run
   still failed 0/5 with `errorEvents: 1` and no `stderr` — opencode

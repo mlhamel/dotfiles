@@ -474,13 +474,19 @@ export function evalConfig(model, env = process.env) {
   // `gemma4:31b`, not `gemma4`. Local-only models (qwen3:4b, gemma4:26b,
   // llama3:latest) are not on the cloud API, so they are not pinned
   // in cloud mode.
+  // Provider shape (opencode v2): the ollama block needs an explicit
+  // `package` (`aisdk:@ai-sdk/openai-compatible`, same as the repo's
+  // opencode/opencode.json) and `settings` — NOT the v1 `options` key,
+  // which v2 silently ignores. Without `package` the run fails with
+  // "Unsupported package for ollama/<model>: " (empty package); without
+  // `settings` the cloud baseURL/key never reach the provider.
   const cloud = Boolean(env.OLLAMA_API_KEY);
-  const cloudOptions = cloud
+  const settings = cloud
     ? {
         baseURL: "https://ollama.com/v1",
         apiKey: "{env:OLLAMA_API_KEY}",
       }
-    : null;
+    : { baseURL: "http://localhost:11434/v1" };
   const resolvedModel = resolveModel(model, env);
   const models = cloud
     ? Object.fromEntries(
@@ -512,7 +518,8 @@ export function evalConfig(model, env = process.env) {
     // when the inventory grows.
     providers: {
       ollama: {
-        ...(cloudOptions ? { options: cloudOptions } : {}),
+        package: "aisdk:@ai-sdk/openai-compatible",
+        settings,
         models,
       },
     },

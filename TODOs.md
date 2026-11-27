@@ -170,6 +170,19 @@ not a fix for a broken config.
       the first error message and each task's `run` entry records it as
       `error`, so the next failure names the API error (401, model not
       found, …) instead of just "exit 1, tokens 0".
+      2026-11-27 run (PR #37 merged) finally surfaced the real error:
+      `Unsupported package for ollama/glm-5.3-flash:` (empty package —
+      the message ends with a bare colon). Root cause: `evalConfig` set
+      the endpoint under the v1 `options` key, which opencode v2
+      silently ignores, and set no `package` at all. Fix (PR
+      `fix/measure-provider-package-2026-11-27`): the ollama block now
+      carries the v2 shape from the repo's own `opencode/opencode.json`
+      — `package: "aisdk:@ai-sdk/openai-compatible"` plus `settings`
+      (cloud: baseURL `https://ollama.com/v1` with apiKey
+      `{env:OLLAMA_API_KEY}`; local: baseURL
+      `http://localhost:11434/v1`). The next run will show whether the
+      key reaches the provider (a 401 would mean it doesn't) or the
+      model finally answers.
 - [x] **P1 · Sandbox / threat model** — done 2026-11-24 (PR
       `fix/sandbox-threat-model-2026-11-24`): `docs/threat-model.md`
       (assets, adversaries, the seven-rule never-list, enforcement
