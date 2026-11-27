@@ -1,6 +1,6 @@
 ---
 description: Reviews code written by the build agent using a different model family (Kimi). Use after code generation to get an independent second opinion on changes.
-mode: subagent
+mode: all
 model: ollama/kimi-k2.7-code:cloud
 temperature: 0.1
 steps: 10

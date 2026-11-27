@@ -348,3 +348,68 @@ test("workflow skill points at the profiles", () => {
   }
   assert.ok(skill.includes("docs/threat-model.md"));
 });
+
+const agentsDir = path.join(root, "opencode", "agents");
+
+function loadAgentSource(name) {
+  return fs.readFileSync(path.join(agentsDir, `${name}.md`), "utf8");
+}
+
+function loadAgentFrontmatter(name) {
+  const match = loadAgentSource(name).match(/^---\n([\s\S]*?)\n---/);
+  assert.ok(match, `${name}.md: frontmatter block missing`);
+  const meta = {};
+  for (const line of match[1].split("\n")) {
+    const kv = line.match(/^([a-z_]+):\s*(.*)$/);
+    if (kv) meta[kv[1]] = kv[2].trim();
+  }
+  return meta;
+}
+
+test("mode agents declare a description, a selectable mode and a model", () => {
+  for (const name of ["ask", "ask-local", "plan", "review"]) {
+    const meta = loadAgentFrontmatter(name);
+    assert.ok(
+      (meta.description || "").length > 10,
+      `${name}: description missing or too short`,
+    );
+    assert.ok(
+      ["primary", "all"].includes(meta.mode),
+      `${name}: mode ${meta.mode} won't show in the canvas mode select`,
+    );
+    assert.match(meta.model || "", /^ollama\//, `${name}: model not pinned`);
+  }
+});
+
+test("read-only mode agents deny edit and bash", () => {
+  for (const name of ["ask", "ask-local", "plan", "review"]) {
+    const raw = loadAgentSource(name);
+    assert.match(raw, /edit:\s*deny/, `${name}: edit deny missing`);
+    assert.ok(
+      /bash:\s*deny/.test(raw) || raw.includes('"*": deny'),
+      `${name}: bash deny missing`,
+    );
+  }
+  assert.match(
+    loadAgentSource("plan"),
+    /webfetch:\s*deny/,
+    "plan: webfetch deny missing",
+  );
+});
+
+test("review keeps its git-only bash allowlist", () => {
+  const raw = loadAgentSource("review");
+  for (const rule of [
+    '"*": deny',
+    '"git diff*": allow',
+    '"git log*": allow',
+    '"git show*": allow',
+  ]) {
+    assert.ok(raw.includes(rule), `review: bash rule missing ${rule}`);
+  }
+});
+
+test("plan pins the flash model used for the ACP preset", () => {
+  const meta = loadAgentFrontmatter("plan");
+  assert.equal(meta.model, "ollama/glm-5.3-flash:cloud");
+});

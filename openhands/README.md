@@ -64,15 +64,22 @@ Ensuite, nouvelle conversation : l'agent ACP tourne sur GLM-5.3-Flash via
 la passerelle Ollama. Vérifie avec le probe habituel (`which opencode;
 opencode --version; …; what model are you running on…`).
 
+Plusieurs agents de mode sont recopiés dans le conteneur
+(`opencode/agents/` à chaque `up`) : le sélecteur de mode de Canvas
+propose **Ask** (lecture seule, réponses simples), **Plan** (prépare un
+plan sans rien modifier), **Build** (l'agent intégré, seul à pouvoir
+éditer) et **Review** (revue de code par Kimi, aussi disponible comme
+sous-agent via `@review`).
+
 ## Ce qui persiste où
 
-| Élément                          | Emplacement                                         | Survit à un redémarrage ?    |
-| -------------------------------- | --------------------------------------------------- | ---------------------------- |
-| État Canvas (dont le preset ACP) | volume Docker `openhands-state`                     | oui                          |
-| Binaire opencode                 | `~/.local/share/openhands/opencode/bin/`            | oui (monté)                  |
-| Config opencode conteneur        | `~/.local/share/openhands/opencode-container.jsonc` | oui (recopiée à chaque `up`) |
-| Règles globales + skills         | `opencode/` du dépôt (`AGENTS.md`, `skills/`)       | oui (recopiés à chaque `up`) |
-| Projets                          | `~/src/github.com/mlhamel`                          | oui (monté, ACL)             |
+| Élément                           | Emplacement                                              | Survit à un redémarrage ?    |
+| --------------------------------- | -------------------------------------------------------- | ---------------------------- |
+| État Canvas (dont le preset ACP)  | volume Docker `openhands-state`                          | oui                          |
+| Binaire opencode                  | `~/.local/share/openhands/opencode/bin/`                 | oui (monté)                  |
+| Config opencode conteneur         | `~/.local/share/openhands/opencode-container.jsonc`      | oui (recopiée à chaque `up`) |
+| Règles globales + skills + agents | `opencode/` du dépôt (`AGENTS.md`, `skills/`, `agents/`) | oui (recopiés à chaque `up`) |
+| Projets                           | `~/src/github.com/mlhamel`                               | oui (monté, ACL)             |
 
 Pour forcer une réinstallation d'opencode : supprime
 `~/.local/share/openhands/opencode` puis relance `openhands.sh up`.
@@ -84,9 +91,9 @@ Pour forcer une réinstallation d'opencode : supprime
 - L'agent ACP n'a pas accès aux mécaniques hôte (plugins, Director,
   permissions) — seulement au provider Ollama + GLM. Les instructions,
   elles, sont recopiées dans le conteneur à chaque `up` (`AGENTS.md` +
-  skills, dont `planning`) : le comportement « plan d'abord » s'applique
-  aussi côté canvas. C'est volontaire : les plugins ne sont pas installés
-  dans le conteneur.
+  skills, dont `planning`, + `agents/`) : le comportement « plan
+  d'abord » s'applique aussi côté canvas. C'est volontaire : les plugins
+  ne sont pas installés dans le conteneur.
 - La config embarquée utilise le schéma opencode **v1** (`provider` /
   `npm` / `options`) parce que le script d'install fournit opencode
   1.19.6. Si le binaire du conteneur passe un jour en 2.x, elle doit

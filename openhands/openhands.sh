@@ -48,13 +48,15 @@ STATE_VOLUME="openhands-state"
 CANVAS_URL="http://localhost:${PORT}/canvas"
 CANVAS_USER="10001"
 
-# Repo tree adjacent to this script: the global rules (AGENTS.md) and the
-# skills it contains are synced into the container config too, so the ACP
-# agent plans like a host agent does. Absent when the script runs as a
-# standalone copy (~/bin): the sync is then skipped with a warning.
+# Repo tree adjacent to this script: the global rules (AGENTS.md), the
+# skills and the mode agents (Ask/Plan/Build/Review) they contain are
+# synced into the container config too, so the ACP agent plans like a
+# host agent does. Absent when the script runs as a standalone copy
+# (~/bin): the sync is then skipped with a warning.
 SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
 REPO_ROOT="$(dirname "$SCRIPT_DIR")"
 HOST_AGENTS="$REPO_ROOT/opencode/AGENTS.md"
+HOST_AGENTS_DIR="$REPO_ROOT/opencode/agents"
 HOST_SKILLS="$REPO_ROOT/opencode/skills"
 
 log() { printf '%s\n' "openhands: $*"; }
@@ -174,9 +176,11 @@ start_container() {
 # cp` fails when the destination directory does not exist.
 #
 # When the repo tree is adjacent to this script (normal checkout), the
-# global AGENTS.md and the skills are synced the same way: opencode loads
-# its global instructions from `.config/opencode/AGENTS.md` and discovers
-# skills in `.config/opencode/skills/`. The skills tree is wiped first so
+# global AGENTS.md, the skills and the mode agents are synced the same
+# way: opencode loads its global instructions from
+# `.config/opencode/AGENTS.md`, discovers skills in
+# `.config/opencode/skills/` and the mode agents (Ask/Plan/Build/Review)
+# in `.config/opencode/agents/`. The trees are wiped before each copy so
 # deletions/renames on the host side propagate (docker cp would only
 # merge). A standalone copy of this script (~/bin) has no repo to read
 # from: both are skipped with a warning instead of failing.
@@ -186,12 +190,17 @@ install_config() {
   docker cp "${CONFIG_FILE}" "${CONTAINER_NAME}:/home/openhands/.config/opencode/opencode.jsonc"
   docker exec --user root "${CONTAINER_NAME}" chown "${CANVAS_USER}:${CANVAS_USER}" /home/openhands/.config/opencode/opencode.jsonc
   if [ -f "$HOST_AGENTS" ] && [ -d "$HOST_SKILLS" ]; then
-    log "Config: copie des règles globales (AGENTS.md) et des skills…"
+    log "Config: copie des règles globales (AGENTS.md), des skills et des agents de mode…"
     docker cp "${HOST_AGENTS}" "${CONTAINER_NAME}:/home/openhands/.config/opencode/AGENTS.md"
     docker exec --user root "${CONTAINER_NAME}" chown "${CANVAS_USER}:${CANVAS_USER}" /home/openhands/.config/opencode/AGENTS.md
     docker exec --user root "$CONTAINER_NAME" rm -rf /home/openhands/.config/opencode/skills
     docker cp "${HOST_SKILLS}" "${CONTAINER_NAME}:/home/openhands/.config/opencode/skills"
     docker exec --user root "$CONTAINER_NAME" chown -R "${CANVAS_USER}:${CANVAS_USER}" /home/openhands/.config/opencode/skills
+    if [ -d "$HOST_AGENTS_DIR" ]; then
+      docker exec --user root "$CONTAINER_NAME" rm -rf /home/openhands/.config/opencode/agents
+      docker cp "${HOST_AGENTS_DIR}" "${CONTAINER_NAME}:/home/openhands/.config/opencode/agents"
+      docker exec --user root "$CONTAINER_NAME" chown -R "${CANVAS_USER}:${CANVAS_USER}" /home/openhands/.config/opencode/agents
+    fi
   else
     log "Config: AGENTS.md/skills introuvables à côté du script — non copiés (copie standalone du script)."
   fi
@@ -233,8 +242,8 @@ show_summary() {
     log "opencode: $(docker exec "$CONTAINER_NAME" /home/openhands/.opencode/bin/opencode --version 2>/dev/null)"
   fi
   log "Config: $CONFIG_FILE -> /home/openhands/.config/opencode/opencode.jsonc (copiée à chaque up, Ollama -> host.docker.internal:11434, GLM épinglés)"
-  if [ -f "$HOST_AGENTS" ] && [ -d "$HOST_SKILLS" ]; then
-    log "Règles: $HOST_AGENTS + $HOST_SKILLS -> /home/openhands/.config/opencode/ (recopiées à chaque up — l'agent ACP suit les règles globales et les skills)"
+  if [ -f "$HOST_AGENTS" ] && [ -d "$HOST_SKILLS" ] && [ -d "$HOST_AGENTS_DIR" ]; then
+    log "Règles: $HOST_AGENTS + $HOST_SKILLS + $HOST_AGENTS_DIR -> /home/openhands/.config/opencode/ (recopiées à chaque up — l'agent ACP suit les règles globales, les skills et les 4 modes)"
   else
     log "Règles: AGENTS.md/skills introuvables à côté du script — non copiés (copie standalone du script)"
   fi
@@ -305,6 +314,13 @@ cmd_status() {
     log "Règles globales: skills présentes dans le conteneur"
   else
     log "Règles globales: skills absentes dans le conteneur"
+  fi
+  if [ -d "$HOST_AGENTS_DIR" ]; then
+    if docker exec "$CONTAINER_NAME" test -d /home/openhands/.config/opencode/agents 2>/dev/null; then
+      log "Règles globales: agents de mode présents dans le conteneur"
+    else
+      log "Règles globales: agents de mode absents dans le conteneur"
+    fi
   fi
 }
 
