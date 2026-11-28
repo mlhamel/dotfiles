@@ -155,7 +155,12 @@ invocation to `$STUB_LOG`. Cases (43):
 run` logged with the pinned image, config copied in with `mkdir -p` +
   `docker cp` + `chown` and no read-only file mount), and stubbed
   `status` (container
-  running, UI reachable, version reported). The Docker steps themselves
+  running, UI reachable, version reported). Startup failures surface
+  bounded logs before any config copy; stopped status skips internal
+  checks; incompatible GitHub App mounts require recreation. Two
+  additional cases use real `setfacl`/`getfacl` on scratch keys to verify
+  repeated setup and reject unsafe ACLs (skipped if ACL tools are
+  unavailable). The Docker steps themselves
   are not covered here — the first live run on the Framework is the real
   test.
 

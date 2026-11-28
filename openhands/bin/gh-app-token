@@ -15,7 +15,7 @@
 # Configuration (environment):
 #   GITHUB_APP_ID        Required, numeric App identifier (not a secret).
 #   GITHUB_APP_KEY_FILE  App private key, default
-#                        /home/openhands/.config/github-app.pem (read-only
+#                        /run/openhands-github-app.pem (read-only
 #                        bind-mount inside the Canvas container).
 #   GITHUB_API           API base, default https://api.github.com.
 #
@@ -26,7 +26,7 @@ set -euo pipefail
 
 GITHUB_API="${GITHUB_API:-https://api.github.com}"
 APP_ID="${GITHUB_APP_ID:-}"
-KEY_FILE="${GITHUB_APP_KEY_FILE:-/home/openhands/.config/github-app.pem}"
+KEY_FILE="${GITHUB_APP_KEY_FILE:-/run/openhands-github-app.pem}"
 
 REPO=""
 INSTALLATION_ID=""

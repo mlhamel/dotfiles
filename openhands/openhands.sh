@@ -83,7 +83,7 @@ HOST_SKILLS="$REPO_ROOT/opencode/skills"
 GH_APP_CONF_DIR="${HOME}/.config/openhands"
 GH_APP_KEY_FILE="${GH_APP_CONF_DIR}/github-app.pem"
 GH_APP_CONF_FILE="${GH_APP_CONF_DIR}/github-app.conf"
-GH_APP_KEY_MOUNT="/home/openhands/.config/github-app.pem"
+GH_APP_KEY_MOUNT="/run/openhands-github-app.pem"
 GH_APP_HELPER_HOST="${SCRIPT_DIR}/bin/gh-app-token"
 GH_APP_HELPER_TARGET="/home/openhands/.opencode/bin/gh-app-token"
 GH_APP_ENABLED=0
@@ -172,12 +172,33 @@ ensure_config() {
 }
 
 # Optional GitHub App wiring, skipped with a notice when the key is
-# absent. When the key IS present everything is validated: 600 mode
+# absent. When the key IS present everything is validated: owner-only access
 # (the die message names the fix), github-app.conf with an integer
 # GITHUB_APP_ID, and a read-only ACL for the canvas user so docker can
 # bind-mount the key. The helper is staged in the persistent opencode
 # bin dir (bind-mounted at /home/openhands/.opencode). The App ID is
 # parsed with sed, never sourced: the conf file is not trusted shell.
+validate_github_app_key() {
+  local mode
+  mode="$(stat -c '%a' "$GH_APP_KEY_FILE")"
+  if [ "$(stat -c '%u' "$GH_APP_KEY_FILE")" != "$(id -u)" ]; then
+    die "GitHub App: la clé $GH_APP_KEY_FILE doit appartenir à l'utilisateur courant"
+  fi
+  if [[ "$mode" != "600" && "$mode" != "640" ]] \
+    || ! getfacl -cpn "$GH_APP_KEY_FILE" | awk -F: -v uid="$CANVAS_USER" '
+      /^$/ { next }
+      $1 == "user" && $2 == "" && $3 == "rw-" { owner++; next }
+      $1 == "user" && $2 == uid && $3 ~ /^r--([[:space:]]|$)/ { next }
+      $0 == "group::---" { group++; next }
+      $0 == "other::---" { other++; next }
+      $0 == "mask::r--" || $0 == "mask::---" { next }
+      { bad = 1 }
+      END { exit (bad || owner != 1 || group != 1 || other != 1) }
+    '; then
+    die "GitHub App: la clé $GH_APP_KEY_FILE doit être privée (mode 600, seule ACL de lecture uid ${CANVAS_USER} autorisée; actuellement ${mode}). Corrige avec: setfacl -b $GH_APP_KEY_FILE && chmod 600 $GH_APP_KEY_FILE"
+  fi
+}
+
 ensure_github_app() {
   if [ ! -f "$GH_APP_KEY_FILE" ]; then
     log "GitHub App: clé absente ($GH_APP_KEY_FILE) — non branchée (optionnel, voir openhands/README.md)"
@@ -187,11 +208,7 @@ ensure_github_app() {
     log "Attention: helper GitHub App introuvable ($GH_APP_HELPER_HOST) — non branché (non bloquant)"
     return 0
   fi
-  local mode
-  mode="$(stat -c '%a' "$GH_APP_KEY_FILE")"
-  if [ "$mode" != "600" ]; then
-    die "GitHub App: la clé $GH_APP_KEY_FILE doit être en mode 600 (actuellement ${mode}). Corrige avec: chmod 600 $GH_APP_KEY_FILE"
-  fi
+  validate_github_app_key
   if [ ! -f "$GH_APP_CONF_FILE" ]; then
     die "GitHub App: clé présente mais $GH_APP_CONF_FILE introuvable. Écris-y GITHUB_APP_ID=<entier> (voir openhands/README.md)"
   fi
@@ -212,15 +229,17 @@ container_exists() { docker ps -a --format '{{.Names}}' | grep -qx "$CONTAINER_N
 container_running() { docker ps --format '{{.Names}}' | grep -qx "$CONTAINER_NAME"; }
 
 start_container() {
+  if container_exists && [ "${GH_APP_ENABLED}" = 1 ]; then
+    local key_source
+    key_source="$(docker inspect -f "{{range .Mounts}}{{if eq .Destination \"$GH_APP_KEY_MOUNT\"}}{{if not .RW}}{{.Source}}{{end}}{{end}}{{end}}" "$CONTAINER_NAME")"
+    [ "$key_source" = "$GH_APP_KEY_FILE" ] \
+      || die "GitHub App: montage de clé incompatible dans le conteneur existant. Relance: $0 restart (état persistant conservé)"
+  fi
   if container_running; then
     log "Conteneur déjà en cours: $CONTAINER_NAME"
     return 0
   fi
   if container_exists; then
-    if [ "${GH_APP_ENABLED}" = 1 ] \
-      && ! docker inspect -f '{{range .Mounts}}{{.Destination}} {{end}}' "$CONTAINER_NAME" | grep -qF "$GH_APP_KEY_MOUNT"; then
-      log "Attention: conteneur existant sans la clé GitHub App montée — relance « down » puis « up » pour la brancher"
-    fi
     log "Redémarre le conteneur arrêté: $CONTAINER_NAME"
     docker start "$CONTAINER_NAME"
     return 0
@@ -366,15 +385,24 @@ seed_profiles() {
 
 wait_ui() {
   log "Attente de l'interface (${CANVAS_URL})…"
-  local i
-  for ((i = 1; i <= 45; i++)); do
-    if curl -fsS -o /dev/null "$CANVAS_URL" 2>/dev/null; then
+  local deadline=$((SECONDS + 90))
+  while ((SECONDS < deadline)); do
+    if [ "$(docker inspect -f '{{.State.Running}}' "$CONTAINER_NAME")" != "true" ]; then
+      container_failure "le conteneur s'est arrêté pendant le démarrage"
+    fi
+    if curl -fsS --max-time 2 -o /dev/null "$CANVAS_URL" 2>/dev/null; then
       log "Interface joignable."
       return 0
     fi
     sleep 2
   done
-  die "l'interface ne répond pas après 90 s. Voir: docker logs $CONTAINER_NAME"
+  container_failure "l'interface ne répond pas après environ 90 s"
+}
+
+container_failure() {
+  docker inspect -f 'openhands: état={{.State.Status}} exit={{.State.ExitCode}} OOM={{.State.OOMKilled}}' "$CONTAINER_NAME" >&2 || true
+  docker logs --tail 30 "$CONTAINER_NAME" >&2 || true
+  die "$1. Voir: docker logs $CONTAINER_NAME"
 }
 
 ensure_opencode() {
@@ -424,10 +452,10 @@ cmd_up() {
   ensure_config
   ensure_github_app
   start_container
+  wait_ui
   install_config
   wire_gh_app_container
   seed_profiles
-  wait_ui
   ensure_opencode
   show_summary
 }
@@ -453,6 +481,10 @@ cmd_status() {
     log "Conteneur: $CONTAINER_NAME en cours"
   elif container_exists; then
     log "Conteneur: $CONTAINER_NAME arrêté"
+    log "Vérifications internes indisponibles tant que le conteneur est arrêté (pas nécessairement absentes)."
+    docker inspect -f 'openhands: état={{.State.Status}} exit={{.State.ExitCode}} OOM={{.State.OOMKilled}}' "$CONTAINER_NAME"
+    log "Diagnostic: docker logs $CONTAINER_NAME"
+    return 0
   else
     log "Conteneur: $CONTAINER_NAME absent"
     return 0
