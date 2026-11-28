@@ -13,12 +13,21 @@ sans intervention manuelle à chaque démarrage.
    les 9 modèles de la passerelle épinglés (dont `glm-5.3-flash:cloud`,
    contexte et sortie limités à 65536 tokens — opencode 1.19.6 exige les
    deux clés `limit.context` et `limit.output`).
-3. **Conteneur** — démarre `ghcr.io/openhands/agent-canvas:1.43.0` (détaché,
+3. **GitHub App** (optionnel) — si `~/.config/openhands/github-app.pem`
+   et l'App ID (`~/.config/openhands/github-app.conf`, pas un secret)
+   sont présents : la clé (mode 600 exigé, read-only pour l'utilisateur
+   du conteneur) est montée read-only, le helper `gh-app-token` est posé
+   dans le dossier opencode persistant et branché comme credential
+   helper git du conteneur — push et PR passent par des tokens courts,
+   mintés à la demande, rien n'est persisté. Clé absente : `up` prévient
+   et continue. Mode != 600 ou App ID manquant : `up` échoue avec le
+   correctif dans le message.
+4. **Conteneur** — démarre `ghcr.io/openhands/agent-canvas:1.43.0` (détaché,
    nommé `openhands-canvas`), avec : projets montés, volume d'état
    `openhands-state` et dossier opencode persistant
    (`~/.local/share/openhands/opencode` → `/home/openhands/.opencode`, le
    binaire survit aux redémarrages).
-4. **Config install** — copie la config dans le conteneur (`mkdir -p` +
+5. **Config install** — copie la config dans le conteneur (`mkdir -p` +
    `docker cp` + `chown`). Ce n'est volontairement pas un montage :
    monter le fichier dans `.config` rend ce dossier non inscriptible
    pour uid 10001 et agent-canvas refuse de démarrer (« Browser config
@@ -31,15 +40,15 @@ sans intervention manuelle à chaque démarrage.
    le même dossier : l'agent ACP les lit comme un agent hôte. L'arbre
    des skills est effacé puis recopié, pour que les suppressions de
    skills côté dépôt se propagent.
-5. **Profils** — sème quatre profils d'agent opencode dans le conteneur
+6. **Profils** — sème quatre profils d'agent opencode dans le conteneur
    (`opencode-build`, `opencode-ask`, `opencode-plan`, `opencode-review`),
    chacun épinglant son mode de session ACP : présents, ils sont
    conservés (les modifications faites dans l'UI survivent) ; absents,
    ils sont écrits depuis les définitions canoniques ; le preset
    générique `opencode-acp` est retiré.
-6. **Binaire** — installe opencode dans le conteneur si absent (l'install
+7. **Binaire** — installe opencode dans le conteneur si absent (l'install
    atterrit dans le dossier persistant : coût unique).
-7. **Santé** — attend que l'interface réponde, puis affiche un résumé.
+8. **Santé** — attend que l'interface réponde, puis affiche un résumé.
 
 ## Usage
 
@@ -49,13 +58,76 @@ le PATH) :
 ```sh
 openhands/openhands.sh            # up (défaut)
 openhands/openhands.sh up         # idem — sûr à relancer, ne refait que ce qui manque
-openhands/openhands.sh status     # conteneur + interface + binaire + config + règles
+openhands/openhands.sh status     # conteneur + interface + binaire + config + règles + GitHub App
 openhands/openhands.sh down       # stoppe + supprime le conteneur (état et fichiers conservés)
 openhands/openhands.sh restart    # down + up
 openhands/openhands.sh help
 ```
 
 Puis ouvre <http://localhost:8000/canvas>.
+
+## GitHub App (optionnel) — push et PR
+
+Sans branchement, l'agent Canvas commite en local mais ne peut ni
+pousser ni ouvrir de PR. Brancher une GitHub App lui donne les deux,
+multi-dépôt, avec un secret minimal : la clé privée reste un fichier
+hôte (mode 600) monté read-only, et le conteneur n'obtient que des
+tokens d'installation courts (1 h), mintés à la demande et jamais
+persistés (ni logs, ni dotfiles, ni git).
+
+### Décision `gh`
+
+`openhands.sh` n'installe pas `gh`. Le helper sert de credential helper
+git (push/pull transparents) et, pour le reste, l'agent l'appelle en
+mode `gh` : `gh-app-token gh pr create …` mint un token à chaque appel
+et l'exporte comme `GH_TOKEN`. Si `gh` manque dans l'image, l'agent
+l'installe dans le dossier persistant (comme opencode) ou retombe sur
+l'API GitHub avec `curl` + `gh-app-token token`.
+
+### Étapes humaines (une fois, dans l'interface GitHub)
+
+1. **Créer l'app** — GitHub → Settings → Developer settings → GitHub
+   Apps → New GitHub App ; nom libre (`openhands-agent`), webhook
+   inactif (aucun événement utile).
+2. **Permissions** — repository only, le minimum : `contents: write`
+   (pousser des branches) et `pull_requests: write` (ouvrir des PR) ;
+   `metadata: read` est implicite. Aucune autre permission de dépôt, ni
+   permission organisation/utilisateur.
+3. **Clé privée** — « Generate a private key » (PEM), à télécharger une
+   seule fois.
+4. **Installer l'app** — sur _selected repositories_ (jamais « all
+   repositories ») : dotfiles d'abord, puis les dépôts à ouvrir.
+
+### Layout hôte et branchement
+
+- `~/.config/openhands/github-app.pem` — la clé, **mode 600**. Seul
+  secret : jamais dans le dépôt ou l'image, jamais copiée hors du
+  montage read-only (`/home/openhands/.config/github-app.pem`).
+- `~/.config/openhands/github-app.conf` — pas une donnée sensible :
+  `GITHUB_APP_ID=123456` (identifiant public de l'app).
+
+Au prochain `up` : clé absente → `up` prévient et continue sans
+brancher ; clé présente → montage read-only, helper `gh-app-token` posé
+(755) dans le dossier opencode persistant et configuré comme credential
+helper git du conteneur ; mode != 600 ou App ID manquant → `up` échoue
+avec le correctif dans le message. Le résumé de `up` et `status`
+affichent l'état (branchée, App ID affiché / non branchée).
+
+### Prérequis et garde-fous
+
+- **Protection de branche** — active une règle sur `master` de chaque
+  dépôt ouvert à l'app (Settings → Branches : PR obligatoire, push
+  direct interdit). Le script ne le vérifie pas : c'est ce qui borne
+  l'agent à pousser des branches et ouvrir des PR relus par un humain.
+- **Rotation** — régénère la clé dans les réglages de l'app (l'ancienne
+  meurt immédiatement), remplace le fichier hôte (mode 600), relance
+  `openhands.sh restart`.
+- **Révocation** — désinstalle l'app d'un dépôt pour le couper
+  (immédiat) ; suspendre ou supprimer l'app coupe tout.
+- **Risque résiduel (v1, assumé)** — un agent prompt-injecté peut lire
+  la clé montée. Ce qui borne le dommage : permissions minimales,
+  dépôts choisis un par un, tokens courts, clé régénérable en une
+  minute.
 
 ## Le réglage ACP automatiquement épinglé (persistant)
 
@@ -117,6 +189,10 @@ Pour forcer une réinstallation d'opencode : supprime
   sera recréé ; le binaire et la config persistent).
 - Le script ne démarre pas Ollama : la passerelle systemd
   (`ollama.service`, `OLLAMA_HOST=0.0.0.0:11434`) doit déjà tourner.
+- Le branchement GitHub App est optionnel et la protection de branche
+  de `master` n'est pas vérifiée par le script (GitHub Settings →
+  Branches, PR obligatoire) ; en v1 la clé privée reste lisible dans le
+  conteneur (montée read-only) — voir « GitHub App (optionnel) ».
 - Premier lancement sur une machine : c'est le vrai test (les parties
   Docker ne sont pas couvertes par le harnais shell, qui tourne avec un
   `docker` factice).

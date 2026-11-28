@@ -4,6 +4,15 @@ All notable changes to this repo. Dates are YYYY-MM-DD (local commit date);
 entries reference the committing hash. Newest first. When adding an entry,
 use today's date and the hash of the change once committed.
 
+## 2026-11-28
+
+- `(hash)` — GitHub App push + PR for the Canvas agent (PR
+  `feat/openhands-github-app-2026-11-28`): new `openhands/bin/gh-app-token`
+  helper — minted on demand, used as the container's git credential
+  helper (`gh-app-token gh <args>` for `gh pr create`); key absent →
+  `up` warns and continues, mode != 600 or missing App ID → `up` fails
+  with the fix in the message. README with the human steps.
+
 ## 2026-11-26
 
 - `(hash)` — Record stderr on failed eval runs (PR

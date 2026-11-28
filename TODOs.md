@@ -305,18 +305,19 @@ Langfuse (self-hosted observability) and Spec Kit (spec → plan → tasks)
       `ollama/glm-5.3-flash:cloud` via the Ollama gateway, config loaded,
       provider installed. The automations fallback caveat still stands
       for automations (untested).
-- [ ] **GitHub App — host-side verification** — the spec
-      (`specs/openhands-github-app.md`, PR #41) is implemented by
-      Mathieu with the agent in the sandbox, which has no docker, no
-      prek, no network: the host-side steps remain — create the GitHub
-      App (UI), generate the private key
-      (`~/.config/openhands/github-app.pem`, mode 600), install it on
-      the chosen repos, verify `master` branch protection, then
-      `openhands.sh up` with the key (read-only mount, helper
-      installed, credential helper configured) and the live check
-      (`git push` + `gh pr create` from inside the container, token
-      minted against the real app); run the checks (prek, node, shell)
-      on the host machine.
+- [x] **GitHub App — push + PR** — let the Canvas agent push branches and
+      open PRs multi-repo: GitHub App installed on selected repos only
+      (minimum permissions: `contents: write` + `pull_requests: write`),
+      private key as a host file mode 600 (`~/.config/openhands/`, never
+      in the repo, image or logs) mounted read-only;
+      `openhands/bin/gh-app-token` mints 1-h installation tokens on
+      demand (RS256 JWT from the key, minted per use, nothing persisted)
+      and is wired by `openhands.sh` as the container's git credential
+      helper (`gh-app-token gh <args>` for `gh pr create`); key absent →
+      `up` warns and continues, mode != 600 or missing App ID → `up`
+      fails with the fix in the message. Outcome: shellcheck clean,
+      helper regression 26/26 + harness cases 4/4 (`openhands-gh-app`),
+      full harness 46/0/3 (2026-11-28).
 - [ ] **PC dédié** — if the trial concludes, move the same Docker setup
       to the always-on PC as a systemd service with an API key, reached
       from the Framework over Tailscale.
