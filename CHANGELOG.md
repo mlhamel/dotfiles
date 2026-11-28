@@ -6,6 +6,12 @@ use today's date and the hash of the change once committed.
 
 ## 2026-11-28
 
+- `(hash)` — Require owner review on every change: `.github/CODEOWNERS`
+  (`* @mlhamel`) plus branch protection on `master` — one approval,
+  dismiss stale approvals, up-to-date branches with the `prek`/`test`
+  checks, linear history, no force pushes, enforced for admins. Agent
+  pushes and human pushes both land through a reviewed PR.
+
 - `(hash)` — Repair OpenHands startup with the optional GitHub App:
   mount the key at `/run/openhands-github-app.pem`, outside Canvas's
   writable `.config`; validate owner and ACL permissions without
