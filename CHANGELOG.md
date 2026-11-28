@@ -5,6 +5,7 @@ entries reference the committing hash. Newest first. When adding an entry,
 use today's date and the hash of the change once committed.
 
 ## 2026-11-28
+
 - `(hash)` — Renamed the repo `dotfiles` → `factory` — README (title,
   scope line, `mlhamel/factory.git` clone URL, `~` paths), `package.json`
   name, `setup.sh` banner and sysctl conf `99-factory-inotify.conf`, the
