@@ -344,6 +344,11 @@ case "$*" in
   *test\ -x\ /home/openhands/.opencode/bin/opencode*)
     exit "${STUB_DOCKER_TEST_X_RC:-0}"
     ;;
+  *test\ -f\ /home/openhands/.openhands/agent-profiles/*)
+    # Default: the profile is absent in the "container" (first up).
+    # Set STUB_DOCKER_PROFILES_RC=0 to pretend all profiles are present.
+    exit "${STUB_DOCKER_PROFILES_RC:-1}"
+    ;;
   *--version*)
     echo "${STUB_DOCKER_VERSION:-1.19.6}"
     exit 0
@@ -1195,6 +1200,22 @@ case_openhands_up() {
   check_contains "${STUB_LOG}" "/home/openhands/.config/opencode/AGENTS.md" "global rules are copied to the container"
   check_contains "${STUB_LOG}" "/home/openhands/.config/opencode/skills" "skills are copied to the container"
   check_not_contains "${STUB_LOG}" "opencode.jsonc:ro" "no read-only file mount for the config"
+  check_contains "${STUB_LOG}" "mkdir -p /home/openhands/.openhands/agent-profiles" "profile dir is created in the container"
+  check_contains "${STUB_LOG}" "rm -f /home/openhands/.openhands/agent-profiles/opencode-acp.json" "legacy opencode-acp preset is removed"
+  check_contains "${CASE_HOME}/out.log" "opencode-build/ask/plan/review" "summary lists the four profile names"
+  local stage="${CASE_HOME}/.local/share/openhands/agent-profiles"
+  local mode
+  for mode in build ask plan review; do
+    check_contains "${STUB_LOG}" "agent-profiles/opencode-${mode}.json" "${mode} profile is staged and copied"
+    check_contains "${stage}/opencode-${mode}.json" "\"acp_session_mode\": \"${mode}\"" "${mode} profile pins its session mode"
+    check_contains "${stage}/opencode-${mode}.json" "\"name\": \"opencode-${mode}\"" "${mode} profile is named opencode-<mode>"
+    check_contains "${stage}/opencode-${mode}.json" "\"revision\": 1" "${mode} profile starts at revision 1"
+    check_contains "${stage}/opencode-${mode}.json" "ollama/glm-5.3-flash:cloud" "${mode} profile pins the GLM model"
+    if ! python3 -m json.tool "${stage}/opencode-${mode}.json" > /dev/null 2> "${CASE_HOME}/${mode}.err"; then
+      echo "  FAIL: ${mode} profile is not valid JSON" >&2
+      CASE_FAILED=1
+    fi
+  done
   finish_case
 }
 
@@ -1222,6 +1243,31 @@ case_openhands_up_standalone() {
   finish_case
 }
 
+# Second `up`: when all four profiles are already in the container volume
+# (STUB_DOCKER_PROFILES_RC=0), nothing is rewritten — the "conservé" branch
+# runs, no profile is staged or copied, so UI edits survive. The legacy
+# opencode-acp preset removal still runs unconditionally.
+case_openhands_up_profiles_keep() {
+  new_case
+  stub_curl
+  stub_docker
+  stub_setfacl
+  stub_getfacl
+  mkdir -p "${CASE_HOME}/src/github.com/mlhamel"
+  STUB_DOCKER_PROFILES_RC=0 bash "${ROOT}/openhands/openhands.sh" up > "${CASE_HOME}/out.log" 2>&1
+  local rc=$?
+  local mode
+  check_rc 0 "${rc}" "up with profiles present exits 0"
+  for mode in build ask plan review; do
+    check_contains "${CASE_HOME}/out.log" "opencode-${mode} déjà présent — conservé" "${mode} profile is kept, not rewritten"
+  done
+  check_not_contains "${CASE_HOME}/out.log" "écrit dans le conteneur" "no profile was rewritten"
+  check_not_contains "${STUB_LOG}" ".local/share/openhands/agent-profiles/opencode-build.json" "no profile was staged for docker cp"
+  check_not_contains "${STUB_LOG}" ".local/share/openhands/agent-profiles/opencode-plan.json" "no plan profile was staged"
+  check_contains "${STUB_LOG}" "rm -f /home/openhands/.openhands/agent-profiles/opencode-acp.json" "legacy opencode-acp preset is still removed"
+  finish_case
+}
+
 case_openhands_status() {
   new_case
   stub_curl
@@ -1234,6 +1280,11 @@ case_openhands_status() {
   check_contains "${CASE_HOME}/out.log" "en cours" "status reports the container running"
   check_contains "${CASE_HOME}/out.log" "joignable" "status reports the UI reachable"
   check_contains "${CASE_HOME}/out.log" "1.19.6" "status reports the opencode version"
+  check_contains "${CASE_HOME}/out.log" "Profils agents: opencode absents" "status reports the profiles missing"
+  STUB_DOCKER_PROFILES_RC=0 STUB_DOCKER_PS="openhands-canvas" STUB_DOCKER_PS_A="openhands-canvas" bash "${ROOT}/openhands/openhands.sh" status > "${CASE_HOME}/out2.log" 2>&1
+  local rc2=$?
+  check_rc 0 "${rc2}" "status with profiles exits 0"
+  check_contains "${CASE_HOME}/out2.log" "Profils agents: opencode (4 modes) présents" "status reports the profiles present"
   finish_case
 }
 
@@ -1306,6 +1357,7 @@ run_case "oh-fix-no-args" case_oh_fix_no_args
 
 run_case "openhands-help" case_openhands_help
 run_case "openhands-up" case_openhands_up
+run_case "openhands-up-profiles-keep" case_openhands_up_profiles_keep
 run_case "openhands-up-standalone" case_openhands_up_standalone
 run_case "openhands-status" case_openhands_status
 

@@ -17,17 +17,19 @@
 #      the skills into the container (`mkdir -p` + `docker cp` + `chown`;
 #      a bind-mount of the file into `.config` makes that directory
 #      non-writable for uid 10001 and agent-canvas refuses to start).
-#   5. Binary: installs opencode inside the container if missing. The
+#   5. Profiles: seeds four opencode agent profiles into the container
+#      (build, ask, plan, review), each pinning its ACP session mode —
+#      profiles already present are kept, so edits made in the UI survive.
+#   6. Binary: installs opencode inside the container if missing. The
 #      install lands in the persistent dir, so it is a one-time cost.
-#   6. Health: waits for the Canvas UI to answer, then prints a summary.
+#   7. Health: waits for the Canvas UI to answer, then prints a summary.
 #
-# After the FIRST `up`, do this once in the Canvas UI (it persists in the
-# openhands-state volume, so it survives restarts):
-#   Settings -> Agent -> Agent: ACP -> Preset: Custom
-#   Command: /home/openhands/.opencode/bin/opencode acp
-#   Model:   ollama/glm-5.3-flash:cloud
-# Then start a new conversation. The ACP agent runs on GLM-5.3-Flash via
-# the host Ollama gateway.
+# The agent picker in each conversation is the ACP session-mode switch
+# the Canvas UI lacks: opencode-ask reads and answers without editing,
+# opencode-plan prepares a plan, opencode-build does the integrated work
+# and opencode-review reviews the diff. All of them run the ACP agent with
+# the `ollama/glm-5.3-flash:cloud` model via the host Ollama gateway — no
+# manual UI step needed.
 #
 # Requirements: docker (daemon running), curl, setfacl/getfacl (acl package).
 # Everything the script creates lives under ~/.local/share/openhands
@@ -47,6 +49,13 @@ CONFIG_FILE="$OPENHANDS_DATA/opencode-container.jsonc"
 STATE_VOLUME="openhands-state"
 CANVAS_URL="http://localhost:${PORT}/canvas"
 CANVAS_USER="10001"
+
+# Agent profiles live in the openhands-state volume. Canvas has no ACP
+# session-mode picker in the UI, so each opencode profile pins its mode
+# and doubles as the mode selector in the conversation's agent picker.
+ACP_PROFILE_DIR="/home/openhands/.openhands/agent-profiles"
+ACP_LEGACY_PROFILE="opencode-acp.json"
+ACP_MODES="build ask plan review"
 
 # Repo tree adjacent to this script: the global rules (AGENTS.md), the
 # skills and the mode agents (Ask/Plan/Build/Review) they contain are
@@ -207,6 +216,76 @@ install_config() {
   log "Config installée dans le conteneur."
 }
 
+# Seed the four per-mode opencode agent profiles into the container.
+# Canvas has no ACP session-mode picker in its UI; the SDK derives the
+# session mode from the selected agent profile (`acp_session_mode`), so
+# one profile per mode turns the mode into a pick in the agent picker.
+# Per-name rule, evaluated at each `up`: present in the volume -> left
+# untouched (edits made in the UI survive); absent -> (re)written from
+# the canonical definitions. The legacy generic `opencode-acp` preset
+# (no pinned mode) is removed at each `up`, best-effort: a failed removal
+# logs a warning instead of aborting `up`. Profiles
+# are written to the host staging dir first
+# (~/.local/share/openhands/agent-profiles/) — a wiped volume is
+# repopulated from there on the next `up` — then `docker cp`-ed one by
+# one (`mkdir -p` first: a fresh container has no `agent-profiles/` yet
+# and `docker cp` fails into a missing destination directory).
+acp_profile_id() {
+  case "$1" in
+    build) echo "5b1d0c3a-9e24-4f77-b2d6-8a41c5e93f10" ;;
+    ask) echo "7d94e2b1-3a68-4c15-9f8b-0e57a6d2c481" ;;
+    plan) echo "2c8f6a94-71d3-4b2e-8d50-93b4e1f7a2c0" ;;
+    review) echo "4e7a2b8f-0d51-49c3-a6b9-1f28c4d5e736" ;;
+    *) die "mode ACP inconnu: $1" ;;
+  esac
+}
+
+write_acp_profile() {
+  local mode="$1" file="$2" id
+  id="$(acp_profile_id "$mode")"
+  cat > "$file" <<EOF
+{
+  "schema_version": 4,
+  "agent_kind": "acp",
+  "id": "$id",
+  "name": "opencode-$mode",
+  "revision": 1,
+  "mcp_server_refs": null,
+  "secret_refs": null,
+  "integration_refs": null,
+  "sandbox": null,
+  "acp_server": "custom",
+  "acp_model": "ollama/glm-5.3-flash:cloud",
+  "acp_effort": null,
+  "acp_session_mode": "$mode",
+  "acp_prompt_timeout": 1800.0,
+  "acp_startup_timeout": 90.0,
+  "acp_command": "/home/openhands/.opencode/bin/opencode acp",
+  "acp_args": null
+}
+EOF
+}
+
+seed_profiles() {
+  local staging="$OPENHANDS_DATA/agent-profiles"
+  local mode file
+  mkdir -p "$staging"
+  docker exec "$CONTAINER_NAME" mkdir -p "$ACP_PROFILE_DIR"
+  for mode in $ACP_MODES; do
+    if docker exec "$CONTAINER_NAME" test -f "$ACP_PROFILE_DIR/opencode-${mode}.json" 2>/dev/null; then
+      log "Profil: opencode-${mode} déjà présent — conservé (modifiable dans l'UI)"
+      continue
+    fi
+    file="$staging/opencode-${mode}.json"
+    write_acp_profile "$mode" "$file"
+    docker cp "$file" "$CONTAINER_NAME:$ACP_PROFILE_DIR/opencode-${mode}.json"
+    docker exec --user root "$CONTAINER_NAME" chown "${CANVAS_USER}:${CANVAS_USER}" "$ACP_PROFILE_DIR/opencode-${mode}.json"
+    log "Profil: opencode-${mode} écrit dans le conteneur (mode ACP: ${mode})"
+  done
+  docker exec --user root "$CONTAINER_NAME" rm -f "$ACP_PROFILE_DIR/$ACP_LEGACY_PROFILE" 2>/dev/null \
+    || log "Attention: retrait du preset ${ACP_LEGACY_PROFILE%.json} impossible (non bloquant)"
+}
+
 wait_ui() {
   log "Attente de l'interface (${CANVAS_URL})…"
   local i
@@ -248,10 +327,7 @@ show_summary() {
     log "Règles: AGENTS.md/skills introuvables à côté du script — non copiés (copie standalone du script)"
   fi
   echo
-  log "Reste à faire UNE fois dans l'interface (persistant) :"
-  log "  Settings -> Agent -> ACP / Custom"
-  log "  Command: /home/openhands/.opencode/bin/opencode acp"
-  log "  Model:   ollama/glm-5.3-flash:cloud"
+  log "Profils: opencode-build/ask/plan/review épinglés par mode ACP -> $ACP_PROFILE_DIR (écrits s'ils manquent, conservés sinon; le preset générique opencode-acp est retiré)"
 }
 
 cmd_up() {
@@ -265,6 +341,7 @@ cmd_up() {
   ensure_config
   start_container
   install_config
+  seed_profiles
   wait_ui
   ensure_opencode
   show_summary
@@ -322,10 +399,15 @@ cmd_status() {
       log "Règles globales: agents de mode absents dans le conteneur"
     fi
   fi
+  if docker exec "$CONTAINER_NAME" test -f "$ACP_PROFILE_DIR/opencode-build.json" 2>/dev/null; then
+    log "Profils agents: opencode (4 modes) présents dans le conteneur"
+  else
+    log "Profils agents: opencode absents dans le conteneur (relance: $0 up)"
+  fi
 }
 
 usage() {
-  sed -n '2,34p' "$0"
+  sed -n '2,35p' "$0"
 }
 
 main() {

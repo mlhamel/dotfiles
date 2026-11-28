@@ -31,9 +31,15 @@ sans intervention manuelle à chaque démarrage.
    le même dossier : l'agent ACP les lit comme un agent hôte. L'arbre
    des skills est effacé puis recopié, pour que les suppressions de
    skills côté dépôt se propagent.
-5. **Binaire** — installe opencode dans le conteneur si absent (l'install
+5. **Profils** — sème quatre profils d'agent opencode dans le conteneur
+   (`opencode-build`, `opencode-ask`, `opencode-plan`, `opencode-review`),
+   chacun épinglant son mode de session ACP : présents, ils sont
+   conservés (les modifications faites dans l'UI survivent) ; absents,
+   ils sont écrits depuis les définitions canoniques ; le preset
+   générique `opencode-acp` est retiré.
+6. **Binaire** — installe opencode dans le conteneur si absent (l'install
    atterrit dans le dossier persistant : coût unique).
-6. **Santé** — attend que l'interface réponde, puis affiche un résumé.
+7. **Santé** — attend que l'interface réponde, puis affiche un résumé.
 
 ## Usage
 
@@ -51,43 +57,51 @@ openhands/openhands.sh help
 
 Puis ouvre <http://localhost:8000/canvas>.
 
-## Le seul réglage manuel (une fois, persistant)
+## Le réglage ACP automatiquement épinglé (persistant)
 
-Dans l'interface Canvas, une seule fois (le réglage vit dans le volume
-`openhands-state`, il survit aux redémarrages) :
+Canvas n'expose pas de sélecteur de mode ACP ; le mode de session dérive
+du profil d'agent sélectionné (`acp_session_mode`). `up` sème donc un
+profil opencode par mode, directement dans le volume `openhands-state`
+(`/home/openhands/.openhands/agent-profiles/`) :
 
-- Settings → Agent → Agent : **ACP** → Preset : **Custom**
-- Command : `/home/openhands/.opencode/bin/opencode acp`
-- Model : `ollama/glm-5.3-flash:cloud`
+- `opencode-build` — l'agent intégré, seul profil qui peut éditer
+- `opencode-ask` — lecture seule, réponses simples
+- `opencode-plan` — prépare un plan sans rien modifier
+- `opencode-review` — revue de code par Kimi (aussi sous-agent via `@review`)
 
-Ensuite, nouvelle conversation : l'agent ACP tourne sur GLM-5.3-Flash via
-la passerelle Ollama. Vérifie avec le probe habituel (`which opencode;
-opencode --version; …; what model are you running on…`).
+Tous pointent sur Command : `/home/openhands/.opencode/bin/opencode acp`
+et Model : `ollama/glm-5.3-flash:cloud` — plus aucun réglage manuel.
+Ensuite, nouvelle conversation : l'agent opencode tourne sur GLM-5.3-Flash
+via la passerelle Ollama, avec le mode de session du profil choisi.
+Vérifie avec le probe habituel (`which opencode; opencode --version; …;
+what model are you running on…`).
 
-Plusieurs agents de mode sont recopiés dans le conteneur
-(`opencode/agents/` à chaque `up`) : le sélecteur de mode de Canvas
-propose **Ask** (lecture seule, réponses simples), **Plan** (prépare un
-plan sans rien modifier), **Build** (l'agent intégré, seul à pouvoir
-éditer) et **Review** (revue de code par Kimi, aussi disponible comme
-sous-agent via `@review`).
+Les agents de mode recopiés dans le conteneur (`opencode/agents/` à
+chaque `up`) portent les mêmes noms : **Ask**, **Plan**, **Build** et
+**Review** — choisir le profil choisit le mode de session ACP et les
+instructions qui vont avec.
 
 ## Ce qui persiste où
 
-| Élément                           | Emplacement                                              | Survit à un redémarrage ?    |
-| --------------------------------- | -------------------------------------------------------- | ---------------------------- |
-| État Canvas (dont le preset ACP)  | volume Docker `openhands-state`                          | oui                          |
-| Binaire opencode                  | `~/.local/share/openhands/opencode/bin/`                 | oui (monté)                  |
-| Config opencode conteneur         | `~/.local/share/openhands/opencode-container.jsonc`      | oui (recopiée à chaque `up`) |
-| Règles globales + skills + agents | `opencode/` du dépôt (`AGENTS.md`, `skills/`, `agents/`) | oui (recopiés à chaque `up`) |
-| Projets                           | `~/src/github.com/mlhamel`                               | oui (monté, ACL)             |
+| Élément                           | Emplacement                                                                                                    | Survit à un redémarrage ?    |
+| --------------------------------- | -------------------------------------------------------------------------------------------------------------- | ---------------------------- |
+| État Canvas (dont profils agents) | volume Docker `openhands-state`                                                                                | oui                          |
+| Profils agents opencode           | `/home/openhands/.openhands/agent-profiles/` (vol.) + `~/.local/share/openhands/agent-profiles/` (hôte, copie) | oui                          |
+| Binaire opencode                  | `~/.local/share/openhands/opencode/bin/`                                                                       | oui (monté)                  |
+| Config opencode conteneur         | `~/.local/share/openhands/opencode-container.jsonc`                                                            | oui (recopiée à chaque `up`) |
+| Règles globales + skills + agents | `opencode/` du dépôt (`AGENTS.md`, `skills/`, `agents/`)                                                       | oui (recopiés à chaque `up`) |
+| Projets                           | `~/src/github.com/mlhamel`                                                                                     | oui (monté, ACL)             |
 
 Pour forcer une réinstallation d'opencode : supprime
 `~/.local/share/openhands/opencode` puis relance `openhands.sh up`.
 
 ## Limites connues
 
-- Le preset ACP reste un réglage manuel unique dans l'interface (pas d'API
-  stable pour le pré-remplir) ; tout le reste est automatique.
+- Canvas n'a pas de sélecteur de mode ACP : les quatre profils opencode
+  épinglent les modes. `up` sème chaque profil manquant et retire le
+  preset générique `opencode-acp` ; un profil déjà présent n'est jamais
+  écrasé (les réglages du volume gagnent, y compris ceux faits dans
+  l'UI). Plus aucun réglage manuel dans l'interface.
 - L'agent ACP n'a pas accès aux mécaniques hôte (plugins, Director,
   permissions) — seulement au provider Ollama + GLM. Les instructions,
   elles, sont recopiées dans le conteneur à chaque `up` (`AGENTS.md` +
