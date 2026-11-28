@@ -15,18 +15,20 @@ sans intervention manuelle à chaque démarrage.
    deux clés `limit.context` et `limit.output`).
 3. **GitHub App** (optionnel) — si `~/.config/openhands/github-app.pem`
    et l'App ID (`~/.config/openhands/github-app.conf`, pas un secret)
-   sont présents : la clé (mode 600 exigé, read-only pour l'utilisateur
+   sont présents : la clé (mode 600 initial, read-only pour l'utilisateur
    du conteneur) est montée read-only, le helper `gh-app-token` est posé
    dans le dossier opencode persistant et branché comme credential
    helper git du conteneur — push et PR passent par des tokens courts,
    mintés à la demande, rien n'est persisté. Clé absente : `up` prévient
-   et continue. Mode != 600 ou App ID manquant : `up` échoue avec le
+   et continue. Permissions trop larges ou App ID manquant : `up` échoue avec le
    correctif dans le message.
 4. **Conteneur** — démarre `ghcr.io/openhands/agent-canvas:1.43.0` (détaché,
    nommé `openhands-canvas`), avec : projets montés, volume d'état
    `openhands-state` et dossier opencode persistant
    (`~/.local/share/openhands/opencode` → `/home/openhands/.opencode`, le
-   binaire survit aux redémarrages).
+   binaire survit aux redémarrages). L'interface doit répondre avant
+   l'installation de la config ; un arrêt prématuré affiche l'état,
+   le code de sortie et les 30 dernières lignes des logs.
 5. **Config install** — copie la config dans le conteneur (`mkdir -p` +
    `docker cp` + `chown`). Ce n'est volontairement pas un montage :
    monter le fichier dans `.config` rend ce dossier non inscriptible
@@ -102,16 +104,34 @@ l'API GitHub avec `curl` + `gh-app-token token`.
 
 - `~/.config/openhands/github-app.pem` — la clé, **mode 600**. Seul
   secret : jamais dans le dépôt ou l'image, jamais copiée hors du
-  montage read-only (`/home/openhands/.config/github-app.pem`).
+  montage read-only (`/run/openhands-github-app.pem`). Ce chemin reste
+  hors de `.config` pour ne pas créer ce dossier avec un propriétaire
+  root et empêcher Canvas d'y écrire.
 - `~/.config/openhands/github-app.conf` — pas une donnée sensible :
   `GITHUB_APP_ID=123456` (identifiant public de l'app).
 
 Au prochain `up` : clé absente → `up` prévient et continue sans
 brancher ; clé présente → montage read-only, helper `gh-app-token` posé
 (755) dans le dossier opencode persistant et configuré comme credential
-helper git du conteneur ; mode != 600 ou App ID manquant → `up` échoue
+helper git du conteneur ; permissions trop larges ou App ID manquant → `up` échoue
 avec le correctif dans le message. Le résumé de `up` et `status`
 affichent l'état (branchée, App ID affiché / non branchée).
+
+La clé doit appartenir à l'utilisateur hôte. `up` accepte le mode 600
+initial et le mode 640 produit par sa propre ACL `user:10001:r--` :
+le groupe propriétaire reste sans accès (`group::---`), les bits de
+groupe affichés représentent le masque ACL. Toute autre ACL nommée,
+tout accès au groupe propriétaire ou aux autres, ou tout droit
+d'écriture/exécution pour uid 10001 est refusé. Il n'est pas nécessaire
+de refaire `chmod 600` à chaque lancement.
+
+Après une mise à jour depuis l'ancien montage dans `.config`, lance
+`openhands/openhands.sh restart` une fois. Le conteneur est recréé,
+mais le volume `openhands-state`, les profils et le binaire persistant
+sont conservés. `up` refuse un conteneur dont le montage de clé est
+incompatible plutôt que de continuer avec un mauvais branchement.
+Si le conteneur est arrêté, `status` indique que les vérifications
+internes sont indisponibles, sans déclarer les fichiers absents.
 
 ### Prérequis et garde-fous
 

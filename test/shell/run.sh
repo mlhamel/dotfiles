@@ -353,6 +353,18 @@ case "$*" in
     echo "${STUB_DOCKER_VERSION:-1.19.6}"
     exit 0
     ;;
+  "inspect -f {{.State.Running}} openhands-canvas")
+    echo "${STUB_DOCKER_RUNNING:-true}"
+    exit 0
+    ;;
+  *inspect*".Source"*)
+    printf '%s\n' "${STUB_DOCKER_KEY_SOURCE:-}"
+    exit 0
+    ;;
+  "logs --tail 30 openhands-canvas")
+    echo "Browser config directory is not writable"
+    exit 0
+    ;;
   *inspect*)
     echo "running"
     exit 0
@@ -378,6 +390,12 @@ stub_getfacl() {
   cat > "${CASE_BIN}/getfacl" <<'GETFACL_EOF'
 #!/bin/sh
 echo "getfacl $*" >> "$STUB_LOG"
+case "$*" in
+  *github-app.pem)
+    printf 'user::rw-\ngroup::---\nother::---\n'
+    exit 0
+    ;;
+esac
 # Pretend the container user already has rwx, so ensure_acl skips the
 # recursive walk (STUB_GETFACL_ACL=0 to report no entry instead).
 if [ "${STUB_GETFACL_ACL:-1}" = "1" ]; then
@@ -405,7 +423,6 @@ case_ollama_happy() {
   check_contains "${CASE_HOME}/out.log" "Ollama gateway ready" "ready message"
   finish_case
 }
-
 case_ollama_local_fail() {
   new_case
   stub_curl
@@ -1200,6 +1217,7 @@ case_openhands_up() {
   check_contains "${STUB_LOG}" "/home/openhands/.config/opencode/AGENTS.md" "global rules are copied to the container"
   check_contains "${STUB_LOG}" "/home/openhands/.config/opencode/skills" "skills are copied to the container"
   check_not_contains "${STUB_LOG}" "opencode.jsonc:ro" "no read-only file mount for the config"
+  check_line_order "${STUB_LOG}" "inspect -f {{.State.Running}}" "docker cp" "container health is checked before installing config"
   check_contains "${STUB_LOG}" "mkdir -p /home/openhands/.openhands/agent-profiles" "profile dir is created in the container"
   check_contains "${STUB_LOG}" "rm -f /home/openhands/.openhands/agent-profiles/opencode-acp.json" "legacy opencode-acp preset is removed"
   check_contains "${CASE_HOME}/out.log" "opencode-build/ask/plan/review" "summary lists the four profile names"
@@ -1302,7 +1320,8 @@ case_openhands_gh_app_up() {
   local rc=$?
   check_rc 0 "${rc}" "up with a GitHub App key exits 0"
   check_contains "${STUB_LOG}" "GITHUB_APP_ID=123456" "docker run exports the App ID"
-  check_contains "${STUB_LOG}" "${CASE_HOME}/.config/openhands/github-app.pem:/home/openhands/.config/github-app.pem:ro" "the key is bind-mounted read-only"
+  check_contains "${STUB_LOG}" "${CASE_HOME}/.config/openhands/github-app.pem:/run/openhands-github-app.pem:ro" "the key is bind-mounted read-only outside .config"
+  check_not_contains "${STUB_LOG}" ":/home/openhands/.config/github-app.pem" "the key does not create a root-owned .config directory"
   check_contains "${STUB_LOG}" "credential.helper" "git credential helper is configured in the container"
   check_contains "${STUB_LOG}" "gh-app-token credential" "credential helper targets the gh-app-token helper"
   check_contains "${CASE_HOME}/out.log" "GitHub App: branchée" "up reports the GitHub App wired"
@@ -1362,6 +1381,102 @@ case_openhands_gh_app_missing_id() {
   check_rc_nonzero "${rc}" "up with a non-integer App ID exits non-zero"
   check_contains "${CASE_HOME}/out.log" "GITHUB_APP_ID" "the error names the App ID conf"
   check_not_contains "${STUB_LOG}" "credential.helper" "no credential helper is configured"
+  finish_case
+}
+
+case_openhands_gh_app_real_acl() {
+  command -v setfacl >/dev/null && command -v getfacl >/dev/null || return 125
+  new_case
+  local key="${CASE_HOME}/.config/openhands/github-app.pem"
+  mkdir -p "$(dirname "$key")"
+  printf 'FAKE-PEM-KEY-NOT-REAL\n' > "$key"
+  chmod 600 "$key"
+  printf 'GITHUB_APP_ID=123456\n' > "${key%.pem}.conf"
+  bash -c 'source "$1"; ensure_github_app; ensure_github_app' _ \
+    "${ROOT}/openhands/openhands.sh" > "${CASE_HOME}/out.log" 2>&1
+  check_rc 0 "$?" "GitHub App setup succeeds twice with real ACL changes"
+  check_mode 640 "$key" "read ACL produces mode 640 without group access"
+  getfacl -cpn "$key" > "${CASE_HOME}/acl"
+  check_contains "${CASE_HOME}/acl" "group::---" "owning group has no key access"
+  check_contains "${CASE_HOME}/acl" "user:10001:r--" "only the container user receives read access"
+  chmod 600 "$key"
+  bash -c 'source "$1"; ensure_github_app' _ \
+    "${ROOT}/openhands/openhands.sh" > "${CASE_HOME}/masked.log" 2>&1
+  check_rc 0 "$?" "a chmod-masked container ACL is repaired"
+  finish_case
+}
+
+case_openhands_gh_app_reject_acl() {
+  command -v setfacl >/dev/null && command -v getfacl >/dev/null || return 125
+  new_case
+  local key="${CASE_HOME}/.config/openhands/github-app.pem" acl
+  mkdir -p "$(dirname "$key")"
+  printf 'FAKE-PEM-KEY-NOT-REAL\n' > "$key"
+  for acl in 'g::r--' 'u:10002:r--' 'u:10001:rw-' 'u:10001:r-x' 'o::r--'; do
+    setfacl -b "$key"
+    chmod 600 "$key"
+    setfacl -m "$acl" "$key"
+    bash -c 'source "$1"; validate_github_app_key' _ \
+      "${ROOT}/openhands/openhands.sh" > "${CASE_HOME}/out.log" 2>&1
+    check_rc_nonzero "$?" "unsafe ACL $acl is rejected"
+    check_contains "${CASE_HOME}/out.log" "doit être privée" "unsafe ACL has actionable diagnostics"
+  done
+  setfacl -b "$key"
+  chmod 600 "$key"
+  setfacl -m u:10002:r-- "$key"
+  chmod 600 "$key"
+  bash -c 'source "$1"; validate_github_app_key' _ \
+    "${ROOT}/openhands/openhands.sh" > "${CASE_HOME}/out.log" 2>&1
+  check_rc_nonzero "$?" "masked unrelated ACL is rejected before setfacl can reactivate it"
+  finish_case
+}
+
+case_openhands_early_crash() {
+  new_case
+  stub_curl
+  stub_docker
+  stub_setfacl
+  stub_getfacl
+  mkdir -p "${CASE_HOME}/src/github.com/mlhamel"
+  STUB_DOCKER_RUNNING=false bash "${ROOT}/openhands/openhands.sh" up > "${CASE_HOME}/out.log" 2>&1
+  check_rc_nonzero "$?" "early container crash aborts startup"
+  check_contains "${CASE_HOME}/out.log" "Browser config directory is not writable" "crash logs are surfaced"
+  check_contains "${STUB_LOG}" "docker logs --tail 30" "diagnostics include bounded container logs"
+  check_not_contains "${STUB_LOG}" "docker exec" "no installation is attempted in a dead container"
+  check_not_contains "${STUB_LOG}" "docker cp" "no config is copied into a dead container"
+  finish_case
+}
+
+case_openhands_status_stopped() {
+  new_case
+  stub_docker
+  STUB_DOCKER_PS_A=openhands-canvas bash "${ROOT}/openhands/openhands.sh" status > "${CASE_HOME}/out.log" 2>&1
+  check_rc 0 "$?" "status of stopped container succeeds"
+  check_contains "${CASE_HOME}/out.log" "Vérifications internes indisponibles" "stopped checks are reported as unavailable"
+  check_not_contains "${STUB_LOG}" "docker exec" "stopped status never executes internal checks"
+  check_not_contains "${CASE_HOME}/out.log" "absent dans le conteneur" "stopped status does not falsely report missing files"
+  finish_case
+}
+
+case_openhands_gh_app_existing_mount() {
+  new_case
+  stub_curl
+  stub_docker
+  stub_setfacl
+  stub_getfacl
+  mkdir -p "${CASE_HOME}/src/github.com/mlhamel" "${CASE_HOME}/.config/openhands"
+  local key="${CASE_HOME}/.config/openhands/github-app.pem"
+  printf 'FAKE-PEM-KEY-NOT-REAL\n' > "$key"
+  chmod 600 "$key"
+  printf 'GITHUB_APP_ID=123456\n' > "${key%.pem}.conf"
+  STUB_DOCKER_PS_A=openhands-canvas bash "${ROOT}/openhands/openhands.sh" up > "${CASE_HOME}/out.log" 2>&1
+  check_rc_nonzero "$?" "existing container with old or missing key mount is rejected"
+  check_contains "${CASE_HOME}/out.log" "restart" "mount migration explains how to recreate safely"
+  check_not_contains "${STUB_LOG}" "docker start" "incompatible container is not started"
+  STUB_DOCKER_PS=openhands-canvas STUB_DOCKER_PS_A=openhands-canvas \
+    STUB_DOCKER_KEY_SOURCE="$key" bash "${ROOT}/openhands/openhands.sh" up > "${CASE_HOME}/again.log" 2>&1
+  check_rc 0 "$?" "existing container with compatible read-only mount is reused"
+  check_contains "${CASE_HOME}/again.log" "Conteneur déjà en cours" "compatible running container is kept"
   finish_case
 }
 
@@ -1441,6 +1556,11 @@ run_case "openhands-gh-app-up" case_openhands_gh_app_up
 run_case "openhands-gh-app-no-key" case_openhands_gh_app_no_key
 run_case "openhands-gh-app-bad-mode" case_openhands_gh_app_bad_mode
 run_case "openhands-gh-app-missing-id" case_openhands_gh_app_missing_id
+run_case "openhands-gh-app-real-acl" case_openhands_gh_app_real_acl
+run_case "openhands-gh-app-reject-acl" case_openhands_gh_app_reject_acl
+run_case "openhands-early-crash" case_openhands_early_crash
+run_case "openhands-status-stopped" case_openhands_status_stopped
+run_case "openhands-gh-app-existing-mount" case_openhands_gh_app_existing_mount
 
 echo "shell tests: ${PASS_COUNT} passed, ${FAIL_COUNT} failed, ${SKIP_COUNT} skipped"
 if [ "${FAIL_COUNT}" -gt 0 ]; then

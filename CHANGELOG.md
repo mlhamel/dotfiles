@@ -6,6 +6,15 @@ use today's date and the hash of the change once committed.
 
 ## 2026-11-28
 
+- `(hash)` — Repair OpenHands startup with the optional GitHub App:
+  mount the key at `/run/openhands-github-app.pem`, outside Canvas's
+  writable `.config`; validate owner and ACL permissions without
+  rejecting the launcher's own read-only UID 10001 grant on the next
+  start. Reject incompatible existing mounts with a restart hint,
+  wait for the UI before configuration installation, surface startup
+  logs, and avoid false missing-file reports for stopped containers.
+  Shell regressions include real ACL repeatability and unsafe-ACL
+  rejection on disposable fixtures.
 - `(hash)` — GitHub App push + PR for the Canvas agent (PR
   `feat/openhands-github-app-2026-11-28`): new `openhands/bin/gh-app-token`
   helper — minted on demand, used as the container's git credential
