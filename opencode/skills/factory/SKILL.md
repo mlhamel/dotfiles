@@ -1,11 +1,11 @@
 ---
-name: dotfiles
-description: Maintenance playbook for this dotfiles repo — regenerate the Aptfile, refresh the Brewfile, bump hook revisions, and the lint/commit flow for every change
+name: factory
+description: Maintenance playbook for this repo — regenerate the Aptfile, refresh the Brewfile, bump hook revisions, and the lint/commit flow for every change
 ---
 
-# dotfiles maintenance playbook
+# factory maintenance playbook
 
-The repo lives at `~/src/github.com/mlhamel/dotfiles` (deployed to
+The repo lives at `~/src/github.com/mlhamel/factory` (deployed to
 `~/.config/opencode` via symlink). Load this skill when working on the repo
 itself.
 
@@ -47,8 +47,8 @@ what is covered and what is deliberately not.
 ## Regenerate the Aptfile (after apt install/remove on this machine)
 
 ```bash
-~/dotfiles/apt/generate.sh    # dump + filter (base/essential, lib* runtime, exclude.txt)
-~/dotfiles/apt/generate.sh --check   # verify no drift
+~/factory/apt/generate.sh    # dump + filter (base/essential, lib* runtime, exclude.txt)
+~/factory/apt/generate.sh --check   # verify no drift
 ```
 
 Review the diff — the filters are heuristic (dpkg priority/essential,
@@ -61,7 +61,7 @@ New third-party apt repo needed? Add it to `apt/sources.sh` (deb822
 ## Refresh the Brewfile (on the Mac)
 
 ```bash
-cd ~/dotfiles && rake homebrew:update   # = brew bundle dump --force
+cd ~/factory && rake homebrew:update   # = brew bundle dump --force
 ```
 
 ## Bump hook revisions

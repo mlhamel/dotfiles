@@ -102,8 +102,8 @@ check_mode() {
 # --- per-case sandbox -------------------------------------------------------
 
 new_case() {
-  CASE_HOME="$(mktemp -d "${TMPDIR:-/tmp}/dotfiles-test-home.XXXXXX")"
-  CASE_BIN="$(mktemp -d "${TMPDIR:-/tmp}/dotfiles-test-bin.XXXXXX")"
+  CASE_HOME="$(mktemp -d "${TMPDIR:-/tmp}/factory-test-home.XXXXXX")"
+  CASE_BIN="$(mktemp -d "${TMPDIR:-/tmp}/factory-test-bin.XXXXXX")"
   STUB_LOG="${CASE_HOME}/stub.log"
   export HOME="${CASE_HOME}" STUB_LOG
   # Stubs win (CASE_BIN is first); the rest is inherited so real tools

@@ -48,7 +48,7 @@ Global commands available anywhere:
 Skills: `planning` (plan-first protocol with the task tracker — load it
 before any non-trivial work), `workflow`, `scaffolding`,
 `token-optimization` (token-efficiency playbook), `packaging`
-(end-of-task push + PR-creation block — load it when shipping), `dotfiles`
-(maintenance playbook for the dotfiles repo itself). Load via the skill
+(end-of-task push + PR-creation block — load it when shipping), `factory`
+(maintenance playbook for this repo itself). Load via the skill
 tool when relevant; `grill-me` and `grilling` are opt-in interview skills,
 not an automatic planning step.

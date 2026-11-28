@@ -27,7 +27,7 @@ Bundler (`brew install ruby && gem install bundler`), which `setup.sh`
 does not require.
 
 ```bash
-cd ~/dotfiles
+cd ~/factory
 bundle install
 rake   # = rake homebrew:install → brew bundle install
 ```
@@ -45,8 +45,8 @@ rake homebrew:update   # from the repo root; = brew bundle dump --force
 
 ## Notes
 
-- This section of the dotfiles is **macOS-only**; Homebrew on Linux does not
+- This section of the repo is **macOS-only**; Homebrew on Linux does not
   support casks (Docker, Firefox, iTerm2, Spotify, VS Code, Zeplin are all
   casks) and is not the intended target.
-- The `opencode/` part of these dotfiles is independent and works on any
+- The `opencode/` part of this repo is independent and works on any
   Linux/macOS machine — see the [repo README](../README.md).

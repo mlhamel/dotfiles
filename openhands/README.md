@@ -98,7 +98,7 @@ l'API GitHub avec `curl` + `gh-app-token token`.
 3. **Clé privée** — « Generate a private key » (PEM), à télécharger une
    seule fois.
 4. **Installer l'app** — sur _selected repositories_ (jamais « all
-   repositories ») : dotfiles d'abord, puis les dépôts à ouvrir.
+   repositories ») : factory d'abord, puis les dépôts à ouvrir.
 
 ### Layout hôte et branchement
 
@@ -172,7 +172,7 @@ requests), Administration est au-dessus de son périmètre.
 
 ```bash
 read -rs GH_PAT && export GH_PAT
-REPO=dotfiles                  # répéter pour chaque dépôt ouvert à l'app
+REPO=factory                  # répéter pour chaque dépôt ouvert à l'app
 curl -s -X PUT -H "Authorization: Bearer $GH_PAT" \
   "https://api.github.com/repos/mlhamel/$REPO/branches/master/protection" \
   -d '{"required_status_checks":{"strict":true,"contexts":["prek","test"]},"enforce_admins":true,"required_pull_request_reviews":{"required_approving_review_count":1,"require_code_owner_reviews":true,"dismiss_stale_reviews":true,"require_last_push_approval":false},"restrictions":null,"required_linear_history":true,"allow_force_pushes":false,"allow_deletions":false,"lock_branch":false}'
@@ -180,7 +180,7 @@ unset GH_PAT REPO
 ```
 
 Les `contexts` sont les jobs CI du dépôt (`prek`, `test` pour
-dotfiles ; `[]` pour un dépôt sans CI). Le CODEOWNERS
+factory ; `[]` pour un dépôt sans CI). Le CODEOWNERS
 (`.github/CODEOWNERS`, une ligne : `* @mlhamel`) est versionné avec le
 dépôt ; pour un nouveau dépôt ouvert à l'app, l'ajouter via une PR —
 c'est lui qui fait remonter la revue du code owner dans la règle

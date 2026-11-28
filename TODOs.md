@@ -1,4 +1,4 @@
-# dotfiles — TODOs
+# factory — TODOs
 
 Ideas and deferred work for this repo. Anything landed gets checked off or
 deleted, not left to rot.
@@ -254,10 +254,11 @@ not a fix for a broken config.
       fork is also behind upstream (fork HEAD `0568702` = upstream
       v1.16.0, upstream is at v1.23.0). Decide: tag releases in the fork,
       or switch the install URL to upstream.
-- [ ] **P3 · Repo scope / name** — the repo is an opencode toolkit +
+- [x] **P3 · Repo scope / name** — the repo is an opencode toolkit +
       package lists; it holds no shell, git or editor config despite the
-      "dotfiles" name. Either grow into the name or rename the scope in
-      the README.
+      "dotfiles" name. Done: repo renamed to `factory` (2026-11-28),
+      README scope updated, repo-wide identity sweep of docs, scripts and
+      tests (historical records left untouched).
 
 ## Agent cloud/async — OpenHands
 

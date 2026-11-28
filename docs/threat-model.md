@@ -13,7 +13,7 @@ before trusting a new posture.
 One user, his own machines (Linux Framework, Mac), opencode 2.3.0 with
 the plugins in this repo, a hybrid Ollama setup (cloud models for heavy
 work, local models for small/offline tasks), and any project blessed
-with `/bless` — including this public dotfiles repo itself.
+with `/bless` — including this public factory repo itself.
 
 In scope: agent sessions in blessed projects, eval runs (`eval/` launches
 real agents), the five plugins, and the global config deployed by

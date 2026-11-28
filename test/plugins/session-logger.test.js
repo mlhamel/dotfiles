@@ -46,7 +46,7 @@ afterEach(async () => {
 });
 
 function makeVault() {
-  vault = fs.mkdtempSync(path.join(os.tmpdir(), "dotfiles-logger-"));
+  vault = fs.mkdtempSync(path.join(os.tmpdir(), "factory-logger-"));
   const skillDir = path.join(vault, ".opencode", "skills", "decision-log");
   fs.mkdirSync(skillDir, { recursive: true });
   fs.writeFileSync(path.join(skillDir, "log_session.py"), FAKE_SCRIPT);
@@ -66,7 +66,7 @@ async function setupLogger(ctx) {
 
 describe("setup", () => {
   test("outside a vault the plugin is a no-op", async () => {
-    const outside = fs.mkdtempSync(path.join(os.tmpdir(), "dotfiles-novault-"));
+    const outside = fs.mkdtempSync(path.join(os.tmpdir(), "factory-novault-"));
     try {
       const ctx = createMockContext({ directory: outside });
       const result = await plugin.setup(ctx);

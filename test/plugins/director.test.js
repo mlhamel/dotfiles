@@ -65,7 +65,7 @@ function stubBody(digest) {
 }
 
 function makeStub(body) {
-  const dir = tempDir("dotfiles-director-");
+  const dir = tempDir("factory-director-");
   const stub = path.join(dir, "director");
   fs.writeFileSync(stub, body);
   fs.chmodSync(stub, 0o755);
@@ -77,7 +77,7 @@ function makeStub(body) {
 // A stub binary that does NOT touch DIRECTOR_BIN — for fallback-tier tests,
 // where the stub must be found via PATH / HOME, not via the env override.
 function plainStub(digest = DIGEST) {
-  const dir = tempDir("dotfiles-director-");
+  const dir = tempDir("factory-director-");
   const stub = path.join(dir, "director");
   fs.writeFileSync(stub, stubBody(digest));
   fs.chmodSync(stub, 0o755);
@@ -96,7 +96,7 @@ function failingStub() {
 // Stop hook's firings are observable (the hook's control output is ignored
 // by design, so there is nothing else to observe).
 function loggingStub(logFile) {
-  const dir = tempDir("dotfiles-director-");
+  const dir = tempDir("factory-director-");
   const stub = path.join(dir, "director");
   fs.writeFileSync(
     stub,
@@ -122,7 +122,7 @@ function readLog(logFile) {
 // Scratch HOME with a stub director at `relPath` (e.g.
 // ".local/bin/director"). PATH is left alone unless the test changes it.
 function homeStub(relPath, digest = DIGEST) {
-  const home = tempDir("dotfiles-director-home-");
+  const home = tempDir("factory-director-home-");
   const stub = path.join(home, relPath);
   fs.mkdirSync(path.dirname(stub), { recursive: true });
   fs.writeFileSync(stub, stubBody(digest));
@@ -137,7 +137,7 @@ function homeStub(relPath, digest = DIGEST) {
 // child does not need PATH to run.
 function pathWithoutDirector() {
   savedPath = process.env.PATH;
-  process.env.PATH = tempDir("dotfiles-director-path-");
+  process.env.PATH = tempDir("factory-director-path-");
 }
 
 // No DIRECTOR_BIN / DIRECTOR_FALLBACK_BIN: the full candidate chain runs.
@@ -334,7 +334,7 @@ describe("fallback resolution", () => {
   test("no binary anywhere degrades silently (no injection, no throw)", async () => {
     clearDirectorEnv();
     pathWithoutDirector();
-    const home = tempDir("dotfiles-director-home-");
+    const home = tempDir("factory-director-home-");
     savedHome = process.env.HOME;
     process.env.HOME = home;
     assert.equal(await injectViaPrompt(), "hello");
@@ -364,7 +364,7 @@ describe("end-of-turn Stop hook", () => {
   }
 
   function logPath() {
-    return path.join(tempDir("dotfiles-director-log-"), "calls.log");
+    return path.join(tempDir("factory-director-log-"), "calls.log");
   }
 
   test("Stop fires on a succeeded turn", async () => {

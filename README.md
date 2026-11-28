@@ -1,6 +1,6 @@
-# dotfiles
+# factory
 
-Configuration files of Mathieu Leduc-Hamel.
+Machine setup and AI agent toolkit of Mathieu Leduc-Hamel.
 
 ## List of configurations
 
@@ -17,14 +17,14 @@ symlinks the config, wires Director, installs apt packages on
 Debian/Ubuntu; per-step SKIP\_\* env vars documented in the script):
 
 ```bash
-git clone https://github.com/mlhamel/dotfiles.git ~/dotfiles
-~/dotfiles/setup.sh
+git clone https://github.com/mlhamel/factory.git ~/factory
+~/factory/setup.sh
 ```
 
 Or step by step:
 
 ```bash
-cd ~/dotfiles   # all paths below assume the clone lives here
+cd ~/factory   # all paths below assume the clone lives here
 ```
 
 ### opencode
@@ -32,14 +32,14 @@ cd ~/dotfiles   # all paths below assume the clone lives here
 Deploy the opencode config (symlinks it into place):
 
 ```bash
-~/dotfiles/opencode/install.sh
+~/factory/opencode/install.sh
 ```
 
 Manual equivalent (only if `~/.config/opencode` does not already exist —
 running `ln -s` into an existing real directory nests the link inside it):
 
 ```bash
-ln -s ~/dotfiles/opencode ~/.config/opencode
+ln -s ~/factory/opencode ~/.config/opencode
 ```
 
 `install.sh` backs up an existing `~/.config/opencode` _directory_
@@ -72,7 +72,7 @@ gem install bundler`).
 Install the packages listed in the Brewfile:
 
 ```bash
-cd ~/dotfiles
+cd ~/factory
 bundle install        # rake, pinned in Gemfile
 rake                  # = rake homebrew:install → brew bundle install
 ```
@@ -86,9 +86,9 @@ rake homebrew:update  # = brew bundle dump --force
 ### apt (Debian/Ubuntu)
 
 ```bash
-sudo ~/dotfiles/apt/sources.sh   # third-party vendor repos (idempotent)
-~/dotfiles/apt/install.sh         # install everything in the Aptfile
-~/dotfiles/apt/generate.sh       # refresh the Aptfile from this machine
+sudo ~/factory/apt/sources.sh   # third-party vendor repos (idempotent)
+~/factory/apt/install.sh         # install everything in the Aptfile
+~/factory/apt/generate.sh       # refresh the Aptfile from this machine
 ```
 
 See [apt/README.md](apt/README.md) for the filters, sources.sh, and caveats.

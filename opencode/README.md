@@ -38,7 +38,7 @@ opencode/
 │   ├── grilling/SKILL.md      #   round-based interview workflow
 │   ├── token-optimization/SKILL.md  #   token-efficiency: ingestion, routing, oc-tokens loop
 │   ├── packaging/SKILL.md     #   end-of-task shipping block: push + PR command recipe
-│   └── dotfiles/SKILL.md      #   maintenance playbook for this repo itself
+│   └── factory/SKILL.md       #   maintenance playbook for this repo itself
 ├── lib/                       # Shared plugin helpers (not plugins — never scanned)
 │   └── session-classify.js    #   session classification + server-wide event loop
 ├── plugins/                   # JS plugins (director state, session logger, review
@@ -76,7 +76,7 @@ Pattern: **commands trigger, skills document.**
 Manual equivalent (only if `~/.config/opencode` does not already exist):
 
 ```bash
-ln -s ~/dotfiles/opencode ~/.config/opencode
+ln -s ~/factory/opencode ~/.config/opencode
 ```
 
 ## Prerequisites: what works on a fresh machine
@@ -337,7 +337,7 @@ model routing (`agents.title.model`, per-agent `model:` pinning).
 
 ## Interview demo script
 
-1. `git clone <this-repo> ~/dotfiles && ~/dotfiles/opencode/install.sh` —
+1. `git clone <this-repo> ~/factory && ~/factory/opencode/install.sh` —
    10-second deploy
 2. `cd /tmp && git clone <some-repo> && opencode` → `/bless` — agent analyzes
    an unknown codebase, codifies its conventions in AGENTS.md, adds safe

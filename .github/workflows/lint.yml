@@ -27,4 +27,4 @@ jobs:
   # Note: apt/generate.sh --check is intentionally NOT run in CI — it
   # compares against the machine's installed package set, which on a
   # GitHub runner would always differ. Run it locally after apt changes:
-  #   ~/dotfiles/apt/generate.sh --check
+  #   ~/factory/apt/generate.sh --check
