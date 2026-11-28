@@ -6,7 +6,7 @@ set -euo pipefail
 # Chains, in order:
 #   1. kernel inotify limit    (fs.inotify.max_user_watches via sysctl, persisted
 #                              to /etc/sysctl.d/99-dotfiles-inotify.conf)
-#   2. opencode binary         (pinned V2, see OPENCODE_VERSION below, via
+#   2. opencode binary         (pinned V2, see versions.env, via
 #                              official curl script, replaces V1;
 #                              OPENCODE_VERSION=x.y.z overrides the pin;
 #                              SKIP_OPENCODE=1; FORCE_OPENCODE=1 reinstalls)
@@ -22,10 +22,12 @@ set -euo pipefail
 DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
 OS="$(uname -s)"
 
-# Pinned opencode version — bump deliberately after checking the release
-# notes, never float to latest on every fresh install. Latest release
-# 2026-11-24: 2.3.0.
-OPENCODE_VERSION="${OPENCODE_VERSION:-2.3.0}"
+# Pinned opencode version — centrally pinned in versions.env at the repo
+# root (see header there). Bump deliberately after checking the release
+# notes; an explicit OPENCODE_VERSION=x.y.z env override still wins.
+# shellcheck source=versions.env
+. "${DIR}/versions.env"
+OPENCODE_VERSION="${OPENCODE_VERSION:?versions.env did not set OPENCODE_VERSION}"
 
 echo "=== dotfiles bootstrap: ${DIR} ==="
 

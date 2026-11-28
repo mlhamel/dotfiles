@@ -28,6 +28,12 @@ set -u
 
 ROOT="$(cd "$(dirname "${BASH_SOURCE[0]}")/../.." && pwd)"
 FILTER="${1:-}"
+OPENCODE_PIN="$(. "${ROOT}/versions.env" >/dev/null 2>&1; printf '%s' "${OPENCODE_VERSION:-unknown}")"
+DIRECTOR_PIN="$(. "${ROOT}/versions.env" >/dev/null 2>&1; printf '%s' "${DIRECTOR_VERSION:-unknown}")"
+CANVAS_PIN="$(. "${ROOT}/versions.env" >/dev/null 2>&1; printf '%s' "${AGENT_CANVAS_VERSION:-unknown}")"
+export STUB_OPENCODE_VERSION="${STUB_OPENCODE_VERSION:-${OPENCODE_PIN}}"
+export STUB_DOCKER_VERSION="${STUB_DOCKER_VERSION:-${OPENCODE_PIN}}"
+export STUB_DIRECTOR_VERSION_OUTPUT="${STUB_DIRECTOR_VERSION_OUTPUT:-director version ${DIRECTOR_PIN}}"
 PASS_COUNT=0
 FAIL_COUNT=0
 SKIP_COUNT=0
@@ -182,7 +188,7 @@ cat > "$HOME/.local/bin/director" <<'DIRECTOR_EOF'
 echo "director $*" >> "$STUB_LOG"
 case "$1" in
   doctor) exit 0 ;;
-  version) echo "director version v1.23.0" ;;
+  version) echo "${STUB_DIRECTOR_VERSION_OUTPUT-}" ;;
   install) exit 0 ;;
   *) exit 0 ;;
 esac
@@ -270,7 +276,7 @@ stub_opencode() {
 #!/bin/sh
 echo "opencode $*" >> "$STUB_LOG"
 case "${1:-}" in
-  --version) echo "${STUB_OPENCODE_VERSION:-2.3.0}" ;;
+  --version) echo "${STUB_OPENCODE_VERSION-}" ;;
   reload) exit 0 ;;
   *) exit 0 ;;
 esac
@@ -284,7 +290,7 @@ stub_director() {
 echo "director $*" >> "$STUB_LOG"
 case "${1:-}" in
   doctor) exit "${STUB_DIRECTOR_DOCTOR_RC:-0}" ;;
-  version) echo "${STUB_DIRECTOR_VERSION_OUTPUT:-director version v1.23.0}" ;;
+  version) echo "${STUB_DIRECTOR_VERSION_OUTPUT-}" ;;
   install) exit 0 ;;
   *) exit 0 ;;
 esac
@@ -350,7 +356,11 @@ case "$*" in
     exit "${STUB_DOCKER_PROFILES_RC:-1}"
     ;;
   *--version*)
-    echo "${STUB_DOCKER_VERSION:-1.19.6}"
+    if [ -n "${STUB_DOCKER_STALE:-}" ] && ! grep -qs "opencode.ai/v2/install" "${STUB_LOG}"; then
+      echo "${STUB_DOCKER_PRE_VERSION-}"
+    else
+      echo "${STUB_DOCKER_VERSION-}"
+    fi
     exit 0
     ;;
   "inspect -f {{.State.Running}} openhands-canvas")
@@ -550,7 +560,7 @@ case_setup_drift() {
   setup_env
   local rc=$?
   check_rc 0 "${rc}" "drift path exits 0"
-  check_contains "${CASE_HOME}/out.log" "NOTE installed 2.2.0 differs from pinned 2.3.0" "drift note names both versions"
+  check_contains "${CASE_HOME}/out.log" "NOTE installed 2.2.0 differs from pinned ${OPENCODE_PIN}" "drift note names both versions"
   check_not_contains "${STUB_LOG}" "opencode.ai" "no reinstall without FORCE_OPENCODE"
   finish_case
 }
@@ -564,7 +574,7 @@ case_setup_force() {
   FORCE_OPENCODE=1 SKIP_DIRECTOR=1 SKIP_PACKAGES=1 SKIP_OLLAMA=1 bash "${ROOT}/setup.sh" > "${CASE_HOME}/out.log" 2>&1
   local rc=$?
   check_rc 0 "${rc}" "force path exits 0"
-  check_contains "${STUB_LOG}" "fake-opencode-installer args: --version 2.3.0" "installer receives the pinned version"
+  check_contains "${STUB_LOG}" "fake-opencode-installer args: --version ${OPENCODE_PIN}" "installer receives the pinned version"
   check_contains "${CASE_HOME}/out.log" "bootstrap complete" "bootstrap completes"
   finish_case
 }
@@ -579,7 +589,7 @@ case_setup_fresh() {
   setup_env
   local rc=$?
   check_rc 0 "${rc}" "fresh install exits 0"
-  check_contains "${STUB_LOG}" "fake-opencode-installer args: --version 2.3.0" "installer receives the pinned version"
+  check_contains "${STUB_LOG}" "fake-opencode-installer args: --version ${OPENCODE_PIN}" "installer receives the pinned version"
   check_contains "${CASE_HOME}/out.log" "not on PATH" "warns the binary is not on PATH yet"
   check_contains "${CASE_HOME}/out.log" "bootstrap complete" "bootstrap completes"
   check_symlink_to "${CASE_HOME}/.config/opencode" "${ROOT}/opencode" "config symlink deployed"
@@ -611,6 +621,7 @@ case_setup_skip_opencode() {
 setup_skip_repo() {
   local repo="${CASE_HOME}/repo"
   mkdir -p "${repo}/opencode"
+  cp "${ROOT}/versions.env" "${repo}/versions.env"
   cp "${ROOT}/setup.sh" "${repo}/setup.sh"
   cp "${ROOT}/opencode/install.sh" "${repo}/opencode/install.sh"
   cp "${ROOT}/opencode/opencode.json" "${repo}/opencode/opencode.json"
@@ -766,7 +777,7 @@ case_director_drift() {
   STUB_DIRECTOR_VERSION_OUTPUT="director version v1.20.0" bash "${ROOT}/opencode/setup-director.sh" > "${CASE_HOME}/out.log" 2>&1
   local rc=$?
   check_rc 0 "${rc}" "drift path exits 0"
-  check_contains "${CASE_HOME}/out.log" "NOTE installed version differs from pinned v1.23.0" "drift note names the pin"
+  check_contains "${CASE_HOME}/out.log" "NOTE installed version differs from pinned ${DIRECTOR_PIN}" "drift note names the pin"
   finish_case
 }
 
@@ -778,7 +789,7 @@ case_director_fresh() {
   bash "${ROOT}/opencode/setup-director.sh" > "${CASE_HOME}/out.log" 2>&1
   local rc=$?
   check_rc 0 "${rc}" "fresh install exits 0"
-  check_contains "${STUB_LOG}" "fake-director-installer args: --version v1.23.0" "installer receives the pinned version"
+  check_contains "${STUB_LOG}" "fake-director-installer args: --version ${DIRECTOR_PIN}" "installer receives the pinned version"
   check_contains "${STUB_LOG}" "director install --opencode" "wires opencode"
   check_contains "${CASE_HOME}/out.log" "Director is set up" "setup message"
   finish_case
@@ -798,7 +809,7 @@ case_director_skip() {
 # setup-director.sh itself is OS-agnostic; the OS-specific part is the
 # fork installer, which maps uname to the upstream asset name. The fake
 # installer logs the os/arch it sees, so this case proves the Darwin
-# values reach it. Upstream v1.23.0 ships darwin_arm64 and darwin_amd64
+# values reach it. Upstream ships darwin_arm64 and darwin_amd64
 # tarballs (verified against the release download URLs).
 
 case_director_darwin() {
@@ -811,7 +822,7 @@ case_director_darwin() {
   local rc=$?
   check_rc 0 "${rc}" "darwin fresh install exits 0"
   check_contains "${STUB_LOG}" "fake-director-installer os=Darwin arch=arm64" "installer sees Darwin/arm64"
-  check_contains "${STUB_LOG}" "fake-director-installer args: --version v1.23.0" "installer receives the pinned version"
+  check_contains "${STUB_LOG}" "fake-director-installer args: --version ${DIRECTOR_PIN}" "installer receives the pinned version"
   check_contains "${CASE_HOME}/out.log" "Director is set up" "setup message"
   finish_case
 }
@@ -1199,18 +1210,19 @@ case_openhands_up() {
   local rc=$?
   check_rc 0 "${rc}" "up exits 0"
   check_contains "${CASE_HOME}/out.log" "http://localhost:8000/canvas" "summary prints the Canvas URL"
-  check_contains "${CASE_HOME}/out.log" "1.19.6" "summary reports the opencode version"
+  check_contains "${CASE_HOME}/out.log" "${OPENCODE_PIN}" "summary reports the opencode version"
+  check_not_contains "${STUB_LOG}" "opencode.ai/v2/install" "pinned binary is kept without a reinstall"
   local cfg="${CASE_HOME}/.local/share/openhands/opencode-container.jsonc"
   check_contains "${cfg}" "host.docker.internal:11434" "config points Ollama at the host gateway"
   check_contains "${cfg}" "glm-5.3-flash:cloud" "config pins the GLM model"
   check_contains "${cfg}" "http://host.docker.internal:11434/v1" "config uses the OpenAI-compatible base URL"
   check_contains "${cfg}" "\"context\": 65536" "config pins a 64k context limit"
-  check_contains "${cfg}" "\"output\": 65536" "config pins a 64k output limit (required by opencode 1.19.6)"
+  check_contains "${cfg}" "\"output\": 65536" "config pins a 64k output limit"
   if ! python3 -m json.tool "${cfg}" > "${CASE_HOME}/cfg.json" 2> "${CASE_HOME}/cfg.err"; then
     echo "  FAIL: config is not valid JSON" >&2
     CASE_FAILED=1
   fi
-  check_contains "${STUB_LOG}" "ghcr.io/openhands/agent-canvas:1.43.0" "docker run uses the pinned image"
+  check_contains "${STUB_LOG}" "ghcr.io/openhands/agent-canvas:${CANVAS_PIN}" "docker run uses the pinned image"
   check_contains "${STUB_LOG}" "mkdir -p /home/openhands/.config/opencode" "config dir is created in the container"
   check_contains "${STUB_LOG}" "/home/openhands/.config/opencode/opencode.jsonc" "config is copied to the container path"
   check_contains "${STUB_LOG}" "chown 10001:10001" "config is chowned to the container user"
@@ -1237,6 +1249,24 @@ case_openhands_up() {
   finish_case
 }
 
+case_openhands_up_stale_opencode() {
+  new_case
+  stub_curl
+  stub_docker
+  stub_setfacl
+  stub_getfacl
+  mkdir -p "${CASE_HOME}/src/github.com/mlhamel"
+  STUB_DOCKER_STALE=1 STUB_DOCKER_PRE_VERSION="1.99.9" bash "${ROOT}/openhands/openhands.sh" up > "${CASE_HOME}/out.log" 2>&1
+  local rc=$?
+  check_rc 0 "${rc}" "up with a stale 1.x binary reinstalls and passes"
+  check_contains "${CASE_HOME}/out.log" "!= version épinglée ${OPENCODE_PIN}" "stale version triggers a reinstall"
+  check_contains "${STUB_LOG}" "https://opencode.ai/v2/install" "reinstall uses the official v2 installer"
+  check_contains "${STUB_LOG}" "--version '${OPENCODE_PIN}'" "installer receives the pinned version"
+  check_contains "${CASE_HOME}/out.log" "opencode installé" "post-install summary reports the fresh binary"
+  check_not_contains "${CASE_HOME}/out.log" "encore présent" "leftover 1.x after install would be fatal"
+  finish_case
+}
+
 case_openhands_up_standalone() {
   new_case
   stub_curl
@@ -1252,6 +1282,7 @@ case_openhands_up_standalone() {
   # case pre-creates it too.
   mkdir -p "${CASE_HOME}/src/github.com/mlhamel"
   cp "${ROOT}/openhands/openhands.sh" "${solo}"
+  cp "${ROOT}/versions.env" "$(dirname "${solo}")/versions.env"
   bash "${solo}" up > "${CASE_HOME}/out.log" 2>&1
   local rc=$?
   check_rc 0 "${rc}" "standalone copy exits 0 without the repo tree"
@@ -1297,7 +1328,7 @@ case_openhands_status() {
   check_rc 0 "${rc}" "status exits 0"
   check_contains "${CASE_HOME}/out.log" "en cours" "status reports the container running"
   check_contains "${CASE_HOME}/out.log" "joignable" "status reports the UI reachable"
-  check_contains "${CASE_HOME}/out.log" "1.19.6" "status reports the opencode version"
+  check_contains "${CASE_HOME}/out.log" "${OPENCODE_PIN}" "status reports the opencode version"
   check_contains "${CASE_HOME}/out.log" "Profils agents: opencode absents" "status reports the profiles missing"
   STUB_DOCKER_PROFILES_RC=0 STUB_DOCKER_PS="openhands-canvas" STUB_DOCKER_PS_A="openhands-canvas" bash "${ROOT}/openhands/openhands.sh" status > "${CASE_HOME}/out2.log" 2>&1
   local rc2=$?
@@ -1549,6 +1580,7 @@ run_case "oh-fix-no-args" case_oh_fix_no_args
 
 run_case "openhands-help" case_openhands_help
 run_case "openhands-up" case_openhands_up
+run_case "openhands-up-stale-opencode" case_openhands_up_stale_opencode
 run_case "openhands-up-profiles-keep" case_openhands_up_profiles_keep
 run_case "openhands-up-standalone" case_openhands_up_standalone
 run_case "openhands-status" case_openhands_status

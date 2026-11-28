@@ -10,9 +10,9 @@
 #      inherit it) and on the persistent opencode directory.
 #   2. Config: writes the container opencode config (Ollama provider ->
 #      host.docker.internal:11434, GLM cloud models pinned) if missing.
-#   3. Container: starts ghcr.io/openhands/agent-canvas:1.43.0 (detached),
-#      with the projects dir, the state volume and a persistent opencode
-#      dir (the binary survives restarts).
+#   3. Container: starts the pinned agent-canvas image (versions.env)
+#      (detached), with the projects dir, the state volume and a
+#      persistent opencode dir (the binary survives restarts).
 #   4. Config install: copies the config, the global AGENTS.md rules and
 #      the skills into the container (`mkdir -p` + `docker cp` + `chown`;
 #      a bind-mount of the file into `.config` makes that directory
@@ -20,8 +20,9 @@
 #   5. Profiles: seeds four opencode agent profiles into the container
 #      (build, ask, plan, review), each pinning its ACP session mode —
 #      profiles already present are kept, so edits made in the UI survive.
-#   6. Binary: installs opencode inside the container if missing. The
-#      install lands in the persistent dir, so it is a one-time cost.
+#   6. Binary: installs the pinned opencode (versions.env) via the official
+#      v2 installer, replacing any stale 1.x binary; one-time cost (the
+#      install lands in the persistent dir).
 #   7. Health: waits for the Canvas UI to answer, then prints a summary.
 #   8. GitHub App (optional): with ~/.config/openhands/github-app.pem and
 #      the App ID (github-app.conf), the key is bind-mounted read-only,
@@ -45,8 +46,10 @@
 
 set -euo pipefail
 
+log() { printf '%s\n' "openhands: $*"; }
+die() { printf '%s\n' "openhands: ERREUR: $*" >&2; exit 1; }
+
 CONTAINER_NAME="openhands-canvas"
-IMAGE="ghcr.io/openhands/agent-canvas:1.43.0"
 PORT="8000"
 PROJECTS_PATH="$HOME/src/github.com/mlhamel"
 OPENHANDS_DATA="$HOME/.local/share/openhands"
@@ -70,6 +73,32 @@ ACP_MODES="build ask plan review"
 # (~/bin): the sync is then skipped with a warning.
 SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
 REPO_ROOT="$(dirname "$SCRIPT_DIR")"
+
+# Version pins (opencode 2.x, agent-canvas, Director) come from the central
+# versions.env at the repo root. A standalone copy of this script (~/bin)
+# has no repo: paste versions.env beside it (or at the parent dir's level
+# for a repo copy) or export the pins, else `up` aborts. The sourcing uses
+# self-protecting defaults, so an explicit env override always wins over
+# the file.
+require_versions() {
+  if [ -n "${_OPENHANDS_PINS_LOADED:-}" ]; then
+    return 0
+  fi
+  VERSIONS_FILE="$SCRIPT_DIR/versions.env"
+  if [ ! -f "$VERSIONS_FILE" ]; then
+    VERSIONS_FILE="$REPO_ROOT/versions.env"
+  fi
+  if [ -f "$VERSIONS_FILE" ]; then
+    # shellcheck source=../versions.env
+    . "$VERSIONS_FILE"
+  fi
+  [ -n "${OPENCODE_VERSION:-}" ] \
+    || die "pins introuvables: versions.env absent (${SCRIPT_DIR} et ${REPO_ROOT}) et OPENCODE_VERSION non exportée — colle versions.env à côté de openhands.sh ou exporte OPENCODE_VERSION/AGENT_CANVAS_VERSION"
+  [ -n "${AGENT_CANVAS_VERSION:-}" ] \
+    || die "pin AGENT_CANVAS_VERSION manquant — fournis versions.env à côté du script (ou à la racine du dépôt) ou exporte la variable"
+  IMAGE="ghcr.io/openhands/agent-canvas:${AGENT_CANVAS_VERSION}"
+  _OPENHANDS_PINS_LOADED=1
+}
 HOST_AGENTS="$REPO_ROOT/opencode/AGENTS.md"
 HOST_AGENTS_DIR="$REPO_ROOT/opencode/agents"
 HOST_SKILLS="$REPO_ROOT/opencode/skills"
@@ -88,9 +117,6 @@ GH_APP_HELPER_HOST="${SCRIPT_DIR}/bin/gh-app-token"
 GH_APP_HELPER_TARGET="/home/openhands/.opencode/bin/gh-app-token"
 GH_APP_ENABLED=0
 GH_APP_ID=""
-
-log() { printf '%s\n' "openhands: $*"; }
-die() { printf '%s\n' "openhands: ERREUR: $*" >&2; exit 1; }
 
 need_cmd() {
   command -v "$1" >/dev/null 2>&1 || die "commande introuvable: $1"
@@ -126,22 +152,21 @@ ensure_acl() {
   log "ACL en place sur $OPENCODE_DIR"
 }
 
-# The embedded config uses the opencode v1 schema (`provider` / `npm` /
-# `options`): the install script provides opencode 1.19.6. If the container
-# binary is ever upgraded to a 2.x runtime, this must move to the v2 schema
-# (`providers` / `package` / `settings`). Note: 1.19.6 requires BOTH
-# `limit.context` AND `limit.output` on every model — a config with only
-# `context` is rejected ("Configuration is invalid … Missing key
-# …limit.output") and opencode exits before the ACP handshake.
+# The embedded config uses the opencode v2 schema (`providers` / `package`
+# / `settings`), matching the opencode 2.x binary pinned in versions.env
+# (the v1 schema of opencode 1.19.x used `provider` / `npm` / `options`).
+# Every model still carries BOTH `limit.context` and `limit.output`: a
+# model relying on provider defaults gets a truncated session, so both
+# floors stay at 64k for the Canvas profiles.
 write_config() {
   cat > "$CONFIG_FILE" <<'EOF'
 {
   "$schema": "https://opencode.ai/config.json",
-  "provider": {
+  "providers": {
     "ollama": {
-      "npm": "@ai-sdk/openai-compatible",
+      "package": "@ai-sdk/openai-compatible",
       "name": "Ollama",
-      "options": {
+      "settings": {
         "baseURL": "http://host.docker.internal:11434/v1"
       },
       "models": {
@@ -405,18 +430,44 @@ container_failure() {
   die "$1. Voir: docker logs $CONTAINER_NAME"
 }
 
+opencode_semver() {
+  printf '%s' "${1:-}" | grep -oE '[0-9]+\.[0-9]+\.[0-9]+' | head -n 1 || true
+}
+
+# The pinned 2.x binary is the only accepted state in the container: an
+# exact version match is kept, anything else (missing, older 2.x, stale
+# 1.x) triggers a reinstall via the official v2 installer, and a leftover
+# 1.x after that is a hard failure.
 ensure_opencode() {
+  require_versions
+  local oc_bin="/home/openhands/.opencode/bin/opencode"
   mkdir -p "$OPENCODE_DIR/bin"
-  if docker exec "$CONTAINER_NAME" test -x /home/openhands/.opencode/bin/opencode 2>/dev/null; then
-    local v
-    v="$(docker exec "$CONTAINER_NAME" /home/openhands/.opencode/bin/opencode --version 2>/dev/null || true)"
-    log "opencode déjà installé dans le conteneur: ${v:-version inconnue}"
+  local v=""
+  if docker exec "$CONTAINER_NAME" test -x "$oc_bin" 2>/dev/null; then
+    v="$(docker exec "$CONTAINER_NAME" "$oc_bin" --version 2>/dev/null || true)"
+  fi
+  if [ "$(opencode_semver "$v")" = "$OPENCODE_VERSION" ]; then
+    log "opencode ${OPENCODE_VERSION} déjà installé dans le conteneur — conservé"
     return 0
   fi
-  log "opencode absent — installation dans le conteneur (persistée dans $OPENCODE_DIR)…"
-  docker exec "$CONTAINER_NAME" sh -c 'curl -fsSL https://opencode.ai/install | bash'
-  docker exec "$CONTAINER_NAME" /home/openhands/.opencode/bin/opencode --version
-  log "opencode installé."
+  if [ -n "$v" ]; then
+    log "opencode ${v} != version épinglée ${OPENCODE_VERSION} — réinstallation (remplace tout binaire 1.x restant)…"
+  else
+    log "opencode absent — installation de ${OPENCODE_VERSION} dans le conteneur (persistée dans $OPENCODE_DIR)…"
+  fi
+  docker exec "$CONTAINER_NAME" sh -c "curl -fsSL https://opencode.ai/v2/install | bash -s -- --version '${OPENCODE_VERSION}'"
+  local got
+  got="$(opencode_semver "$(docker exec "$CONTAINER_NAME" "$oc_bin" --version 2>/dev/null || true)")"
+  if [ -z "$got" ]; then
+    die "opencode ${OPENCODE_VERSION} attendu, 'opencode --version' ne répond pas dans le conteneur"
+  fi
+  case "$got" in
+    1.*) die "opencode ${got} (1.x) encore présent après l'installation de ${OPENCODE_VERSION} — supprime $OPENCODE_DIR puis relance: $0 up" ;;
+  esac
+  if [ "$got" != "$OPENCODE_VERSION" ]; then
+    die "opencode ${OPENCODE_VERSION} attendu, le conteneur rapporte ${got}"
+  fi
+  log "opencode installé: ${got}"
 }
 
 show_summary() {
@@ -442,6 +493,7 @@ show_summary() {
 }
 
 cmd_up() {
+  require_versions
   need_cmd docker
   need_cmd curl
   need_cmd setfacl
@@ -534,7 +586,7 @@ cmd_status() {
 }
 
 usage() {
-  sed -n '2,41p' "$0"
+  sed -n '2,46p' "$0"
 }
 
 main() {

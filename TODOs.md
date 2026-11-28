@@ -23,10 +23,12 @@ not a fix for a broken config.
 - [x] **P1 · Bless template in native V2** — `skills/workflow/SKILL.md`
       per-project template uses the `permissions` array (`edit`/`shell`,
       last-match-wins) instead of the V1 `permission` map.
-- [x] **P1 · Pin opencode + Director** — `OPENCODE_VERSION=2.3.0` in
-      `setup.sh` (latest 2026-11-24, `--version` flag) and
-      `DIRECTOR_VERSION=v1.23.0` in `opencode/setup-director.sh` (latest
-      upstream 2026-10-27); both skip branches report drift from the pin.
+- [x] **P1 · Pin opencode + Director** — was two inline pins
+      (`OPENCODE_VERSION=2.3.0` in `setup.sh` as of 2026-11-24 and
+      `DIRECTOR_VERSION=v1.23.0` in `opencode/setup-director.sh` as of
+      2026-10-27; both skip branches reported drift); centralized
+      2026-11-28 in root `versions.env` — see the migration entry in the
+      OpenHands section.
 - [x] **P1 · Tests for plugins + shell scripts** — done 2026-11-24 (PR
       `fix/plugin-tests-2026-11-24`): `test/plugins/` runs 38 node:test
       cases on a mock ctx (review-enforcer classify/dirty/gate/read-only,
@@ -318,6 +320,28 @@ Langfuse (self-hosted observability) and Spec Kit (spec → plan → tasks)
       fails with the fix in the message. Outcome: shellcheck clean,
       helper regression 26/26 + harness cases 4/4 (`openhands-gh-app`),
       full harness 46/0/3 (2026-11-28).
+- [x] **Migration opencode 2.x + pins centralisés** — root `versions.env`
+      is now the single home for all pins (`OPENCODE_VERSION`,
+      `DIRECTOR_VERSION`, `AGENT_CANVAS_VERSION`), sourced by `setup.sh`,
+      `opencode/setup-director.sh` and `openhands/openhands.sh` (grepped
+      by `measure.yml`; explicit env overrides still win). The container
+      config is the v2 schema (`providers` / `package` / `settings`) and
+      the binary is the pinned 2.x via the V2 installer — a leftover 1.x
+      in the container is replaced on `up`, one that survives is a hard
+      fail; the image tag follows `AGENT_CANVAS_VERSION`. Dependabot
+      deliberately does NOT cover these shell pins (it cannot edit
+      version strings in arbitrary files) — it keeps only the SHA-pinned
+      GitHub Actions fresh; docker ecosystem not applicable (no
+      Dockerfile). The pins are checked weekly against upstream by the
+      new `.github/workflows/versions.yml` (npm latest for opencode and
+      agent-canvas, newest release tag for Director; a behind pin writes
+      a summary and fails the job). Renovate `regexManagers` could update
+      `versions.env` itself — noted as the alternative, not built.
+      Director checked against the pinned opencode 2.x: `director doctor`,
+      `director install --opencode`, and a boot-level config + plugin
+      load (`opencode debug config` / `opencode debug agents`) exit 0. Live `openhands.sh down && up` on the Framework
+      remains the human end-to-end check. (PR
+      `feat/opencode-2x-migration-2026-11-28`, 2026-11-28.)
 - [ ] **PC dédié** — if the trial concludes, move the same Docker setup
       to the always-on PC as a systemd service with an API key, reached
       from the Framework over Tailscale.

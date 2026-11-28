@@ -29,7 +29,12 @@ jobs:
           node-version: "24"
       - name: Install opencode
         run: |
-          curl -fsSL https://opencode.ai/v2/install | bash -s -- --version 2.3.0
+          version="$(sed -n 's/^export OPENCODE_VERSION="\${OPENCODE_VERSION:-\([^}]*\)}"$/\1/p' versions.env)"
+          [ -n "$version" ] || {
+            echo "OPENCODE_VERSION introuvable dans versions.env" >&2
+            exit 1
+          }
+          curl -fsSL https://opencode.ai/v2/install | bash -s -- --version "$version"
           echo "$HOME/.opencode/bin" >> "$GITHUB_PATH"
       - name: Measure
         env:

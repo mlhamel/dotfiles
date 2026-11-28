@@ -5,15 +5,18 @@ set -euo pipefail
 # Idempotent: safe to re-run; an existing healthy install is left alone.
 # Skip with: SKIP_DIRECTOR=1 (e.g. non-macOS CI boxes, minimal setups).
 #
-# Version pin: DIRECTOR_VERSION defaults to v1.23.0 (latest upstream release,
-# 2026-10-27). Note the installer script is fetched from the mlhamel/director
-# fork, but the script itself downloads its binary from
+# Version pin: DIRECTOR_VERSION comes from versions.env at the repo root
+# (see header there). Note the installer script is fetched from the
+# mlhamel/director fork, but the script itself downloads its binary from
 # colinsurprenant/director releases — the fork has no releases of its own,
-# so the pin below is an upstream tag. Override with DIRECTOR_VERSION=vX.Y.Z.
+# so the pin in versions.env is an upstream tag. Override with
+# DIRECTOR_VERSION=vX.Y.Z.
 
 DIRECTOR_INSTALL_DIR="${HOME}/.local/bin"
 DIRECTOR_REPO="mlhamel/director"
-DIRECTOR_VERSION="${DIRECTOR_VERSION:-v1.23.0}"
+# shellcheck source=../versions.env
+. "$(cd "$(dirname "${BASH_SOURCE[0]}")/.." && pwd)/versions.env"
+DIRECTOR_VERSION="${DIRECTOR_VERSION:?versions.env did not set DIRECTOR_VERSION}"
 
 if [ "${SKIP_DIRECTOR:-0}" = "1" ]; then
   echo "SKIP_DIRECTOR=1 — skipping Director setup"

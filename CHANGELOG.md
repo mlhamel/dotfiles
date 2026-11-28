@@ -33,6 +33,29 @@ use today's date and the hash of the change once committed.
   helper (`gh-app-token gh <args>` for `gh pr create`); key absent →
   `up` warns and continues, mode != 600 or missing App ID → `up` fails
   with the fix in the message. README with the human steps.
+- `(hash)` — Migrate the OpenHands container to opencode 2.x and
+  centralize the pins (PR `feat/opencode-2x-migration-2026-11-28`):
+  `OPENCODE_VERSION=2.4.2`, `DIRECTOR_VERSION=v1.23.0`,
+  `AGENT_CANVAS_VERSION=1.46.0` live only in root `versions.env`,
+  sourced by `setup.sh`, `opencode/setup-director.sh` and
+  `openhands/openhands.sh` (env overrides win; `measure.yml` greps
+  `OPENCODE_VERSION`). The container config becomes the v2 schema
+  (`providers` / `package` / `settings`) written for the pinned
+  binary, installed via the V2 installer (`opencode.ai/v2/install`) —
+  a leftover 1.x in the container is replaced on `up`, one that
+  survives is a hard fail, and the image tag follows
+  `AGENT_CANVAS_VERSION`. `.github/dependabot.yml` now scopes to the
+  `github-actions` ecosystem: Dependabot cannot edit version strings
+  inside shell pins, and docker does not apply (no Dockerfile). The
+  pins themselves get the new weekly drift check
+  `.github/workflows/versions.yml` (npm latest for `@opencode/cli` and
+  `@openhands/agent-canvas`, newest release tag for Director; a behind
+  pin writes a summary and fails the job). Renovate with
+  `regexManagers` is the noted alternative for updating `versions.env`
+  directly, not built. Director verified against the pinned opencode:
+  `director install --opencode`, `director doctor`, and a boot-level
+  config + plugin load all exit 0. Live `openhands.sh down && up` on
+  the Framework remains the human end-to-end check.
 
 ## 2026-11-26
 
@@ -54,7 +77,7 @@ use today's date and the hash of the change once committed.
 - `(hash)` — Provider package and settings for the cloud run (PR
   `fix/measure-provider-package-2026-11-27`): the 2026-11-27 run finally
   surfaced the real error — `Unsupported package for
-  ollama/glm-5.3-flash:` (empty package — the message ends with a bare
+ollama/glm-5.3-flash:` (empty package — the message ends with a bare
   colon). `evalConfig` set the
   endpoint under the v1 `options` key, which opencode v2 silently
   ignores, and set no `package` at all. It now writes the v2 shape

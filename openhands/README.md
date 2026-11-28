@@ -10,8 +10,9 @@ sans intervention manuelle à chaque démarrage.
    nouveaux fichiers héritent) et sur le dossier opencode persistant.
 2. **Config** — écrit `~/.local/share/openhands/opencode-container.jsonc`
    si absent : provider Ollama → `http://host.docker.internal:11434/v1`,
-   les 9 modèles de la passerelle épinglés (dont `glm-5.3-flash:cloud`,
-   contexte et sortie limités à 65536 tokens — opencode 1.19.6 exige les
+   en schéma opencode **v2** (`providers` / `package` / `settings`), les
+   9 modèles de la passerelle épinglés (dont `glm-5.3-flash:cloud`,
+   contexte et sortie limités à 65536 tokens — chaque modèle porte les
    deux clés `limit.context` et `limit.output`).
 3. **GitHub App** (optionnel) — si `~/.config/openhands/github-app.pem`
    et l'App ID (`~/.config/openhands/github-app.conf`, pas un secret)
@@ -22,8 +23,10 @@ sans intervention manuelle à chaque démarrage.
    mintés à la demande, rien n'est persisté. Clé absente : `up` prévient
    et continue. Permissions trop larges ou App ID manquant : `up` échoue avec le
    correctif dans le message.
-4. **Conteneur** — démarre `ghcr.io/openhands/agent-canvas:1.43.0` (détaché,
-   nommé `openhands-canvas`), avec : projets montés, volume d'état
+4. **Conteneur** — démarre `ghcr.io/openhands/agent-canvas` au tag
+   `AGENT_CANVAS_VERSION` épinglé dans `versions.env` à la racine du
+   dépôt (détaché, nommé `openhands-canvas`), avec : projets montés,
+   volume d'état
    `openhands-state` et dossier opencode persistant
    (`~/.local/share/openhands/opencode` → `/home/openhands/.opencode`, le
    binaire survit aux redémarrages). L'interface doit répondre avant
@@ -48,7 +51,10 @@ sans intervention manuelle à chaque démarrage.
    conservés (les modifications faites dans l'UI survivent) ; absents,
    ils sont écrits depuis les définitions canoniques ; le preset
    générique `opencode-acp` est retiré.
-7. **Binaire** — installe opencode dans le conteneur si absent (l'install
+7. **Binaire** — installe l'opencode épinglé dans `versions.env`
+   (`OPENCODE_VERSION`) via l'installateur V2 (`opencode.ai/v2/install`)
+   si absent ou si la version diffère — un binaire 1.x restant est
+   remplacé, et la version rapportée doit être celle du pin (l'install
    atterrit dans le dossier persistant : coût unique).
 8. **Santé** — attend que l'interface réponde, puis affiche un résumé.
 
@@ -237,13 +243,17 @@ Pour forcer une réinstallation d'opencode : supprime
   skills, dont `planning`, + `agents/`) : le comportement « plan
   d'abord » s'applique aussi côté canvas. C'est volontaire : les plugins
   ne sont pas installés dans le conteneur.
-- La config embarquée utilise le schéma opencode **v1** (`provider` /
-  `npm` / `options`) parce que le script d'install fournit opencode
-  1.19.6. Si le binaire du conteneur passe un jour en 2.x, elle doit
-  passer au schéma v2 (`providers` / `package` / `settings`).
-- L'image est épinglée à `1.43.0` (variable `IMAGE` en tête du script).
-  Pour monter de version, change la valeur et relance `up` (le conteneur
-  sera recréé ; le binaire et la config persistent).
+- La config embarquée utilise le schéma opencode **v2** (`providers` /
+  `package` / `settings`), assorti au binaire 2.x épinglé dans
+  `versions.env` — le script n'installe plus de binaire 1.x, et refuse
+  d'achever `up` s'il en reste un.
+- L'opencode et l'image sont épinglés dans `versions.env` à la racine
+  du dépôt (`OPENCODE_VERSION`, `DIRECTOR_VERSION`,
+  `AGENT_CANVAS_VERSION`) — le même fichier que lisent `setup.sh` et
+  `opencode/setup-director.sh`, comparé chaque semaine à l'amont par
+  `.github/workflows/versions.yml`. Pour monter de version : édite
+  `versions.env` et relance `up` (le conteneur sera recréé ; le
+  binaire et la config persistent).
 - Le script ne démarre pas Ollama : la passerelle systemd
   (`ollama.service`, `OLLAMA_HOST=0.0.0.0:11434`) doit déjà tourner.
 - Le branchement GitHub App est optionnel et la protection de branche

@@ -98,15 +98,16 @@ reference the profiles (checked too).
 
 Each case runs the real script with a scratch HOME and stub binaries on
 PATH: no sudo, no apt, no network, no model downloads. Stubs log every
-invocation to `$STUB_LOG`. Cases (43):
+invocation to `$STUB_LOG`. Cases (55):
 
 - `setup-ollama.sh`: happy path (local pull + cloud manifest), local
   pull failure aborts, cloud failure is a warning with the `ollama signin`
   hint, `SKIP_OLLAMA=1`, dead gateway aborts. The gateway-down case takes
   ~30s: the script retries the gateway for 30 x 1s by design.
-- `setup.sh`: skip when opencode 2.3.0 is installed (config symlink
-  deployed), drift note for 2.2.0, `FORCE_OPENCODE=1` passes `--version
-2.3.0` to the installer, fresh install, `SKIP_OPENCODE=1`. Director,
+- `setup.sh`: skip when the pinned opencode (from root `versions.env`) is
+  already installed (config symlink deployed), drift note for 2.2.0,
+  `FORCE_OPENCODE=1` passes the pinned `--version` to the installer,
+  fresh install, `SKIP_OPENCODE=1`. Director,
   packages and ollama steps are skipped via `SKIP_*` to isolate step 2;
   the inotify step runs against the real `/proc` value with a stub `sudo`
   that fails, so it takes the WARN path and continues. Three more cases
@@ -119,8 +120,9 @@ invocation to `$STUB_LOG`. Cases (43):
   is invoked. The markers replace the sub-scripts in a scratch repo tree
   and fail if called, so a missing guard fails the case instead of
   silently falling through to the sub-script's own guard.
-- `setup-director.sh`: skip when healthy on v1.23.0, drift note for
-  v1.20.0, fresh install (the fake installer creates a stub binary and
+- `setup-director.sh`: skip when healthy on the pinned director (from
+  root `versions.env`), drift note for v1.20.0, fresh install (the fake
+  installer creates a stub binary and
   the script wires opencode), `SKIP_DIRECTOR=1`.
 - Darwin (simulated with a stub `uname`, since the CI runners are Linux):
   `setup.sh` runs `brew bundle` on the repo Brewfile, warns and continues
@@ -150,13 +152,17 @@ invocation to `$STUB_LOG`. Cases (43):
 - `openhands/openhands.sh`: setup cases with a stub `docker` (plus stub
   setfacl/getfacl/curl), so no container ever starts: help (exit 0, names
   the script and the ACP model), stubbed `up` (exit 0, Canvas URL and
-  opencode version in the summary, config written with the Ollama gateway
-  base URL, the GLM model and a 64k context limit, valid JSON, `docker
-run` logged with the pinned image, config copied in with `mkdir -p` +
-  `docker cp` + `chown` and no read-only file mount), and stubbed
-  `status` (container
-  running, UI reachable, version reported). Startup failures surface
-  bounded logs before any config copy; stopped status skips internal
+  opencode version in the summary, config written in the v2 schema with
+  the Ollama gateway base URL, the GLM model and 64k context/output
+  floors, valid JSON, `docker run` logged with the pinned image, config
+  copied in with `mkdir -p` + `docker cp` + `chown` and no read-only file
+  mount), and stubbed `status` (container
+  running, UI reachable, version reported). Both pins come from root
+  `versions.env` (`OPENCODE_VERSION`, `AGENT_CANVAS_VERSION`): the `up`
+  cases verify the image tag, reinstall a container opencode older than
+  the pin through the official v2 installer (a leftover 1.x binary would
+  be fatal), and surface bounded logs on startup
+  failures before any config copy; stopped status skips internal
   checks; incompatible GitHub App mounts require recreation. Two
   additional cases use real `setfacl`/`getfacl` on scratch keys to verify
   repeated setup and reject unsafe ACLs (skipped if ACL tools are

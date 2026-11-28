@@ -1,0 +1,75 @@
+name: versions
+
+on:
+  schedule:
+    - cron: "30 6 * * 1"
+  workflow_dispatch:
+  pull_request:
+    paths:
+      - versions.env
+
+permissions:
+  contents: read
+
+concurrency:
+  group: versions
+
+jobs:
+  drift-check:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+      - name: extraire les pins
+        run: |
+          oc_pin="$(sed -n 's/^export OPENCODE_VERSION="\${OPENCODE_VERSION:-\([^}]*\)}"$/\1/p' versions.env)"
+          dg_pin="$(sed -n 's/^export DIRECTOR_VERSION="\${DIRECTOR_VERSION:-\([^}]*\)}"$/\1/p' versions.env)"
+          ac_pin="$(sed -n 's/^export AGENT_CANVAS_VERSION="\${AGENT_CANVAS_VERSION:-\([^}]*\)}"$/\1/p' versions.env)"
+          for pin in "$oc_pin" "$dg_pin" "$ac_pin"; do
+            [ -n "$pin" ] || {
+              echo "pin introuvable dans versions.env — le format 'export VAR=\"\${VAR:-...}\" est-il intact ?" >&2
+              exit 1
+            }
+          done
+          echo "OPENCODE_PIN=$oc_pin" >> "$GITHUB_ENV"
+          echo "DIRECTOR_PIN=$dg_pin" >> "$GITHUB_ENV"
+          echo "CANVAS_PIN=$ac_pin" >> "$GITHUB_ENV"
+      - name: amont
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: |
+          oc_latest="$(npm view @opencode/cli version 2>/dev/null)"
+          ac_latest="$(npm view @openhands/agent-canvas version 2>/dev/null)"
+          dg_latest="$(gh api repos/colinsurprenant/director/releases/latest --jq .tag_name)"
+          for latest in "$oc_latest" "$ac_latest" "$dg_latest"; do
+            [ -n "$latest" ] || {
+              echo "impossible de lire une version amont (npm @opencode/cli, npm @openhands/agent-canvas, releases colinsurprenant/director)" >&2
+              exit 1
+            }
+          done
+          echo "OPENCODE_LATEST=$oc_latest" >> "$GITHUB_ENV"
+          echo "DIRECTOR_LATEST=$dg_latest" >> "$GITHUB_ENV"
+          echo "CANVAS_LATEST=$ac_latest" >> "$GITHUB_ENV"
+      - name: verifier la dérive
+        run: |
+          drift=0
+          check_pin() {
+            component="$1"
+            pin="$2"
+            latest="$3"
+            if [ "$pin" = "$latest" ]; then
+              printf '%s — pin %s conforme au dernier amont %s\n' "$component" "$pin" "$latest" >> "$GITHUB_STEP_SUMMARY"
+            elif [ "$latest" = "$(printf '%s\n%s\n' "$pin" "$latest" | sort -V | tail -n1)" ]; then
+              printf 'DÉRIVE: %s — pin %s derrière le dernier amont %s\n' "$component" "$pin" "$latest" >> "$GITHUB_STEP_SUMMARY"
+              drift=1
+            else
+              printf 'INFO: %s — pin %s devant le dernier amont %s (à vérifier, pas un échec)\n' "$component" "$pin" "$latest" >> "$GITHUB_STEP_SUMMARY"
+            fi
+          }
+          check_pin opencode "${OPENCODE_PIN}" "${OPENCODE_LATEST}"
+          check_pin director "${DIRECTOR_PIN}" "${DIRECTOR_LATEST}"
+          check_pin agent-canvas "${CANVAS_PIN}" "${CANVAS_LATEST}"
+          cat "$GITHUB_STEP_SUMMARY"
+          [ "$drift" -eq 0 ] || {
+            echo "pins derrière le dernier amont — met à jour versions.env (Dependabot ne couvre pas ce fichier)" >&2
+            exit 1
+          }

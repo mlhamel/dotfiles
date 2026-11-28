@@ -84,7 +84,7 @@ the task; the result records the guard outcome either way.
 
 ## Running a real eval
 
-Prerequisites: opencode 2.3.0 on `PATH` and the model you want to evaluate
+Prerequisites: opencode 2.x on `PATH` and the model you want to evaluate
 reachable. Ollama models (`ollama/<model>:cloud`) additionally need the
 gateway up with the models registered (`./opencode/setup-ollama.sh`). Models
 served by opencode's own providers — the default `opencode/big-pickle` among
@@ -186,11 +186,11 @@ This mirrors the repo's own `opencode/opencode.json`.
 
 Runner-vs-laptop details:
 
-- The workflow installs opencode via the **V2** installer —
-  `curl -fsSL https://opencode.ai/v2/install | bash -s -- --version 2.3.0`,
-  the same pin `setup.sh` uses. The plain `opencode.ai/install` URL is
-  V1-only and rejects v2.x, and V1 chokes on the harness's
-  `--standalone --auto --archived` flags.
+- The workflow installs opencode via the **V2** installer, passing the
+  pin `sed`-extracted from root `versions.env` (`OPENCODE_VERSION`) as
+  `--version`; the same pin `setup.sh` uses. The plain
+  `opencode.ai/install` URL is V1-only and rejects v2.x, and V1 chokes on
+  the harness's `--standalone --auto --archived` flags.
 - The job logs `opencode --version` before measuring, cross-checkable
   against the version recorded in the results file.
 
