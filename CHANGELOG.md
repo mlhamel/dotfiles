@@ -5,6 +5,17 @@ entries reference the committing hash. Newest first. When adding an entry,
 use today's date and the hash of the change once committed.
 
 ## 2026-11-28
+- `(hash)` — Renamed the repo `dotfiles` → `factory` — README (title,
+  scope line, `mlhamel/factory.git` clone URL, `~` paths), `package.json`
+  name, `setup.sh` banner and sysctl conf `99-factory-inotify.conf`, the
+  maintenance skill dir (`opencode/skills/dotfiles` → `factory` plus
+  frontmatter), opencode AGENTS.md + README, lint.yml comment,
+  homebrew/openhands READMEs, threat-model scope, TODOs title with the
+  P3 "Repo scope / name" item checked off, and test tempdir prefixes
+  (`factory-*`). Deployed `~/.config/opencode` copy aligned. Historical
+  records (specs, earlier CHANGELOG entries, eval fixtures, `.director/`
+  runtime state) stay untouched; the git remote already points at
+  `mlhamel/factory.git`.
 
 - `(hash)` — Document the end-to-end setup commands in
   `openhands/README.md`: place the key and App ID, run `up`/`status`,

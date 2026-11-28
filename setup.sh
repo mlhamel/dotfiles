@@ -5,7 +5,7 @@ set -euo pipefail
 #
 # Chains, in order:
 #   1. kernel inotify limit    (fs.inotify.max_user_watches via sysctl, persisted
-#                              to /etc/sysctl.d/99-dotfiles-inotify.conf)
+#                              to /etc/sysctl.d/99-factory-inotify.conf)
 #   2. opencode binary         (pinned V2, see OPENCODE_VERSION below, via
 #                              official curl script, replaces V1;
 #                              OPENCODE_VERSION=x.y.z overrides the pin;
@@ -27,13 +27,13 @@ OS="$(uname -s)"
 # 2026-11-24: 2.3.0.
 OPENCODE_VERSION="${OPENCODE_VERSION:-2.3.0}"
 
-echo "=== dotfiles bootstrap: ${DIR} ==="
+echo "=== factory bootstrap: ${DIR} ==="
 
 # 1. kernel inotify limit ---------------------------------------------------
 echo "[inotify] checking fs.inotify.max_user_watches for opencode config watching..."
 INOTIFY_TARGET=1048576
 INOTIFY_FILE="/proc/sys/fs/inotify/max_user_watches"
-SYSCTL_CONF="/etc/sysctl.d/99-dotfiles-inotify.conf"
+SYSCTL_CONF="/etc/sysctl.d/99-factory-inotify.conf"
 if [ "${OS}" != "Linux" ]; then
   echo "[inotify] SKIP ${OS} — Linux-only"
 elif [ ! -r "${INOTIFY_FILE}" ]; then
