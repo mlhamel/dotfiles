@@ -1288,6 +1288,83 @@ case_openhands_status() {
   finish_case
 }
 
+case_openhands_gh_app_up() {
+  new_case
+  stub_curl
+  stub_docker
+  stub_setfacl
+  stub_getfacl
+  mkdir -p "${CASE_HOME}/src/github.com/mlhamel" "${CASE_HOME}/.config/openhands"
+  printf 'FAKE-PEM-KEY-NOT-REAL\n' > "${CASE_HOME}/.config/openhands/github-app.pem"
+  chmod 600 "${CASE_HOME}/.config/openhands/github-app.pem"
+  printf 'GITHUB_APP_ID=123456\n' > "${CASE_HOME}/.config/openhands/github-app.conf"
+  bash "${ROOT}/openhands/openhands.sh" up > "${CASE_HOME}/out.log" 2>&1
+  local rc=$?
+  check_rc 0 "${rc}" "up with a GitHub App key exits 0"
+  check_contains "${STUB_LOG}" "GITHUB_APP_ID=123456" "docker run exports the App ID"
+  check_contains "${STUB_LOG}" "${CASE_HOME}/.config/openhands/github-app.pem:/home/openhands/.config/github-app.pem:ro" "the key is bind-mounted read-only"
+  check_contains "${STUB_LOG}" "credential.helper" "git credential helper is configured in the container"
+  check_contains "${STUB_LOG}" "gh-app-token credential" "credential helper targets the gh-app-token helper"
+  check_contains "${CASE_HOME}/out.log" "GitHub App: branchée" "up reports the GitHub App wired"
+  check_mode 755 "${CASE_HOME}/.local/share/openhands/opencode/bin/gh-app-token" "the helper is staged executable"
+  check_contains "${STUB_LOG}" "u:10001:r-- ${CASE_HOME}/.config/openhands/github-app.pem" "the key gets a read-only ACL for the canvas user"
+  finish_case
+}
+
+case_openhands_gh_app_no_key() {
+  new_case
+  stub_curl
+  stub_docker
+  stub_setfacl
+  stub_getfacl
+  mkdir -p "${CASE_HOME}/src/github.com/mlhamel"
+  bash "${ROOT}/openhands/openhands.sh" up > "${CASE_HOME}/out.log" 2>&1
+  local rc=$?
+  check_rc 0 "${rc}" "up without a GitHub App key exits 0"
+  check_contains "${CASE_HOME}/out.log" "GitHub App: non branchée" "up reports the GitHub App skipped"
+  check_contains "${CASE_HOME}/out.log" "clé absente" "the notice names the missing key"
+  check_not_contains "${STUB_LOG}" "GITHUB_APP_ID=" "no App ID is exported"
+  check_not_contains "${STUB_LOG}" "credential.helper" "no credential helper is configured"
+  check_not_contains "${STUB_LOG}" "github-app.pem:ro" "no key is bind-mounted"
+  finish_case
+}
+
+case_openhands_gh_app_bad_mode() {
+  new_case
+  stub_curl
+  stub_docker
+  stub_setfacl
+  stub_getfacl
+  mkdir -p "${CASE_HOME}/src/github.com/mlhamel" "${CASE_HOME}/.config/openhands"
+  printf 'FAKE-PEM-KEY-NOT-REAL\n' > "${CASE_HOME}/.config/openhands/github-app.pem"
+  printf 'GITHUB_APP_ID=123456\n' > "${CASE_HOME}/.config/openhands/github-app.conf"
+  bash "${ROOT}/openhands/openhands.sh" up > "${CASE_HOME}/out.log" 2>&1
+  local rc=$?
+  check_rc_nonzero "${rc}" "up with a key wider than 600 exits non-zero"
+  check_contains "${CASE_HOME}/out.log" "chmod 600" "the error names the chmod fix"
+  check_not_contains "${STUB_LOG}" "GITHUB_APP_ID=" "the container never starts with a loose key"
+  check_not_contains "${STUB_LOG}" "credential.helper" "no credential helper is configured"
+  finish_case
+}
+
+case_openhands_gh_app_missing_id() {
+  new_case
+  stub_curl
+  stub_docker
+  stub_setfacl
+  stub_getfacl
+  mkdir -p "${CASE_HOME}/src/github.com/mlhamel" "${CASE_HOME}/.config/openhands"
+  printf 'FAKE-PEM-KEY-NOT-REAL\n' > "${CASE_HOME}/.config/openhands/github-app.pem"
+  chmod 600 "${CASE_HOME}/.config/openhands/github-app.pem"
+  printf 'GITHUB_APP_ID=pasunid\n' > "${CASE_HOME}/.config/openhands/github-app.conf"
+  bash "${ROOT}/openhands/openhands.sh" up > "${CASE_HOME}/out.log" 2>&1
+  local rc=$?
+  check_rc_nonzero "${rc}" "up with a non-integer App ID exits non-zero"
+  check_contains "${CASE_HOME}/out.log" "GITHUB_APP_ID" "the error names the App ID conf"
+  check_not_contains "${STUB_LOG}" "credential.helper" "no credential helper is configured"
+  finish_case
+}
+
 # --- runner -----------------------------------------------------------------
 
 run_case() {
@@ -1360,6 +1437,10 @@ run_case "openhands-up" case_openhands_up
 run_case "openhands-up-profiles-keep" case_openhands_up_profiles_keep
 run_case "openhands-up-standalone" case_openhands_up_standalone
 run_case "openhands-status" case_openhands_status
+run_case "openhands-gh-app-up" case_openhands_gh_app_up
+run_case "openhands-gh-app-no-key" case_openhands_gh_app_no_key
+run_case "openhands-gh-app-bad-mode" case_openhands_gh_app_bad_mode
+run_case "openhands-gh-app-missing-id" case_openhands_gh_app_missing_id
 
 echo "shell tests: ${PASS_COUNT} passed, ${FAIL_COUNT} failed, ${SKIP_COUNT} skipped"
 if [ "${FAIL_COUNT}" -gt 0 ]; then

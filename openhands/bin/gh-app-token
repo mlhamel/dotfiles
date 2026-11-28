@@ -1,0 +1,209 @@
+#!/usr/bin/env bash
+# gh-app-token -- mint short-lived GitHub App installation tokens on demand.
+#
+# Modes:
+#   jwt        Print the signed RS256 App identity JWT (debugging only).
+#   token      Print an installation access token. Options:
+#              --repo OWNER/NAME, --installation-id ID, --app-id ID
+#              (a single installation is picked automatically when the App
+#              is installed for exactly one owner).
+#   credential Git credential helper for github.com: `get` mints a token for
+#              the repo parsed from the `url=` line read on stdin;
+#              `store`/`erase` are no-ops.
+#   gh [args]  Run `gh` with a freshly minted token exported as GH_TOKEN.
+#
+# Configuration (environment):
+#   GITHUB_APP_ID        Required, numeric App identifier (not a secret).
+#   GITHUB_APP_KEY_FILE  App private key, default
+#                        /home/openhands/.config/github-app.pem (read-only
+#                        bind-mount inside the Canvas container).
+#   GITHUB_API           API base, default https://api.github.com.
+#
+# The JWT carries iat = now-60 and exp = now+600 (clock-skew tolerance).
+# The private key is read where it lies and never copied or written.
+
+set -euo pipefail
+
+GITHUB_API="${GITHUB_API:-https://api.github.com}"
+APP_ID="${GITHUB_APP_ID:-}"
+KEY_FILE="${GITHUB_APP_KEY_FILE:-/home/openhands/.config/github-app.pem}"
+
+REPO=""
+INSTALLATION_ID=""
+TMP_INSTALLATIONS="$(mktemp)"
+trap 'rm -f "$TMP_INSTALLATIONS"' EXIT
+
+die() { printf '%s\n' "gh-app-token: ERROR: $*" >&2; exit 1; }
+
+if [ "$#" -gt 0 ]; then MODE="$1"; shift; else MODE=help; fi
+
+case "$MODE" in
+  token)
+    while [ "$#" -gt 0 ]; do
+      case "$1" in
+        --repo)            [ "$#" -ge 2 ] || die "--repo needs a value"; REPO="$2"; shift 2 ;;
+        --installation-id) [ "$#" -ge 2 ] || die "--installation-id needs a value"; INSTALLATION_ID="$2"; shift 2 ;;
+        --app-id)          [ "$#" -ge 2 ] || die "--app-id needs a value"; APP_ID="$2"; shift 2 ;;
+        -h|--help)         MODE=help; break ;;
+        *) die "unknown option: $1" ;;
+      esac
+    done
+    ;;
+esac
+
+case "$MODE" in
+  jwt|token|credential|gh|help|-h|--help|usage) ;;
+  *) die "unknown mode: $MODE (jwt|token|credential|gh)" ;;
+esac
+
+if [ "$MODE" != "help" ] && [ "$MODE" != "-h" ] && [ "$MODE" != "--help" ] && [ "$MODE" != "usage" ]; then
+  [ -n "$APP_ID" ] || die "GITHUB_APP_ID is not set (and no --app-id given)"
+  case "$APP_ID" in
+    *[!0-9]*) die "GITHUB_APP_ID must be numeric" ;;
+  esac
+  [ -n "$KEY_FILE" ] || die "GITHUB_APP_KEY_FILE is empty"
+  [ -r "$KEY_FILE" ] || die "private key not readable: $KEY_FILE (is it mounted read-only into the container?)"
+fi
+
+# Base64url of stdin: openssl pads and may wrap; normalize like RFC 7515.
+b64url() { openssl base64 -A | tr '+/' '-_' | tr -d '=\n'; }
+
+app_jwt() {
+  local now iat exp header payload signing_input sig
+  now="$(date +%s)"
+  iat=$((now - 60))
+  exp=$((now + 600))
+  header='{"alg":"RS256","typ":"JWT"}'
+  payload="$(printf '{"iss":"%s","iat":%s,"exp":%s}' "$APP_ID" "$iat" "$exp")"
+  signing_input="$(printf '%s' "$header" | b64url).$(printf '%s' "$payload" | b64url)"
+  sig="$(printf '%s' "$signing_input" | openssl dgst -sha256 -sign "$KEY_FILE" 2>/dev/null | b64url)" \
+    || die "failed to sign JWT with $KEY_FILE"
+  [ -n "$sig" ] || die "failed to sign JWT with $KEY_FILE"
+  printf '%s.%s' "$signing_input" "$sig"
+}
+
+# One API call. URL, method, bearer token, optional JSON body -> body on stdout.
+api() {
+  local url="$1" method="$2" bearer="$3" data="${4:-}"
+  local -a args=(-fsS --max-time 30 -X "$method"
+    -H "Authorization: Bearer $bearer"
+    -H "Accept: application/vnd.github+json")
+  if [ -n "$data" ]; then
+    args+=(-H "Content-Type: application/json" -d "$data")
+  fi
+  curl "${args[@]}" "$url" \
+    || die "API call failed: $method $url (check network, key validity and clock)"
+}
+
+# installations JSON on stdin -> "login<TAB>installation_id" lines.
+list_installations() {
+  python3 -c '
+import json, sys
+for it in json.load(sys.stdin):
+    acct = it.get("account") or {}
+    print("%s\t%s" % (acct.get("login"), it["id"]))
+'
+}
+
+# Prefer --installation-id, else the installation matching the repo owner
+# (case-insensitive), else the only installation around. -> installation id.
+resolve_installation() {
+  local jwt="$1" body want hit count
+  if [ -n "$INSTALLATION_ID" ]; then
+    printf '%s\n' "$INSTALLATION_ID"
+    return 0
+  fi
+  if [ -n "$REPO" ]; then
+    printf '%s' "$REPO" | grep -q '/' || die "invalid repo: $REPO (expected OWNER/NAME)"
+    want="${REPO%%/*}"
+  else
+    want=""
+  fi
+  body="$(api "$GITHUB_API/app/installations?per_page=100" GET "$jwt")"
+  printf '%s' "$body" | list_installations > "$TMP_INSTALLATIONS" \
+    || die "could not parse /app/installations response"
+  if [ -n "$want" ]; then
+    hit="$(awk -F'\t' -v w="$(printf '%s' "$want" | tr '[:upper:]' '[:lower:]')" 'tolower($1)==w {print $2; exit}' "$TMP_INSTALLATIONS")"
+    if [ -n "$hit" ]; then
+      printf '%s\n' "$hit"
+      return 0
+    fi
+    die "App is not installed for '$want' (installed for: $(awk -F'\t' '{printf "%s ", $1}' "$TMP_INSTALLATIONS"))"
+  fi
+  count="$(wc -l < "$TMP_INSTALLATIONS")"
+  if [ "$count" -eq 1 ]; then
+    awk -F'\t' '{print $2}' "$TMP_INSTALLATIONS"
+    return 0
+  fi
+  die "ambiguous installation: use --installation-id or --repo (installed for: $(awk -F'\t' '{printf "%s ", $1}' "$TMP_INSTALLATIONS"))"
+}
+
+# Mint an installation access token; verify repo access when a repo is set.
+mint_token() {
+  local jwt inst body token
+  jwt="$(app_jwt)"
+  inst="$(resolve_installation "$jwt")"
+  body="$(api "$GITHUB_API/app/installations/$inst/access_tokens" POST "$jwt" '{}')"
+  token="$(printf '%s' "$body" | python3 -c 'import json, sys; print(json.load(sys.stdin)["token"])' 2>/dev/null)" \
+    || die "unexpected access_tokens response from $GITHUB_API"
+  [ -n "$token" ] || die "unexpected access_tokens response from $GITHUB_API"
+  if [ -n "$REPO" ]; then
+    if ! curl -fsS --max-time 30 -H "Authorization: Bearer $token" \
+        -H "Accept: application/vnd.github+json" "$GITHUB_API/repos/$REPO" > /dev/null; then
+      die "token cannot reach $REPO (grant repository access to the App, or check OWNER/NAME)"
+    fi
+  fi
+  printf '%s\n' "$token"
+}
+
+# Git credential helper protocol on stdin; keep the `url=` line for github.com.
+credential_get() {
+  local line url rest host path token
+  url=""
+  while IFS= read -r line; do
+    case "$line" in
+      url=*) url="${line#url=}" ;;
+    esac
+  done
+  [ -n "$url" ] || die "credential get: no url= on stdin"
+  rest="${url#*://}"
+  host="${rest%%/*}"
+  path="${rest#*/}"
+  case "$host" in
+    github.com) ;;
+    *) die "credential get: unsupported host '$host' (only github.com)" ;;
+  esac
+  path="${path%%\?*}"
+  path="${path%%#*}"
+  path="${path%.git}"
+  REPO="$(printf '%s' "$path" | cut -d/ -f1-2)"
+  printf '%s' "$REPO" | grep -q '/' || die "could not resolve repository from url: $url"
+  token="$(mint_token)"
+  printf 'username=x-access-token\npassword=%s\n' "$token"
+}
+
+case "$MODE" in
+  jwt)
+    printf '%s\n' "$(app_jwt)"
+    ;;
+  token)
+    mint_token
+    ;;
+  credential)
+    case "${1:-}" in
+      get) credential_get ;;
+      store|erase) : ;;
+      help) printf '%s\n' "usage: gh-app-token credential <get|store|erase> (credential protocol on stdin)" ;;
+      *) die "credential: unknown action '${1:-}' (get|store|erase)" ;;
+    esac
+    ;;
+  gh)
+    command -v gh >/dev/null 2>&1 || die "gh is not installed"
+    token="$(mint_token)"
+    exec env GH_TOKEN="$token" gh "$@"
+    ;;
+  *)
+    printf '%s\n' "usage: gh-app-token <jwt|token|credential|gh> [--repo OWNER/NAME] [--installation-id ID] [--app-id ID]"
+    printf '%s\n' "  credential expects the git credential protocol on stdin (action as \$1)."
+    ;;
+esac

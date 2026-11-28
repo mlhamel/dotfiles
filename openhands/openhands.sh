@@ -23,6 +23,12 @@
 #   6. Binary: installs opencode inside the container if missing. The
 #      install lands in the persistent dir, so it is a one-time cost.
 #   7. Health: waits for the Canvas UI to answer, then prints a summary.
+#   8. GitHub App (optional): with ~/.config/openhands/github-app.pem and
+#      the App ID (github-app.conf), the key is bind-mounted read-only,
+#      the gh-app-token helper is staged in the persistent opencode bin
+#      dir and pinned as the container's git credential helper — the
+#      Canvas agent then pushes and opens multi-repo PRs as the App's
+#      ephemeral installation. Without the key: skipped with a notice.
 #
 # The agent picker in each conversation is the ACP session-mode switch
 # the Canvas UI lacks: opencode-ask reads and answers without editing,
@@ -67,6 +73,21 @@ REPO_ROOT="$(dirname "$SCRIPT_DIR")"
 HOST_AGENTS="$REPO_ROOT/opencode/AGENTS.md"
 HOST_AGENTS_DIR="$REPO_ROOT/opencode/agents"
 HOST_SKILLS="$REPO_ROOT/opencode/skills"
+
+# Optional GitHub App wiring: with the App's private key
+# (~/.config/openhands/github-app.pem) and the App ID (github-app.conf
+# next to it), the Canvas agent authenticates as that App's ephemeral
+# installation — the key is bind-mounted read-only and the gh-app-token
+# helper (bin/gh-app-token, next to this script) is wired as the git
+# credential helper inside the container.
+GH_APP_CONF_DIR="${HOME}/.config/openhands"
+GH_APP_KEY_FILE="${GH_APP_CONF_DIR}/github-app.pem"
+GH_APP_CONF_FILE="${GH_APP_CONF_DIR}/github-app.conf"
+GH_APP_KEY_MOUNT="/home/openhands/.config/github-app.pem"
+GH_APP_HELPER_HOST="${SCRIPT_DIR}/bin/gh-app-token"
+GH_APP_HELPER_TARGET="/home/openhands/.opencode/bin/gh-app-token"
+GH_APP_ENABLED=0
+GH_APP_ID=""
 
 log() { printf '%s\n' "openhands: $*"; }
 die() { printf '%s\n' "openhands: ERREUR: $*" >&2; exit 1; }
@@ -150,6 +171,43 @@ ensure_config() {
   write_config
 }
 
+# Optional GitHub App wiring, skipped with a notice when the key is
+# absent. When the key IS present everything is validated: 600 mode
+# (the die message names the fix), github-app.conf with an integer
+# GITHUB_APP_ID, and a read-only ACL for the canvas user so docker can
+# bind-mount the key. The helper is staged in the persistent opencode
+# bin dir (bind-mounted at /home/openhands/.opencode). The App ID is
+# parsed with sed, never sourced: the conf file is not trusted shell.
+ensure_github_app() {
+  if [ ! -f "$GH_APP_KEY_FILE" ]; then
+    log "GitHub App: clé absente ($GH_APP_KEY_FILE) — non branchée (optionnel, voir openhands/README.md)"
+    return 0
+  fi
+  if [ ! -f "$GH_APP_HELPER_HOST" ]; then
+    log "Attention: helper GitHub App introuvable ($GH_APP_HELPER_HOST) — non branché (non bloquant)"
+    return 0
+  fi
+  local mode
+  mode="$(stat -c '%a' "$GH_APP_KEY_FILE")"
+  if [ "$mode" != "600" ]; then
+    die "GitHub App: la clé $GH_APP_KEY_FILE doit être en mode 600 (actuellement ${mode}). Corrige avec: chmod 600 $GH_APP_KEY_FILE"
+  fi
+  if [ ! -f "$GH_APP_CONF_FILE" ]; then
+    die "GitHub App: clé présente mais $GH_APP_CONF_FILE introuvable. Écris-y GITHUB_APP_ID=<entier> (voir openhands/README.md)"
+  fi
+  GH_APP_ID="$(sed -n 's/^GITHUB_APP_ID=//p' "$GH_APP_CONF_FILE" | head -n1 | tr -d "\"'[:space:]}")"
+  if [[ ! "$GH_APP_ID" =~ ^[0-9]+$ ]]; then
+    die "GitHub App: GITHUB_APP_ID entier introuvable dans $GH_APP_CONF_FILE"
+  fi
+  setfacl -m "u:${CANVAS_USER}:r--" "$GH_APP_KEY_FILE" \
+    || sudo setfacl -m "u:${CANVAS_USER}:r--" "$GH_APP_KEY_FILE"
+  mkdir -p "$OPENCODE_DIR/bin"
+  cp "$GH_APP_HELPER_HOST" "$OPENCODE_DIR/bin/gh-app-token"
+  chmod 755 "$OPENCODE_DIR/bin/gh-app-token"
+  GH_APP_ENABLED=1
+  log "GitHub App: branchée (App ID ${GH_APP_ID}, clé montée en lecture seule, helper gh-app-token installé)"
+}
+
 container_exists() { docker ps -a --format '{{.Names}}' | grep -qx "$CONTAINER_NAME"; }
 container_running() { docker ps --format '{{.Names}}' | grep -qx "$CONTAINER_NAME"; }
 
@@ -159,11 +217,19 @@ start_container() {
     return 0
   fi
   if container_exists; then
+    if [ "${GH_APP_ENABLED}" = 1 ] \
+      && ! docker inspect -f '{{range .Mounts}}{{.Destination}} {{end}}' "$CONTAINER_NAME" | grep -qF "$GH_APP_KEY_MOUNT"; then
+      log "Attention: conteneur existant sans la clé GitHub App montée — relance « down » puis « up » pour la brancher"
+    fi
     log "Redémarre le conteneur arrêté: $CONTAINER_NAME"
     docker start "$CONTAINER_NAME"
     return 0
   fi
   log "Démarre le conteneur: $CONTAINER_NAME ($IMAGE)"
+  local -a gh_args=()
+  if [ "${GH_APP_ENABLED}" = 1 ]; then
+    gh_args=(-e "GITHUB_APP_ID=${GH_APP_ID}" -e "GITHUB_APP_KEY_FILE=${GH_APP_KEY_MOUNT}" -v "${GH_APP_KEY_FILE}:${GH_APP_KEY_MOUNT}:ro")
+  fi
   docker run -d --name "$CONTAINER_NAME" \
     -p "127.0.0.1:${PORT}:8000" \
     -e AGENT_CANVAS_ALLOW_LAN_SESSION_KEY=true \
@@ -171,6 +237,7 @@ start_container() {
     -v "${STATE_VOLUME}:/home/openhands/.openhands" \
     -v "${PROJECTS_PATH}:/projects" \
     -v "${OPENCODE_DIR}:/home/openhands/.opencode" \
+    "${gh_args[@]}" \
     "$IMAGE"
 }
 
@@ -214,6 +281,17 @@ install_config() {
     log "Config: AGENTS.md/skills introuvables à côté du script — non copiés (copie standalone du script)."
   fi
   log "Config installée dans le conteneur."
+}
+
+# Pin the gh-app-token helper as the container's git credential helper
+# (git runs `/home/openhands/.opencode/bin/gh-app-token credential get`
+# on push/pull). Re-applied on every `up`: idempotent, and a recreated
+# container is re-wired automatically.
+wire_gh_app_container() {
+  [ "${GH_APP_ENABLED}" = 1 ] || return 0
+  docker exec --user "${CANVAS_USER}" "$CONTAINER_NAME" \
+    git config --global credential.helper "${GH_APP_HELPER_TARGET} credential"
+  log "GitHub App: credential helper git configuré (${GH_APP_HELPER_TARGET})"
 }
 
 # Seed the four per-mode opencode agent profiles into the container.
@@ -328,6 +406,11 @@ show_summary() {
   fi
   echo
   log "Profils: opencode-build/ask/plan/review épinglés par mode ACP -> $ACP_PROFILE_DIR (écrits s'ils manquent, conservés sinon; le preset générique opencode-acp est retiré)"
+  if [ "${GH_APP_ENABLED}" = 1 ]; then
+    log "GitHub App: branchée (App ID ${GH_APP_ID}) — clé en lecture seule -> $GH_APP_KEY_MOUNT, helper gh-app-token à $GH_APP_HELPER_TARGET, credential helper git configuré"
+  else
+    log "GitHub App: non branchée (optionnel) — pose la clé + l'App ID (voir openhands/README.md) puis relance down && up"
+  fi
 }
 
 cmd_up() {
@@ -339,8 +422,10 @@ cmd_up() {
   [ -d "$PROJECTS_PATH" ] || die "dossier projets introuvable: $PROJECTS_PATH"
   ensure_acl
   ensure_config
+  ensure_github_app
   start_container
   install_config
+  wire_gh_app_container
   seed_profiles
   wait_ui
   ensure_opencode
@@ -359,6 +444,11 @@ cmd_down() {
 }
 
 cmd_status() {
+  if [ -f "$GH_APP_KEY_FILE" ]; then
+    log "GitHub App: clé présente ($GH_APP_KEY_FILE)"
+  else
+    log "GitHub App: clé absente ($GH_APP_KEY_FILE) — non branchée (optionnel)"
+  fi
   if container_running; then
     log "Conteneur: $CONTAINER_NAME en cours"
   elif container_exists; then
@@ -404,10 +494,15 @@ cmd_status() {
   else
     log "Profils agents: opencode absents dans le conteneur (relance: $0 up)"
   fi
+  if docker exec "$CONTAINER_NAME" test -x /home/openhands/.opencode/bin/gh-app-token 2>/dev/null; then
+    log "GitHub App: helper gh-app-token présent dans le conteneur"
+  else
+    log "GitHub App: helper gh-app-token absent dans le conteneur (relance: $0 up)"
+  fi
 }
 
 usage() {
-  sed -n '2,35p' "$0"
+  sed -n '2,41p' "$0"
 }
 
 main() {
