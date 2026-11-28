@@ -305,17 +305,18 @@ Langfuse (self-hosted observability) and Spec Kit (spec → plan → tasks)
       `ollama/glm-5.3-flash:cloud` via the Ollama gateway, config loaded,
       provider installed. The automations fallback caveat still stands
       for automations (untested).
-- [ ] **GitHub App — vérification côté hôte** — l'implémentation de la
-      spec (`specs/openhands-github-app.md`, PR #41) est faite par
-      Mathieu avec l'agent dans le sandbox, qui n'a ni docker, ni prek,
-      ni réseau : reste à faire côté hôte — créer l'app GitHub (UI),
-      générer la clé privée (`~/.config/openhands/github-app.pem`,
-      mode 600), l'installer sur les repos choisis, vérifier la
-      protection de `master`, puis `openhands.sh up` avec la clé
-      (montage read-only, helper installé, credential helper configuré)
-      et la vérification live (`git push` + `gh pr create` depuis le
-      conteneur, token minté contre la vraie app) ; faire tourner les
-      vérifications (prek, node, shell) sur la machine hôte.
+- [ ] **GitHub App — host-side verification** — the spec
+      (`specs/openhands-github-app.md`, PR #41) is implemented by
+      Mathieu with the agent in the sandbox, which has no docker, no
+      prek, no network: the host-side steps remain — create the GitHub
+      App (UI), generate the private key
+      (`~/.config/openhands/github-app.pem`, mode 600), install it on
+      the chosen repos, verify `master` branch protection, then
+      `openhands.sh up` with the key (read-only mount, helper
+      installed, credential helper configured) and the live check
+      (`git push` + `gh pr create` from inside the container, token
+      minted against the real app); run the checks (prek, node, shell)
+      on the host machine.
 - [ ] **PC dédié** — if the trial concludes, move the same Docker setup
       to the always-on PC as a systemd service with an API key, reached
       from the Framework over Tailscale.
