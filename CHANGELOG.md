@@ -6,6 +6,12 @@ use today's date and the hash of the change once committed.
 
 ## 2026-11-28
 
+- `(hash)` — Document the end-to-end setup commands in
+  `openhands/README.md`: place the key and App ID, run `up`/`status`,
+  apply branch protection with a disposable PAT (one approval, dismiss
+  stale, code owners, `prek`/`test` checks, linear history, enforce
+  admins) and add CODEOWNERS to a repo newly opened to the app.
+
 - `(hash)` — Require owner review on every change: `.github/CODEOWNERS`
   (`* @mlhamel`) plus branch protection on `master` — one approval,
   dismiss stale approvals, up-to-date branches with the `prek`/`test`

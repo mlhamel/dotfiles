@@ -135,10 +135,13 @@ internes sont indisponibles, sans déclarer les fichiers absents.
 
 ### Prérequis et garde-fous
 
-- **Protection de branche** — active une règle sur `master` de chaque
-  dépôt ouvert à l'app (Settings → Branches : PR obligatoire, push
-  direct interdit). Le script ne le vérifie pas : c'est ce qui borne
+- **Protection de branche** — règle sur `master` de chaque dépôt ouvert
+  à l'app : PR obligatoire (une approbation, dismiss stale, revue du
+  code owner via `.github/CODEOWNERS`), checks `prek`/`test` exigés et
+  branche à jour, linear history, ni force push ni suppression,
+  enforced for admins. Le script ne le vérifie pas : c'est ce qui borne
   l'agent à pousser des branches et ouvrir des PR relus par un humain.
+  Commandes : « Mise en place complète » ci-dessous.
 - **Rotation** — régénère la clé dans les réglages de l'app (l'ancienne
   meurt immédiatement), remplace le fichier hôte (mode 600), relance
   `openhands.sh restart`.
@@ -148,6 +151,40 @@ internes sont indisponibles, sans déclarer les fichiers absents.
   la clé montée. Ce qui borne le dommage : permissions minimales,
   dépôts choisis un par un, tokens courts, clé régénérable en une
   minute.
+
+### Mise en place complète (commandes)
+
+Une fois les étapes humaines ci-dessus faites (app créée, clé
+téléchargée) :
+
+```bash
+mkdir -p ~/.config/openhands
+install -m 600 ~/Downloads/mlhamel-openhands-agent.<date>.private-key.pem \
+  ~/.config/openhands/github-app.pem
+echo 'GITHUB_APP_ID=<id-de-l-app>' > ~/.config/openhands/github-app.conf
+openhands/openhands.sh up      # monte la clé read-only, pose le helper
+openhands/openhands.sh status  # attendu : GitHub App branchée, App ID affiché
+```
+
+La protection de branche se pose avec un PAT personnel éphémère — pas
+le token de l'app : l'app garde son minimum (contents + pull
+requests), Administration est au-dessus de son périmètre.
+
+```bash
+read -rs GH_PAT && export GH_PAT
+REPO=dotfiles                  # répéter pour chaque dépôt ouvert à l'app
+curl -s -X PUT -H "Authorization: Bearer $GH_PAT" \
+  "https://api.github.com/repos/mlhamel/$REPO/branches/master/protection" \
+  -d '{"required_status_checks":{"strict":true,"contexts":["prek","test"]},"enforce_admins":true,"required_pull_request_reviews":{"required_approving_review_count":1,"require_code_owner_reviews":true,"dismiss_stale_reviews":true,"require_last_push_approval":false},"restrictions":null,"required_linear_history":true,"allow_force_pushes":false,"allow_deletions":false,"lock_branch":false}'
+unset GH_PAT REPO
+```
+
+Les `contexts` sont les jobs CI du dépôt (`prek`, `test` pour
+dotfiles ; `[]` pour un dépôt sans CI). Le CODEOWNERS
+(`.github/CODEOWNERS`, une ligne : `* @mlhamel`) est versionné avec le
+dépôt ; pour un nouveau dépôt ouvert à l'app, l'ajouter via une PR —
+c'est lui qui fait remonter la revue du code owner dans la règle
+ci-dessus.
 
 ## Le réglage ACP automatiquement épinglé (persistant)
 
